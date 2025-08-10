@@ -1,38 +1,13 @@
-# sv
+# Web Raw Editor
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Uses the RawTherapie CLI to be able to remote controll the editing from a low power device.
 
-## Creating a project
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Editing Steps
 
-```sh
-# create a new project in the current directory
-npx sv create
+1. create an 8 Bit Tiff from the RAW input, resolution max 900x900
+2. Generate previews:
+    1. All adjustments
+    2. Original colors with rotation and transfrom adjustments
+    3. All exept for rotation and transfrom adjustments
 
-# create a new project in my-app
-npx sv create my-app
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BasePP3 from '$lib/assets/client.pp3?raw';
-	import { edits } from '$lib/editing-state.svelte';
+	import { edits } from '$lib/state/editing.svelte';
 	import { filterPP3, toBase64 } from '$lib/pp3-utils';
 	import BeforeAfter from '$lib/ui/BeforeAfter.svelte';
 	import Checkbox from '$lib/ui/Checkbox.svelte';
@@ -10,7 +10,7 @@
 	edits.initialize(BasePP3);
 
 	const sampleImage = $derived('/edit?config=' + toBase64(edits.throttledPP3));
-	const beforeImage = $derived('/edit?preview&config=' + toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Coarse Transformation', 'Rotation', 'Resize'])));
+	const beforeImage = $derived('/edit?preview&config=' + toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation'])));
 
 	$effect(() => {
 		edits.updateThrottledPP3($state.snapshot(edits.pp3));
@@ -38,38 +38,40 @@
 				<section class="control-section">
 					<Section title="Exposure" section="Exposure">
 						<Checkbox label="Auto Exposure" bind:checked={edits.pp3.Exposure.Auto as boolean} />
-						<Slider label="Exposure" bind:value={edits.pp3.Exposure.Compensation as number} min={-5} max={5} step={0.1} centered />
-						<Slider label="Brightness" bind:value={edits.pp3.Exposure.Brightness as number} centered />
+						<Slider
+							label="Exposure"
+							bind:value={edits.pp3.Exposure.Compensation as number}
+							min={-5}
+							max={5}
+							step={0.1}
+							centered
+							ignored={edits.pp3.Exposure.Auto as boolean}
+							onchange={() => (edits.pp3.Exposure.Auto = false)}
+						/>
+						<Slider
+							label="Brightness"
+							bind:value={edits.pp3.Exposure.Brightness as number}
+							centered
+							ignored={edits.pp3.Exposure.Auto as boolean}
+							onchange={() => (edits.pp3.Exposure.Auto = false)}
+						/>
 						<Slider label="Contrast" bind:value={edits.pp3.Exposure.Contrast as number} centered />
-						<Slider label="Rotation" bind:value={edits.pp3.Rotation.Degree as number} centered min={-180} max={180} />
 					</Section>
+					<!-- <Section title="Color" section="Color">
+						<Checkbox label="Auto White Balance" bind:checked={edits.pp3.Color.AutoWhiteBalance as boolean} />
+						<Slider
+							label="Temperature"
+							bind:value={edits.pp3.Color.Temperature as number}
+							min={-100}
+							max={100}
+							step={1}
+							centered
+							onchange={() => (edits.pp3.Color.AutoWhiteBalance = false)}
+						/>
+						<Slider label="Tint" bind:value={edits.pp3.Color.Tint as number} min={-100} max={100} step={1} centered onchange={() => (edits.pp3.Color.AutoWhiteBalance = false)} />
+					</Section> -->
 				</section>
-				<!-- Color Adjustments
-				<section class="control-section">
-					<h3 class="section-title">Color</h3>
-					<div class="sliders">
-						<Slider min={0} max={100} label="Saturation" bind:value={saturation} />
-						<Slider label="Vibrance" bind:value={vibrance} />
-						<Slider label="Warmth" bind:value={warmth} min={-100} max={100} centered />
-						<Slider label="Tint" bind:value={tint} min={-100} max={100} centered />
-					</div>
-				</section>
-
-				 HSL Adjustments
-				<section class="control-section">
-					<h3 class="section-title">HSL</h3>
-					<div class="sliders">
-						<Slider label="Hue" bind:value={hue} min={-180} max={180} centered unit="°" />
-						<Slider label="Luminance" bind:value={luminance} centered />
-					</div>
-				</section> -->
 			</div>
-
-			<!-- Action Buttons -->
-			<!-- <div class="panel-footer">
-				<button class="action-btn secondary">Export</button>
-				<button class="action-btn primary">Apply Changes</button>
-			</div> -->
 		</div>
 	</div>
 </div>
@@ -116,7 +118,6 @@
 		position: relative;
 		overflow: hidden;
 	}
-
 
 	/* Controls Panel */
 	.controls-panel {
@@ -172,51 +173,6 @@
 		margin-bottom: 1.5rem;
 		padding-bottom: 0.25rem;
 	}
-
-	/*
-	.panel-footer {
-		padding: 1rem 1.5rem;
-		border-top: 1px solid var(--border-1);
-		display: flex;
-		gap: 0.75rem;
-		background: var(--bg-2);
-	}
-
-	.action-btn {
-		flex: 1;
-		padding: 0.7rem 1.25rem;
-		border: none;
-		border-radius: 8px;
-		font-weight: 600;
-		cursor: pointer;
-		transition:
-			background 0.2s ease,
-			transform 0.1s ease,
-			color 0.2s ease;
-		text-transform: uppercase;
-		letter-spacing: 0.02em;
-		font-size: 0.8125rem;
-	}
-
-	.action-btn.secondary {
-		background: var(--bg-3);
-		color: var(--text-1);
-	}
-
-	.action-btn.secondary:hover {
-		background: var(--bg-4);
-	}
-
-	.action-btn.primary {
-		background: #e6e6e6;
-		color: #111111;
-	}
-
-	.action-btn.primary:hover {
-		background: #f0f0f0;
-		transform: translateY(-1px);
-	}
-	*/
 
 	/* Scrollbar styling */
 	.controls-sections::-webkit-scrollbar {

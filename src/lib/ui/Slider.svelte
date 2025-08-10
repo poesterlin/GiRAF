@@ -8,18 +8,10 @@
 		centered?: boolean;
 		unit?: string;
 		onchange?: (value: number) => void;
+		ignored?: boolean;
 	}
 
-	let {
-		label,
-		value = $bindable(0),
-		min = -100,
-		max = 100,
-		step = 1,
-		centered = false,
-		unit = '',
-		onchange = () => {}
-	}: Props = $props();
+	let { label, value = $bindable(0), min = -100, max = 100, step = 1, centered, unit = '', onchange = () => {}, ignored }: Props = $props();
 
 	let wrapperRef: HTMLDivElement;
 	let sliderRef: HTMLInputElement;
@@ -157,8 +149,9 @@
 </script>
 
 <!-- Container -->
-<div class="w-full">
+<div class="w-full" class:opacity-70={ignored}>
 	<!-- Tall relative slider wrapper -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		bind:this={wrapperRef}
 		class="
@@ -175,9 +168,10 @@
 		<div
 			class="
         absolute inset-0 overflow-hidden rounded-md
-        bg-neutral-900/90 ring-1 ring-neutral-700
+        bg-neutral-900/90 ring-neutral-700
         transition-colors
       "
+			class:ring-1={!ignored}
 		></div>
 
 		<!-- Focus/drag visual ring overlay -->
@@ -210,9 +204,11 @@
 			class:transition-[width,left]={!isDragging}
 			class:duration-100={!isDragging}
 			class:ease-linear={!isDragging}
-            class:rounded-md={!centered}
-            class:rounded-r-md={fillLeftPct  === 50}
-            class:rounded-l-md={fillLeftPct < 50}
+			class:rounded-md={!centered}
+			class:rounded-r-md={fillLeftPct === 50}
+			class:rounded-l-md={fillLeftPct < 50}
+			class:from-neutral-200={ignored}
+			class:to-neutral-300={ignored}
 		></div>
 
 		<!-- In-track text (white + difference => invert over fill) -->
@@ -237,6 +233,7 @@
 			bind:value
 			aria-label={label}
 			oninput={handleInput}
+			onchange={() => onchange(value)}
 			onfocusin={handleFocusIn}
 			onfocusout={handleFocusOut}
 			class="pointer-events-none absolute inset-0 opacity-0"

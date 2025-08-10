@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import Checkbox from './Checkbox.svelte';
-	import { edits } from '$lib/editing-state.svelte';
+	import { edits } from '$lib/state/editing.svelte';
 	import { IconChevronRight } from '@tabler/icons-svelte';
 
 	interface Props {

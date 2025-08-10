@@ -1,4 +1,4 @@
-import { parsePP3, type PP3 } from "./pp3-utils";
+import { parsePP3, type PP3 } from "$lib/pp3-utils";
 import { throttle } from "$lib";
 
 class EditingState {

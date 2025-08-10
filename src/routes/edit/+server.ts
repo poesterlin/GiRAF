@@ -15,7 +15,7 @@ export const GET: RequestHandler = async ({ url }) => {
         const isPreview = url.searchParams.has("preview");
 
         // TODO: get proper image
-        const path = join(process.cwd(), ExampleImg);
+        const path = "/home/philip/git/raw-editor/src/lib/assets/example.tif"; // join(process.cwd(), ExampleImg);
 
         const pp3 = fromBase64(config || ClientPP3);
         const merged = applyPP3Diff(ParsedBasePP3, pp3);

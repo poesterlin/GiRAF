@@ -92,6 +92,16 @@ export function filterPP3(pp3: PP3, chapters: string[]) {
     return filtered;
 }
 
+export function excludePP3(pp3: PP3, chapters: string[]) {
+    const filtered: PP3 = {};
+    for (const chapter in pp3) {
+        if (!chapters.includes(chapter)) {
+            filtered[chapter] = pp3[chapter];
+        }
+    }
+    return filtered;
+}
+
 export function toBase64(pp3: PP3) {
     const pp3String = stringifyPP3(pp3);
     return btoa(unescape(encodeURIComponent(pp3String)));

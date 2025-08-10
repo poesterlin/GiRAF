@@ -24,7 +24,7 @@
 	}
 </script>
 
-<div class="flex flex-1 items-center justify-between gap-3 focus">
+<div class="focus flex flex-1 items-center justify-between gap-3" class:py-2={!small}>
 	<label for={id} class="flex-1 font-medium text-zinc-300 select-none">
 		{label}
 	</label>
@@ -37,23 +37,17 @@
 		tabindex={disabled ? -1 : 0}
 		onclick={toggle}
 		onkeydown={handleKeyDown}
-		class="
-      relative cursor-pointer rounded-full transition-colors
-      outline-none select-none focus-visible:ring-2
-      focus-visible:ring-sky-500/60
-      {checked ? 'bg-neutral-800/80' : 'bg-neutral-900/90'}
-    "
-		class:h-5={small}
-		class:w-12={small}
-		class:h-8={!small}
-		class:w-16={!small}
+		class="relative h-5 w-12 cursor-pointer rounded-full
+		transition-colors outline-none select-none focus-visible:ring-2
+		focus-visible:ring-sky-500/60
+		{checked ? 'bg-neutral-800/80' : 'bg-neutral-900/90'}"
 		class:opacity-60={disabled}
 	>
 		<!-- Track background (dark) -->
 		<div
 			class="
-        absolute inset-0 overflow-hidden rounded-full ring-1
-        ring-neutral-700 background
+        background absolute inset-0 overflow-hidden rounded-full
+        ring-1 ring-neutral-700
       "
 		>
 			<div class="absolute inset-0 bg-neutral-900/90"></div>
@@ -62,20 +56,16 @@
 		<!-- Knob -->
 		<div
 			class="
-        transition-left absolute top-1/2 -translate-y-1/2
+        transition-left absolute top-1/2 h-4 w-4 -translate-y-1/2
         rounded-full bg-zinc-50 shadow-sm ring-1 ring-neutral-700
         duration-100 ease-linear
       "
-			style={`left:${checked ? `calc(100% - ${small ? 1.15 : 1.75}rem)` : '0.25rem'}`}
-			class:h-6={!small}
-			class:w-6={!small}
-			class:h-4={small}
-			class:w-4={small}
+			style={`left:${checked ? `calc(100% - 1.15rem)` : '0.25rem'}`}
 			aria-hidden="true"
 		></div>
 
 		<!-- Native checkbox for keyboard + screen readers -->
-		<input {id} type="checkbox" class="pointer-events-none absolute inset-0 opacity-0 hidden" {disabled} bind:checked />
+		<input {id} type="checkbox" class="pointer-events-none absolute inset-0 hidden opacity-0" {disabled} bind:checked />
 	</div>
 </div>
 
@@ -88,7 +78,7 @@
 		label {
 		}
 
-		.background{
+		.background {
 			outline: 2px solid white;
 		}
 	}
