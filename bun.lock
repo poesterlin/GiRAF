@@ -6,7 +6,6 @@
       "dependencies": {
         "@tabler/icons-svelte": "^3.34.1",
         "drizzle-orm": "^0.40.0",
-        "postgres": "^3.4.5",
       },
       "devDependencies": {
         "@eslint/compat": "^1.2.5",
