@@ -16,7 +16,7 @@
 	let showLutPicker = $state(false);
 
 	let sampleImage = $state('');
-	const beforeImage = $derived('/edit?preview&config=' + toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation'])));
+	const beforeImage = $derived(`/${data.image.id}/edit?preview&config=${toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
 
 	$effect(() => {
 		const worker = getWorkerInstance();
@@ -41,7 +41,7 @@
 		<!-- Image Preview -->
 		<div class="image-preview">
 			<!-- <div class="image-container"> -->
-			<BeforeAfter {beforeImage} afterImage={sampleImage} filename="sample-image.jpg" dimensions="1920 × 1080" />
+			<BeforeAfter {beforeImage} afterImage={sampleImage} />
 			<!-- </div> -->
 		</div>
 

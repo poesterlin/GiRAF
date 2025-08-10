@@ -10,7 +10,7 @@ export const load: PageServerLoad = async () => {
     const files = await Array.fromAsync(glob.scan({ cwd }));
     const luts = files.map((f) => formatLut(f, cwd));
 
-    return { luts };
+    return { luts, image: { id: "1234" } };
 };
 
 function formatLut(path: string, cwd: string) {
