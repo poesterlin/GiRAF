@@ -20,7 +20,6 @@ export const GET: RequestHandler = async ({ url }) => {
         const pp3String = config ? fromBase64(config) : ClientPP3;
         const pp3 = parsePP3(pp3String);
         const merged = applyPP3Diff(ParsedBasePP3, pp3);
-        console.log("Merged PP3:", stringifyPP3(merged));
 
         const output = await editImage(path, stringifyPP3(merged), isPreview);
         return respondWithFile(output);

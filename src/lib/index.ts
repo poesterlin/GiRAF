@@ -15,3 +15,7 @@ export function assert<T>(condition: T | undefined | null, message?: string): as
         throw new Error(message || "Assertion failed");
     }
 }
+
+export function uniqueArray<T>(array: T[]): T[] {
+    return Array.from(new Set(array));
+}

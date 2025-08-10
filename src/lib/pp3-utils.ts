@@ -14,7 +14,7 @@ export function parsePP3(pp3: string) {
 
         // is chapter ex. [chapter 1]
         if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']')) {
-            const chapterName = trimmedLine.slice(1, -1).trim();
+            const chapterName = trimmedLine.slice(1, -1).trim().replace(/\s+/g, '_');
             result[chapterName] = {};
             currentChapter = chapterName;
             continue;
@@ -60,7 +60,7 @@ export function parsePP3(pp3: string) {
 export function stringifyPP3(pp3Object: PP3) {
     let result = '';
     for (const chapter in pp3Object) {
-        result += `[${chapter}]\n`;
+        result += `[${chapter.replace(/_/g, ' ')}]\n`;
         for (const key in pp3Object[chapter]) {
             const value = pp3Object[chapter][key];
             if (typeof value === 'boolean') {

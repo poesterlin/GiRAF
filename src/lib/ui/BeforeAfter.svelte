@@ -64,6 +64,8 @@
 	class="relative flex items-center justify-center overflow-hidden w-2xl h-64
   bg-[var(--bg-1)]"
 >
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<div
 		tabindex="0"
 		bind:this={container}
@@ -71,15 +73,15 @@
       overflow-hidden rounded-lg shadow-[0_12px_30px_rgba(0,0,0,0.55)]"
 		role="group"
 		aria-label="Before / After image slider"
-		on:pointerdown={onPointerDown}
-		on:pointermove={onPointerMove}
-		on:pointerup={onPointerUp}
-		on:pointercancel={onPointerUp}
-		on:pointerleave={onPointerUp}
-		on:keydown={onKeyDown}
+		onpointerdown={onPointerDown}
+		onpointermove={onPointerMove}
+		onpointerup={onPointerUp}
+		onpointercancel={onPointerUp}
+		onpointerleave={onPointerUp}
+		onkeydown={onKeyDown}
 	>
 		<!-- before image (bottom layer) -->
-		<img src={beforeImage} alt={filename || 'before image'} class="absolute inset-0 block h-full w-full object-contain" on:load={onBeforeLoad} />
+		<img src={beforeImage} alt={filename || 'before image'} class="absolute inset-0 block h-full w-full object-contain" onload={onBeforeLoad} />
 
 		<!-- after image (top layer; clipped by clip-path) -->
 		<img

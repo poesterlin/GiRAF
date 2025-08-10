@@ -6,6 +6,10 @@
 	import Checkbox from '$lib/ui/Checkbox.svelte';
 	import Section from '$lib/ui/Section.svelte';
 	import Slider from '$lib/ui/Slider.svelte';
+	import LutPicker from '$lib/ui/LutPicker.svelte';
+
+	let { data } = $props();
+	let showLutPicker = $state(false);
 
 	const sampleImage = $derived('/edit?config=' + toBase64(edits.throttledPP3));
 	const beforeImage = $derived('/edit?preview&config=' + toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation'])));
@@ -51,6 +55,19 @@
 						/>
 						<Slider label="Contrast" bind:value={edits.pp3.Exposure.Contrast as number} centered />
 					</Section>
+					<Section title="Film Simulation" section="Film_Simulation">
+						<button class="select-lut-btn" onclick={() => (showLutPicker = true)}>Select Lut</button>
+						<Slider
+							label="Strength"
+							bind:value={edits.pp3.Film_Simulation.Strength as number}
+							min={0}
+							max={100}
+							step={1}
+							ignored={!edits.pp3.Film_Simulation.Enabled as boolean}
+						/>
+						<!-- TODO: show current lut -->
+					</Section>
+
 					<!-- <Section title="Color" section="Color">
 						<Checkbox label="Auto White Balance" bind:checked={edits.pp3.Color.AutoWhiteBalance as boolean} />
 						<Slider
@@ -69,6 +86,10 @@
 		</div>
 	</div>
 </div>
+
+{#if showLutPicker}
+	<LutPicker luts={data.luts} onClose={() => (showLutPicker = false)} />
+{/if}
 
 <style>
 	/* Minimalist grayscale palette */
