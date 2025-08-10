@@ -1,0 +1,12 @@
+[Exposure]
+Enabled=true
+Auto=false
+Compensation=0
+Brightness=0
+Contrast=0
+Saturation=0
+
+
+[Rotation]
+Enabled=true
+Degree=0
