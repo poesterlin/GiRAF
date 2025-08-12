@@ -34,4 +34,4 @@ COPY --from=build /app/package.json ./
 
 EXPOSE 3000
 
-CMD ["/usr/local/bin/bun", "/app/build/index.js"]
+CMD ["bun", "/app/build/index.js"]
