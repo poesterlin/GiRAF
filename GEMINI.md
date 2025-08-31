@@ -1,0 +1,56 @@
+# Gemini Assistant Guide for the Raw Editor Project
+
+This document provides guidance for AI assistants working on this project. It outlines the project's architecture, conventions, and the developer's workflow. Adhering to these guidelines will ensure smooth and efficient collaboration.
+
+## Project Overview
+
+This project is a web-based photo editor application for processing RAW image files. It is built with SvelteKit and utilizes Svelte 5.
+
+-   **Frontend**: Svelte 5, SvelteKit, Tailwind CSS
+-   **Backend**: SvelteKit API routes, Drizzle ORM
+-   **Database**: PostgreSQL
+-   **Core Features**:
+    -   **Gallery**: Displays image sessions in a paginated view.
+    -   **Editor**: The core image editing interface (details are in `/[img]`):
+    -   **Exporter**: Lists sessions with changes and allows exporting them.
+
+## Development Workflow & Conventions
+
+The developer has a specific workflow. It's crucial to understand and follow it to avoid rework.
+
+1.  **Incremental Implementation**: The developer often provides a basic structure or a starting point and expects the assistant to complete the implementation based on that.
+2.  **Rebasing on User Changes**: The developer may update files while the assistant is working. If a file modification fails, it's likely because the developer has changed the file. **Always re-read the file and adapt your changes to the new structure.** The developer prefers to revert the assistant's changes and have the assistant re-apply them to the new structure.
+3.  **Component-Driven Structure**: The developer is moving towards a structure where complex views are broken down into components. A key example is the use of a generic `Scroller.svelte` component for paginated lists.
+
+## Frontend Conventions
+
+### Styling
+-   **Theme**: The application uses a dark, grayscale, and expressive theme optimized for touch interactions.
+-   **Framework**: Styling is done exclusively with **Tailwind CSS**.
+-   **Color Palette**: Use the `neutral` color palette from Tailwind CSS (e.g., `bg-neutral-900`, `text-neutral-200`). Avoid custom CSS variables or other colors unless for specific expressive elements like status indicators (e.g., yellow for "Updated").
+
+### Component Architecture
+-   **Lists & Pagination**: For lists of data (like in the Gallery and Exporter), the project uses a central `Scroller.svelte` component.
+-   **Snippets**: This `Scroller` component uses **Svelte 5 snippets** for rendering. When building or modifying lists, conform to this pattern by defining `#snippet` blocks for `item`, `empty`, and `footer`.
+-   **Empty States**: Provide visually appealing and informative empty states for any list or data view that can be empty.
+
+## Backend & Data Conventions
+
+### Data Loading
+-   **SSR First**: All data for pages is loaded on the server within `+page.server.ts` files.
+-   **API Endpoints**: The `load` functions in `+page.server.ts` should not contain direct database logic. Instead, they should `fetch` from internal API routes located under `/src/routes/api/`.
+
+### API Route Design
+-   **Separation**: Each data type should have its own API route (e.g., `/api/sessions`, `/api/exporter/sessions`).
+-   **Pagination**: API endpoints for lists must be paginated. The current approach uses a cursor/offset system (`/api/sessions?cursor=...`). The API response for a list should include the `sessions` (or other data) array and a `next` property for the next cursor.
+-   **Database Logic**: The API routes are the only place where direct database queries should be made.
+
+### Database
+-   **ORM**: The project uses **Drizzle ORM**.
+-   **Schema**: The database schema is defined in `/src/lib/server/db/schema.ts`.
+-   **Naming Conventions**:
+    -   Table variables should be camelCase and end with `Table` (e.g., `sessionTable`).
+    -   Relation variables should be camelCase and end with `Relations` (e.g., `sessionRelations`).
+-   **Queries**: Use the Drizzle query API (e.g., `db.query.sessionTable.findMany(...)`) for all database access.
+
+By following these guidelines, you can effectively contribute to the project in a way that aligns with the developer's established patterns and expectations.

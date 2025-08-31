@@ -62,7 +62,6 @@
 				<!-- <button disabled={!edits.canUndo} onclick={() => edits.undo()}>Undo</button>
 				<button disabled={!edits.canRedo} onclick={() => edits.redo()}>Redo</button> -->
 				<button class="reset-btn" onclick={() => edits.initialize(BasePP3)}>Reset All</button>
-				<a href="/{page.params.img}/export?config={toBase64(edits.pp3)}" target="_blank">Export</a>
 			</div>
 
 			<div class="controls-sections">
@@ -138,6 +137,22 @@
 						/>
 						<Slider label="Contrast" bind:value={edits.pp3.Exposure.Contrast as number} centered />
 					</Section>
+					<!-- <Section section="Color" title="Color">
+						<Slider label="Saturation" bind:value={edits.pp3.Color.Saturation as number} min={0} max={200} step={1} resetValue={100} />
+						<Slider label="Vibrance" bind:value={edits.pp3.Color.Vibrance as number} min={-100} max={100} step={1} centered resetValue={0} />
+					</Section>
+					<Section title="Tone" section="Tone">
+						<Slider label="Highlights" bind:value={edits.pp3.Tone.Highlights as number} min={-100} max={100} step={1} centered resetValue={0} />
+						<Slider label="Shadows" bind:value={edits.pp3.Tone.Shadows as number} min={-100} max={100} step={1} centered resetValue={0} />
+						<Slider label="Whites" bind:value={edits.pp3.Tone.Whites as number} min={-100} max={100} step={1} centered resetValue={0} />
+						<Slider label="Blacks" bind:value={edits.pp3.Tone.Blacks as number} min={-100} max={100} step={1} centered resetValue={0} />
+					</Section>
+					<Section title="Detail" section="Detail" enabledKey="Sharpen_Enabled">
+						<Slider label="Sharpen Amount" bind:value={edits.pp3.Detail.Sharpen_Amount as number} min={0} max={200} step={1} resetValue={50} />
+						<Slider label="Sharpen Radius" bind:value={edits.pp3.Detail.Sharpen_Radius as number} min={0.1} max={5} step={0.1} resetValue={1} />
+						<Slider label="Noise - Luma" bind:value={edits.pp3.Detail.Noise_Luma as number} min={0} max={100} step={1} resetValue={0} />
+						<Slider label="Noise - Chroma" bind:value={edits.pp3.Detail.Noise_Chroma as number} min={0} max={100} step={1} resetValue={0} />
+					</Section> -->
 					<Section title="Film Simulation" section="Film_Simulation">
 						<Button onclick={() => (showLutPicker = true)}>
 							{#if edits.pp3.Film_Simulation.ClutFilename}
@@ -182,7 +197,6 @@
 	}
 
 	.image-editor {
-		height: 100vh;
 		background: var(--bg-0);
 		color: var(--text-1);
 		overflow: hidden;
