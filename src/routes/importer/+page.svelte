@@ -4,19 +4,128 @@
 
 	let { data } = $props();
 
-	let selectedIds = $state<Set<number>>(new Set(data.items.map((item) => item.id)));
+	// Core State
+	let selectedIds = $state<Set<number>>(new Set());
 	let showModal = $state(false);
 	let sessionName = $state('');
 	let isCreating = $state(false);
 
-	function toggleSelection(id: number) {
-		if (selectedIds.has(id)) {
+	// Advanced Selection State
+	let inSelectionMode = $state(false);
+	let isDragging = $state(false);
+	let longPressTimer: number | null = null;
+	let lastSelectedIndex = $state(-1);
+	let dragStartIndex = $state(-1);
+
+	// Auto-scroll State
+	let scrollInterval: number | null = null;
+
+	// --- Event Handlers ---
+
+	function handleTouchStart(event: TouchEvent, id: number, index: number) {
+		longPressTimer = window.setTimeout(() => {
+			longPressTimer = null;
+			inSelectionMode = true;
+			isDragging = true;
+			dragStartIndex = index;
+			event.preventDefault();
+			selectedIds.add(id);
+			selectedIds = new Set(selectedIds);
+		}, 500);
+	}
+
+	function handleTouchMove(event: TouchEvent) {
+		if (longPressTimer) {
+			clearTimeout(longPressTimer);
+			longPressTimer = null;
+		}
+
+		if (!isDragging) return;
+
+		const touch = event.touches[0];
+		const element = document.elementFromPoint(touch.clientX, touch.clientY);
+		const targetButton = element?.closest<HTMLButtonElement>('[data-index]');
+
+		if (targetButton) {
+			const currentIndex = Number(targetButton.dataset.index);
+			const start = Math.min(dragStartIndex, currentIndex);
+			const end = Math.max(dragStartIndex, currentIndex);
+
+			const rangeIds = new Set<number>();
+			for (let i = start; i <= end; i++) {
+				rangeIds.add(data.items[i].id);
+			}
+			selectedIds = new Set([...selectedIds, ...rangeIds]);
+		}
+
+		const scrollThreshold = 80;
+		if (touch.clientY < scrollThreshold) {
+			startScrolling('up');
+		} else if (touch.clientY > window.innerHeight - scrollThreshold) {
+			startScrolling('down');
+		} else {
+			stopScrolling();
+		}
+	}
+
+	function handleTouchEnd() {
+		if (longPressTimer) {
+			clearTimeout(longPressTimer);
+			longPressTimer = null;
+		}
+		stopScrolling();
+		isDragging = false;
+		dragStartIndex = -1;
+	}
+
+	function handleClick(id: number, index: number, event: MouseEvent) {
+		if (!inSelectionMode) {
+			inSelectionMode = true;
+		}
+
+		if (event.shiftKey && lastSelectedIndex !== -1) {
+			const start = Math.min(lastSelectedIndex, index);
+			const end = Math.max(lastSelectedIndex, index);
+			for (let i = start; i <= end; i++) {
+				selectedIds.add(data.items[i].id);
+			}
+		} else if (selectedIds.has(id)) {
 			selectedIds.delete(id);
 		} else {
 			selectedIds.add(id);
 		}
 
 		selectedIds = new Set(selectedIds);
+		lastSelectedIndex = index;
+
+		if (selectedIds.size === 0) {
+			inSelectionMode = false;
+		}
+	}
+
+	function startScrolling(direction: 'up' | 'down') {
+		if (scrollInterval) return;
+		scrollInterval = window.setInterval(() => {
+			window.scrollBy(0, direction === 'up' ? -20 : 20);
+		}, 50);
+	}
+
+	function stopScrolling() {
+		if (scrollInterval) {
+			clearInterval(scrollInterval);
+			scrollInterval = null;
+		}
+	}
+
+	function selectAll() {
+		selectedIds = new Set(data.items.map((item) => item.id));
+		inSelectionMode = true;
+	}
+
+	function clearSelection() {
+		selectedIds = new Set();
+		lastSelectedIndex = -1;
+		inSelectionMode = false;
 	}
 
 	async function createSession() {
@@ -24,29 +133,16 @@
 		try {
 			const response = await fetch('/api/sessions', {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					name: sessionName,
-					importIds: Array.from(selectedIds)
-				})
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ name: sessionName, importIds: Array.from(selectedIds) })
 			});
-
-			if (!response.ok) {
-				throw new Error('Failed to create session');
-			}
-
-			// Remove imported items from the UI
+			if (!response.ok) throw new Error('Failed to create session');
 			data.items = data.items.filter((item) => !selectedIds.has(item.id));
-
-			// Reset state
-			selectedIds.clear();
+			clearSelection();
 			sessionName = '';
 			showModal = false;
 		} catch (error) {
 			console.error('Creation failed', error);
-			// Handle error display
 		} finally {
 			isCreating = false;
 		}
@@ -66,12 +162,14 @@
 	</div>
 {/snippet}
 
-{#if selectedIds.size > 0}
-	<button class="fixed bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full bg-neutral-800 p-2 px-6 shadow-2xl" onclick={() => (showModal = true)}>
-		<span>
+{#if inSelectionMode || selectedIds.size > 0}
+	<div class="fixed bottom-4 left-1/2 z-10 flex -translate-x-1/2 gap-2 rounded-full bg-neutral-800 p-2 shadow-2xl">
+		<button onclick={selectAll} class="rounded-full p-2 px-4 text-sm transition-colors hover:bg-neutral-700"> Select All </button>
+		<button class="rounded-full bg-blue-600 p-2 px-6 text-sm font-semibold transition-colors hover:bg-blue-500" onclick={() => (showModal = true)} disabled={selectedIds.size === 0}>
 			Import {selectedIds.size} image{selectedIds.size > 1 ? 's' : ''}...
-		</span>
-	</button>
+		</button>
+		<button onclick={clearSelection} class="rounded-full p-2 px-4 text-sm transition-colors hover:bg-neutral-700"> Clear </button>
+	</div>
 {/if}
 
 {#if showModal}
@@ -81,12 +179,9 @@
 			<label for="session-name" class="text-neutral-300">Session Name</label>
 			<input id="session-name" type="text" bind:value={sessionName} class="rounded-md border-neutral-600 bg-neutral-900 p-2 text-neutral-200 focus:ring-blue-500" required />
 			<div class="flex justify-end gap-2">
-				<button
-					class="rounded-md border border-neutral-600 bg-neutral-900 p-2 text-neutral-200 transition-colors"
-					type="button"
-					onclick={() => (showModal = false)}
-					disabled={isCreating}>Cancel</button
-				>
+				<button class="rounded-md border border-neutral-600 bg-neutral-900 p-2 text-neutral-200 transition-colors" type="button" onclick={() => (showModal = false)} disabled={isCreating}>
+					Cancel
+				</button>
 				<button class="rounded-md border border-neutral-600 bg-neutral-900 p-2 text-neutral-200 transition-colors" type="submit" disabled={isCreating}>
 					{#if isCreating}Creating...{:else}Create Session{/if}
 				</button>
@@ -95,27 +190,32 @@
 	</Modal>
 {/if}
 
-<div class="grid p-4">
-	{#each data.items as item}
+<div class="grid p-4" ontouchend={handleTouchEnd}>
+	{#each data.items as item, i}
 		<button
-			class="relative aspect-3/2 w-[160px] cursor-pointer overflow-hidden rounded-lg bg-neutral-900 shadow-md transition-all"
+			data-id={item.id}
+			data-index={i}
+			class="relative aspect-3/2 w-[160px] cursor-pointer select-none overflow-hidden rounded-lg bg-neutral-900 shadow-md transition-all"
 			class:ring-4={selectedIds.has(item.id)}
 			class:ring-blue-500={selectedIds.has(item.id)}
-			onclick={() => toggleSelection(item.id)}
+			onclick={(e) => handleClick(item.id, i, e)}
+			ontouchstart={(e) => handleTouchStart(e, item.id, i)}
+			ontouchmove={handleTouchMove}
 		>
 			<img
 				src={`/api/imports/${item.id}/preview`}
 				alt=""
 				loading="lazy"
-				class="h-full w-full object-cover transition-transform duration-300"
+				draggable="false"
+				ondragstart={(e) => e.preventDefault()}
+				class="pointer-events-none h-full w-full object-cover transition-transform duration-300"
 				class:scale-105={!selectedIds.has(item.id)}
-				class:group-hover:scale-110={!selectedIds.has(item.id)}
 			/>
-			<div class="absolute right-0 bottom-0 left-0 bg-black/50 p-2 text-center text-xs font-medium text-white backdrop-blur-sm">
+			<div class="pointer-events-none absolute right-0 bottom-0 left-0 bg-black/50 p-2 text-center text-xs font-medium text-white backdrop-blur-sm">
 				{formatDate(item.date)}
 			</div>
 			{#if selectedIds.has(item.id)}
-				<div class="absolute inset-0 flex items-center justify-center bg-blue-500/50 transition-opacity">
+				<div class="pointer-events-none absolute inset-0 flex items-center justify-center bg-blue-500/50 transition-opacity">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-12 w-12 text-white">
 						<path
 							fill-rule="evenodd"
@@ -137,7 +237,7 @@
 	}
 
 	.grid {
-		grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-		grid-gap: 0.125rem;
+		grid-template-columns: repeat(auto-fill, 170px);
+		gap: 0.25rem;
 	}
 </style>
