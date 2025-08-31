@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BasePP3 from '$lib/assets/client.pp3?raw';
 	import { edits } from '$lib/state/editing.svelte';
-	import { filterPP3, toBase64 } from '$lib/pp3-utils';
+	import { filterPP3, setLut, toBase64 } from '$lib/pp3-utils';
 	import BeforeAfter from '$lib/ui/BeforeAfter.svelte';
 	import Checkbox from '$lib/ui/Checkbox.svelte';
 	import Section from '$lib/ui/Section.svelte';
@@ -12,6 +12,7 @@
 	import { IconFidgetSpinner } from '@tabler/icons-svelte';
 	import { fade } from 'svelte/transition';
 	import Select from '$lib/ui/Select.svelte';
+	import Button from '$lib/ui/Button.svelte';
 
 	let { data } = $props();
 	let showLutPicker = $state(false);
@@ -35,6 +36,11 @@
 				edits.isLoading = false;
 			});
 	});
+
+	function lutPathToName(path: string) {
+		// Convert the LUT path to a user-friendly name
+		return path.split('/').pop()?.replace('.png', '');
+	}
 </script>
 
 <div class="image-editor">
@@ -132,9 +138,17 @@
 						<Slider label="Contrast" bind:value={edits.pp3.Exposure.Contrast as number} centered />
 					</Section>
 					<Section title="Film Simulation" section="Film_Simulation">
-						<button class="select-lut-btn" onclick={() => (showLutPicker = true)}>Select Lut</button>
+						<Button onclick={() => (showLutPicker = true)}>
+							{#if edits.pp3.Film_Simulation.ClutFilename}
+								{@const path = edits.pp3.Film_Simulation.ClutFilename as string}
+								{@const onlyTransformsAndLut = setLut(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']), path)}
+								<img src="/{page.params.img}/edit?preview&config={toBase64(onlyTransformsAndLut)}" alt="" class="rounded-md" loading="lazy" />
+								<b class="mt-2 block truncate">{lutPathToName(edits.pp3.Film_Simulation.ClutFilename as string)}</b>
+							{:else}
+								Select Lut
+							{/if}
+						</Button>
 						<Slider label="Strength" bind:value={edits.pp3.Film_Simulation.Strength as number} min={0} max={100} step={1} ignored={!edits.pp3.Film_Simulation.Enabled as boolean} />
-						<!-- TODO: show current lut -->
 					</Section>
 				</section>
 			</div>

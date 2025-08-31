@@ -142,3 +142,13 @@ export function toBase64(pp3: PP3) {
 export function fromBase64(base64: string) {
     return decodeURIComponent(escape(atob(base64)));
 }
+
+export function setLut(pp3: any, lutPath: string) {
+    pp3.Film_Simulation = {
+        Enabled: true,
+        ClutFilename: lutPath,
+        Strength: 100
+    };
+
+    return pp3;
+}

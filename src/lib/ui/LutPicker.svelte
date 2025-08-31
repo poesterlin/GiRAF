@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { uniqueArray } from '$lib';
-	import { toBase64 } from '$lib/pp3-utils';
+	import { setLut, toBase64 } from '$lib/pp3-utils';
 	import { edits } from '$lib/state/editing.svelte';
 	import Modal from './Modal.svelte';
 
@@ -21,16 +21,6 @@
 	const avaliableTags = $derived(
 		uniqueArray(filteredLuts.flatMap((lut) => lut.tags)).sort((a, b) => (selectedTags.includes(a) ? -1 : selectedTags.includes(b) ? 1 : a.localeCompare(b)))
 	);
-
-	function setLut(pp3: any, lutPath: string) {
-		pp3.Film_Simulation = {
-			Enabled: true,
-			ClutFilename: lutPath,
-			Strength: 100
-		};
-
-		return pp3;
-	}
 
 	function toggleTag(tag: string) {
 		if (selectedTags.includes(tag)) {
