@@ -27,3 +27,33 @@ Enabled=true
 Setting=Camera
 Temperature=4708
 Green=0.667
+
+[Tone]
+Enabled=true
+# Tonal recovery / clip controls (neutral = 0)
+Highlights=0
+Shadows=0
+Whites=0
+Blacks=0
+Midtones=0
+# If you support a tone curve editor, set Enabled=true and provide curve points elsewhere
+ToneCurveEnabled=false
+
+[Color]
+Enabled=true
+# Master color controls (neutral = 0 unless otherwise noted)
+Saturation=0        # master saturation (centered)
+Vibrance=0          # selective saturation boost (centered)
+# Optional RGB channel contrast/mix (set to 0 = no change)
+RedBalance=0
+GreenBalance=0
+BlueBalance=0
+
+[Detail]
+Sharpen_Enabled=true
+Sharpen_Amount=50      # typical neutral-ish default; adjust to engine
+Sharpen_Radius=1.0
+Sharpen_Threshold=0.5
+Noise_Luma=0
+Noise_Chroma=0
+Noise_Detail=50        # higher preserves more detail during denoise

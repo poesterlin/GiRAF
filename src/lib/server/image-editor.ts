@@ -1,4 +1,3 @@
-import { exiftool } from "exiftool-vendored";
 import { join } from "node:path";
 import { createTempDir, runCommand } from "./command-runner";
 import { getFileNameFromPath } from "./utils";
@@ -13,7 +12,7 @@ const runningByImage = new Map<string, AbortController>();
  * @param options 
  * @returns 
 */
-export async function editImage(imagePath: string, pp3: string, allowConcurrent: boolean = false): Promise<string> {
+export async function editImage(imagePath: string, pp3: string, allowConcurrent: boolean = false, bitDepth = 8): Promise<string> {
     const start = performance.now();
 
     let name = getFileNameFromPath(imagePath);
@@ -23,17 +22,16 @@ export async function editImage(imagePath: string, pp3: string, allowConcurrent:
     }
 
     const tempDir = await createTempDir(name);
-    const output = join(tempDir, 'edited.jpg');
+    const output = join(tempDir, bitDepth === 8 ? 'edited.jpg' : `edited.tiff`);
 
     // Write the pp3 file to the temp directory
     const pp3FilePath = join(tempDir, 'edit.pp3');
     await Bun.write(pp3FilePath, pp3);
 
-    // read back
-    const pp3Content = await Bun.file(pp3FilePath).text();
-    console.log(`PP3 content for ${name}:\n`, pp3Content);
+    console.log(`Editing image: ${pp3FilePath}, output: ${output}`);
 
-    console.log(`Editing image: ${pp3FilePath}`, imagePath);
+    const tiffOptions = ["-b" + bitDepth, "-t"];
+    const jpegOptions = ["-b" + bitDepth];
 
     // Build rawtherapee-cli args according to the usage you pasted.
     // Use -p for profile, -o for output, -Y overwrite, and -c <input> last.
@@ -45,11 +43,12 @@ export async function editImage(imagePath: string, pp3: string, allowConcurrent:
         "-o",
         output,
         "-Y",
+        ...(bitDepth === 8 ? jpegOptions : tiffOptions),
         "-c",
         imagePath, // input must be last; rawtherapee will resolve it relative to cwd
     ];
 
-    console.log(`Running command: ${command.join(' ')}`);
+    console.log(`Running command: ${command.join(" ")}`);
 
     // Check if the image is already being processed
     // const lastController = runningByImage.get(name);
@@ -70,13 +69,4 @@ export async function editImage(imagePath: string, pp3: string, allowConcurrent:
     const end = performance.now();
     console.log(`Image edited in ${((end - start) / 1000).toFixed(2)} seconds`);
     return output;
-}
-
-export async function importImage(imagePath: string) {
-    const start = performance.now();
-    const tags = await exiftool.read(imagePath);
-    const end = performance.now();
-    console.log(`Image imported in ${((end - start) / 1000).toFixed(2)} seconds`);
-    console.log(tags.RedBalance, tags.BlueBalance, tags.CameraMatrix, tags.AsShotNeutral, tags.WhiteBalance
-        , tags.WhiteBalanceTemperature);
 }

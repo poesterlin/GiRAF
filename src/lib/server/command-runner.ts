@@ -41,13 +41,10 @@ export async function runCommand(command: string[], options: { signal?: AbortSig
 
         proc.on('exit', (code) => {
             if (code !== 0) {
-                if (errorOutput) {
-                    console.error(`Command error output: ${errorOutput}`);
-                }
-                reject(new Error(`Command failed with exit code ${code}`));
+                reject(`\nCommand: ${command.join(' ')} \noutput: \n${output} \nerror: \n${errorOutput} \nexit code: ${code}`);
             } else {
                 if (output) {
-                    console.log(`Command output: ${output}`);
+                    console.log(`Command output: \n${output}`);
                 }
                 resolve();
             }

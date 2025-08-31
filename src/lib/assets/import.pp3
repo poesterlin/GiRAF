@@ -1,0 +1,23 @@
+[Version]
+AppVersion=5.12
+Version=352
+
+[Exposure]
+Enabled=true
+Auto=false
+
+[White Balance]
+Enabled=true
+Setting=Camera
+
+[Resize]
+Enabled=true
+Scale=0.14000000000000001
+AppliesTo=Cropped area
+Method=Lanczos
+DataSpecified=3
+Width=900
+Height=900
+LongEdge=900
+ShortEdge=900
+AllowUpscaling=false

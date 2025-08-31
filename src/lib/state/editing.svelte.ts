@@ -17,7 +17,6 @@ class EditingState {
     initialize(pp3: string | PP3) {
         if (typeof pp3 === "string") {
             this.pp3 = parsePP3(pp3);
-            console.log("PP3 initialized from string:", $state.snapshot(this.pp3));
         } else {
             this.pp3 = pp3;
         }

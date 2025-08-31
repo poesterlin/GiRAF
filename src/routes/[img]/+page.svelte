@@ -62,6 +62,7 @@
 				<!-- <button disabled={!edits.canUndo} onclick={() => edits.undo()}>Undo</button>
 				<button disabled={!edits.canRedo} onclick={() => edits.redo()}>Redo</button> -->
 				<button class="reset-btn" onclick={() => edits.initialize(BasePP3)}>Reset All</button>
+				<a href="/{page.params.img}/export?config={toBase64(edits.pp3)}" target="_blank">Export</a>
 			</div>
 
 			<div class="controls-sections">
