@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
 	import favicon from '$lib/assets/favicon.svg';
+	import { app } from '$lib/state/app.svelte';
 	import { edits } from '$lib/state/editing.svelte';
 	import '../app.css';
 
@@ -77,3 +78,21 @@
 		{@render children?.()}
 	</main>
 </div>
+
+<!-- toasts -->
+<div class="fixed bottom-4 right-4 z-80 flex flex-col items-end gap-2">
+	{#each app.toasts as toast (toast.id)}
+		{@const bg = {
+			success: 'bg-green-600/90',
+			error: 'bg-red-600/90',
+			info: 'bg-neutral-800/90'
+		}[toast.type]}
+		<div
+			class="rounded-lg {bg} z-80 px-4 py-2 text-sm font-medium text-neutral-50 shadow-lg backdrop-blur-sm"
+		>
+			{toast.message}
+		</div>
+	{/each}
+</div>
+
+<style></style>
