@@ -1,6 +1,9 @@
 <script lang="ts">
 	import Modal from '$lib/ui/Modal.svelte';
 	import { preventDefault } from 'svelte/legacy';
+	import type { Import } from '$lib/server/db/schema';
+	import { app } from '$lib/state/app.svelte.js';
+	import { invalidateAll } from '$app/navigation';
 
 	let { data } = $props();
 
@@ -19,6 +22,22 @@
 
 	// Auto-scroll State
 	let scrollInterval: number | null = null;
+
+	let groupedByDate = $derived.by(() => {
+		const groups = new Map<string, Import[]>();
+		data.items.forEach((item) => {
+			const date = new Date(item.date).toLocaleDateString(undefined, {
+				year: 'numeric',
+				month: 'long',
+				day: 'numeric'
+			});
+			if (!groups.has(date)) {
+				groups.set(date, []);
+			}
+			groups.get(date)!.push(item);
+		});
+		return Array.from(groups.entries()).map(([date, images]) => ({ date, images }));
+	});
 
 	// --- Event Handlers ---
 
@@ -122,34 +141,57 @@
 		inSelectionMode = true;
 	}
 
+	function toggleDateSelection(images: Import[]) {
+		const allIdsInGroup = images.map((img) => img.id);
+		const allAreSelected = allIdsInGroup.every((id) => selectedIds.has(id));
+
+		if (allAreSelected) {
+			allIdsInGroup.forEach((id) => selectedIds.delete(id));
+		} else {
+			allIdsInGroup.forEach((id) => selectedIds.add(id));
+		}
+		selectedIds = new Set(selectedIds);
+		inSelectionMode = selectedIds.size > 0;
+	}
+
 	function clearSelection() {
 		selectedIds = new Set();
 		lastSelectedIndex = -1;
 		inSelectionMode = false;
 	}
 
-	async function createSession() {
+	async function createSession(e: Event) {
+		e.preventDefault();
 		isCreating = true;
+
 		try {
-			const response = await fetch('/api/sessions', {
+			const response = await fetch('/api/imports', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ name: sessionName, importIds: Array.from(selectedIds) })
 			});
 			if (!response.ok) throw new Error('Failed to create session');
+			app.addToast('Session created successfully', 'success');
 			data.items = data.items.filter((item) => !selectedIds.has(item.id));
 			clearSelection();
 			sessionName = '';
 			showModal = false;
+			invalidateAll();
 		} catch (error) {
 			console.error('Creation failed', error);
+			app.addToast('Failed to create session', 'error');
 		} finally {
 			isCreating = false;
 		}
 	}
 
-	function formatDate(date: Date) {
-		return new Date(date).toLocaleDateString();
+	// TODO: Set locale from env
+	const formatter = Intl.DateTimeFormat('de-DE', {
+		hour: 'numeric',
+		minute: 'numeric'
+	});
+	function formatTime(date: Date) {
+		return formatter.format(new Date(date));
 	}
 </script>
 
@@ -162,73 +204,98 @@
 	</div>
 {/snippet}
 
-{#if inSelectionMode || selectedIds.size > 0}
-	<div class="fixed bottom-4 left-1/2 z-10 flex -translate-x-1/2 gap-2 rounded-full bg-neutral-800 p-2 shadow-2xl">
+<div class="fixed bottom-4 left-1/2 z-10 flex -translate-x-1/2 gap-2 rounded-full bg-neutral-800 p-2 shadow-2xl">
+	{#if selectedIds.size < data.items.length}
 		<button onclick={selectAll} class="rounded-full p-2 px-4 text-sm transition-colors hover:bg-neutral-700"> Select All </button>
-		<button class="rounded-full bg-blue-600 p-2 px-6 text-sm font-semibold transition-colors hover:bg-blue-500" onclick={() => (showModal = true)} disabled={selectedIds.size === 0}>
+	{/if}
+	{#if selectedIds.size > 0}
+		<button
+			class="rounded-full bg-blue-600 p-2 px-6 text-sm font-semibold transition-colors hover:bg-blue-500"
+			onclick={() => (showModal = true)}
+			disabled={selectedIds.size === 0}
+		>
 			Import {selectedIds.size} image{selectedIds.size > 1 ? 's' : ''}...
 		</button>
+	{/if}
+	{#if selectedIds.size !== 0}
 		<button onclick={clearSelection} class="rounded-full p-2 px-4 text-sm transition-colors hover:bg-neutral-700"> Clear </button>
-	</div>
-{/if}
+	{/if}
+</div>
 
 {#if showModal}
 	<Modal onClose={() => (showModal = false)}>
-		<h1 class="border-b border-neutral-600 p-4 text-lg font-medium text-neutral-200">Create New Session</h1>
-		<form onsubmit={preventDefault(createSession)} class="flex flex-col gap-4 p-4">
-			<label for="session-name" class="text-neutral-300">Session Name</label>
-			<input id="session-name" type="text" bind:value={sessionName} class="rounded-md border-neutral-600 bg-neutral-900 p-2 text-neutral-200 focus:ring-blue-500" required />
-			<div class="flex justify-end gap-2">
-				<button class="rounded-md border border-neutral-600 bg-neutral-900 p-2 text-neutral-200 transition-colors" type="button" onclick={() => (showModal = false)} disabled={isCreating}>
-					Cancel
-				</button>
+		<h1 class="border-b border-neutral-600 p-4 text-lg font-medium text-neutral-200">Create New Photo Session</h1>
+		<form onsubmit={createSession} class="flex flex-col gap-4 p-4">
+			<label for="session-name" class="text-neutral-300">Name</label>
+			<input id="session-name" type="text" bind:value={sessionName} class="rounded-md border-neutral-600 border-1 bg-neutral-900 p-2 text-neutral-200 focus:ring-blue-500" required />
+			<div class="flex justify-end gap-2 mt-2">
 				<button class="rounded-md border border-neutral-600 bg-neutral-900 p-2 text-neutral-200 transition-colors" type="submit" disabled={isCreating}>
-					{#if isCreating}Creating...{:else}Create Session{/if}
+					{#if isCreating}
+						Importing...
+					{:else}
+						Import
+					{/if}
 				</button>
 			</div>
 		</form>
 	</Modal>
 {/if}
 
-<div class="grid p-4" ontouchend={handleTouchEnd}>
-	{#each data.items as item, i}
-		<button
-			data-id={item.id}
-			data-index={i}
-			class="relative aspect-3/2 w-[160px] cursor-pointer select-none overflow-hidden rounded-lg bg-neutral-900 shadow-md transition-all"
-			class:ring-4={selectedIds.has(item.id)}
-			class:ring-blue-500={selectedIds.has(item.id)}
-			onclick={(e) => handleClick(item.id, i, e)}
-			ontouchstart={(e) => handleTouchStart(e, item.id, i)}
-			ontouchmove={handleTouchMove}
-		>
-			<img
-				src={`/api/imports/${item.id}/preview`}
-				alt=""
-				loading="lazy"
-				draggable="false"
-				ondragstart={(e) => e.preventDefault()}
-				class="pointer-events-none h-full w-full object-cover transition-transform duration-300"
-				class:scale-105={!selectedIds.has(item.id)}
-			/>
-			<div class="pointer-events-none absolute right-0 bottom-0 left-0 bg-black/50 p-2 text-center text-xs font-medium text-white backdrop-blur-sm">
-				{formatDate(item.date)}
-			</div>
-			{#if selectedIds.has(item.id)}
-				<div class="pointer-events-none absolute inset-0 flex items-center justify-center bg-blue-500/50 transition-opacity">
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-12 w-12 text-white">
-						<path
-							fill-rule="evenodd"
-							d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
-							clip-rule="evenodd"
-						/>
-					</svg>
-				</div>
-			{/if}
-		</button>
-	{:else}
+<div class="p-4" ontouchend={handleTouchEnd}>
+	{#if data.items.length === 0}
 		{@render empty()}
-	{/each}
+	{:else}
+		{#each groupedByDate as group}
+			<div class="col-span-full mt-4 mb-2 flex items-center gap-4">
+				<h2 class="text-xl font-semibold text-neutral-200">{group.date}</h2>
+				<button
+					onclick={() => toggleDateSelection(group.images)}
+					class="rounded-full bg-neutral-800 px-3 py-1 text-xs font-medium text-neutral-300 transition-colors hover:bg-neutral-700"
+				>
+					Toggle Selection
+				</button>
+			</div>
+			<div class="image-grid">
+				{#each group.images as item}
+					{@const itemIndex = data.items.indexOf(item)}
+					<button
+						data-id={item.id}
+						data-index={itemIndex}
+						class="relative aspect-3/2 w-[160px] cursor-pointer overflow-hidden rounded-lg bg-neutral-900 shadow-md transition-all select-none"
+						class:ring-2={selectedIds.has(item.id)}
+						class:ring-blue-500={selectedIds.has(item.id)}
+						onclick={(e) => handleClick(item.id, itemIndex, e)}
+						ontouchstart={(e) => handleTouchStart(e, item.id, itemIndex)}
+						ontouchmove={handleTouchMove}
+					>
+						<img
+							src={`/api/imports/${item.id}/preview`}
+							alt=""
+							loading="lazy"
+							draggable="false"
+							ondragstart={(e) => e.preventDefault()}
+							class="pointer-events-none h-full w-full object-cover transition-transform duration-300"
+							class:scale-105={!selectedIds.has(item.id)}
+						/>
+						<div class="pointer-events-none absolute right-0 bottom-0 left-0 bg-black/50 p-2 text-center text-xs font-medium text-white backdrop-blur-sm">
+							{formatTime(item.date)}
+						</div>
+						{#if selectedIds.has(item.id)}
+							<div class="pointer-events-none absolute inset-0 flex items-center justify-center bg-blue-500/10 opacity-40 transition-opacity">
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-12 w-12 text-white">
+									<path
+										fill-rule="evenodd"
+										d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
+										clip-rule="evenodd"
+									/>
+								</svg>
+							</div>
+						{/if}
+					</button>
+				{/each}
+			</div>
+		{/each}
+	{/if}
 </div>
 
 <style>
@@ -236,8 +303,13 @@
 		aspect-ratio: 3 / 2;
 	}
 
-	.grid {
+	.image-grid {
+		display: grid;
 		grid-template-columns: repeat(auto-fill, 170px);
 		gap: 0.25rem;
+	}
+
+	.contents {
+		display: contents;
 	}
 </style>

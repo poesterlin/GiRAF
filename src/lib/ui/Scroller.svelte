@@ -101,7 +101,7 @@
 <svelte:window on:resize={handle_resize} />
 
 <div bind:this={viewport} class="h-full w-full overflow-hidden">
-	<div bind:this={scroller} class="h-full w-full overflow-y-scroll" style="overflow-anchor: none" onscroll={handle_scroll}>
+	<div bind:this={scroller} class="h-full w-full overflow-y-auto" style="overflow-anchor: none" onscroll={handle_scroll}>
 		<div bind:this={content} style:padding-top="{top}px" style:padding-bottom="{bottom}px">
 			{#each items.slice(a, b) as item, i (item)}
 				<div class="flow-root" data-item-id={a + i} use:measure={a + i}>

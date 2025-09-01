@@ -24,6 +24,6 @@ vite.config.ts.timestamp-*
 
 HaldCLUT/
 
-images/
+./images/
 
 import/

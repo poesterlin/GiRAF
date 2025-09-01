@@ -2,6 +2,15 @@
 
 This document provides guidance for AI assistants working on this project. It outlines the project's architecture, conventions, and the developer's workflow. Adhering to these guidelines will ensure smooth and efficient collaboration.
 
+
+## Workflow
+
+unfortunately there is currenlty a bug where files are not properly refreshed so its hard to edit them. If you get this error:
+```
+    Failed to edit, 0 occurrences found for old_string. No edits made. The exact text in old_string was not found. Ensure you're not escaping content incorrectly and check whitespace, indentation, and context. Use read_file tool to verify.     
+``` 
+The solution is just to create a new file next the one your trying to edit. that way i can copy it in.
+
 ## Project Overview
 
 This project is a web-based photo editor application for processing RAW image files. It is built with SvelteKit and utilizes Svelte 5. In the production environment its going to be containerized.  

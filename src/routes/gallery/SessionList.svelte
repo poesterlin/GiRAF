@@ -19,6 +19,10 @@
 		scroller?.restore(values);
 	}
 
+	function formatDate(date: Date) {
+		return new Date(date).toLocaleDateString();
+	}
+
 	let scroller = $state<Scroller<Session>>();
 	let loading = $state(false);
 </script>
@@ -27,12 +31,12 @@
 	<section>
 		<div class="mb-4 flex items-baseline justify-between">
 			<h2 class="text-xl font-semibold text-neutral-200 sm:text-2xl">{item.name}</h2>
-			<p class="ml-4 flex-shrink-0 text-neutral-400">{item.startedAt}</p>
+			<p class="ml-4 flex-shrink-0 text-neutral-400">{formatDate(item.startedAt)}</p>
 		</div>
 		<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-			{#each item.images as preview, i}
-				<a href={`/${item.images[i]}`} class="group block aspect-[3/2] overflow-hidden rounded-lg bg-neutral-900 ring-1 ring-transparent transition hover:ring-neutral-700">
-					<img src="/api/images/{preview.id}" alt="" loading="lazy" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+			{#each item.images as preview}
+				<a href={`/editor/${item.id}/${preview.id}`} class="group block aspect-[3/2] overflow-hidden rounded-lg bg-neutral-900 ring-1 ring-transparent transition hover:ring-neutral-700">
+					<img src="/api/images/{preview.id}/preview" alt="" loading="lazy" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
 				</a>
 			{/each}
 		</div>

@@ -18,7 +18,8 @@
 	let showLutPicker = $state(false);
 
 	let sampleImage = $state('');
-	const beforeImage = $derived(`/${data.image.id}/edit?preview&config=${toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
+	let apiPath = $derived(`/api/images/${data.image.id}`);
+	let beforeImage = $derived(apiPath + `/edit?preview&config=${toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
 
 	$effect(() => {
 		const worker = getWorkerInstance();
@@ -158,7 +159,7 @@
 							{#if edits.pp3.Film_Simulation.ClutFilename}
 								{@const path = edits.pp3.Film_Simulation.ClutFilename as string}
 								{@const onlyTransformsAndLut = setLut(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']), path)}
-								<img src="/{page.params.img}/edit?preview&config={toBase64(onlyTransformsAndLut)}" alt="" class="rounded-md" loading="lazy" />
+								<img src="{apiPath}/edit?preview&config={toBase64(onlyTransformsAndLut)}" alt="" class="rounded-md" loading="lazy" />
 								<b class="mt-2 block truncate">{lutPathToName(edits.pp3.Film_Simulation.ClutFilename as string)}</b>
 							{:else}
 								Select Lut
@@ -200,6 +201,7 @@
 		background: var(--bg-0);
 		color: var(--text-1);
 		overflow: hidden;
+		height: 100%;
 	}
 
 	.editor-layout {

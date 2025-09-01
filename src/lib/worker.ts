@@ -6,7 +6,7 @@ import { expose } from 'comlink';
 export const compatMode = import.meta.env.VITE_COMPAT_MODE === 'true';
 
 async function refreshImage(imageId: string, config: string) {
-    const res = await fetch(`/${imageId}/edit?config=${config}`);
+    const res = await fetch(`/api/images/${imageId}/edit?config=${config}`);
 
     let fileHandle: FileSystemFileHandle;
     if (res.ok && res.body) {

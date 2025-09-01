@@ -49,7 +49,7 @@
 
 <dialog
 	in:fade={{ duration: 200 }}
-	class="glass relative relative m-auto transform overflow-auto rounded-xl !bg-white/60 text-left shadow-xl transition-all dark:!bg-gray-900/60 dark:bg-gray-800 dark:text-gray-200 dark:backdrop-blur-none {rest.class}"
+	class="glass relative relative m-auto transform overflow-auto w-xl rounded-xl !bg-neutral-900 text-left shadow-xl transition-all {rest.class}"
 	bind:this={dialog}
 	onclick={handleOutsideClick}
 	onkeydown={trapFocus}
@@ -68,8 +68,8 @@
 
 <style>
 	dialog::backdrop {
-		background-color: var(--color-backdrop, rgba(0, 0, 0, 0.2));
+		background-color: rgba(0, 0, 0, 0.5);
 		opacity: 1;
-		backdrop-filter: blur(3px);
+		z-index: 40;
 	}
 </style>
