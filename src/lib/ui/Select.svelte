@@ -2,8 +2,8 @@
 	import { onMount } from 'svelte';
 
 	interface Props {
-		options: Map<string, T> | Record<string, T>;
-		value: T;
+		options: Map<string | number, T> | Record<string, T>;
+		value: T | undefined;
 		placeholder?: string;
 		disabled?: boolean;
 		ariaLabel?: string;
@@ -47,7 +47,7 @@
 		if (!item) return;
 		// assign to exported prop so parent bound variable updates
 		value = item.rawKey as any;
-		onchange?.(value);
+		onchange?.(value!);
 		close();
 	}
 

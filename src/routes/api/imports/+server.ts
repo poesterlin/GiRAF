@@ -41,27 +41,28 @@ export const GET: RequestHandler = async ({ url }) => {
 
 
 export const POST: RequestHandler = async ({ request }) => {
-    const { name, importIds } = await request.json();
+    const { name, importIds, sessionId: existingSessionId } = await request.json();
 
-    if (!name || !Array.isArray(importIds) || importIds.length === 0) {
-        error(400, 'Missing name or importIds');
+    if ((!name && !existingSessionId) || !Array.isArray(importIds) || importIds.length === 0) {
+        error(400, 'Missing name/sessionId or importIds');
     }
 
-    let sessionId: number | null = null;
+    let sessionId: number | null = existingSessionId;
     const filePaths: string[] = [];
 
     await db.transaction(async (tx) => {
-        const [session] = await tx
-            .insert(sessionTable)
-            .values({ name, startedAt: new Date() })
-            .returning();
+        if (!sessionId) {
+            const [session] = await tx
+                .insert(sessionTable)
+                .values({ name, startedAt: new Date() })
+                .returning();
 
-        if (!session) {
-            tx.rollback();
-            return;
+            if (!session) {
+                tx.rollback();
+                return;
+            }
+            sessionId = session.id;
         }
-
-        sessionId = session.id;
 
         const imports = await tx.query.importTable.findMany({
             where: inArray(importTable.id, importIds)
@@ -76,7 +77,7 @@ export const POST: RequestHandler = async ({ request }) => {
         imports.forEach(i => filePaths.push(i.filePath));
 
         // TODO: add error handling
-        const newImages = await Promise.all(imports.map(i => limit(() => getImageDetails(i, session.id!))));
+        const newImages = await Promise.all(imports.map(i => limit(() => getImageDetails(i, sessionId!))));
 
         await tx.insert(imageTable).values(newImages);
 

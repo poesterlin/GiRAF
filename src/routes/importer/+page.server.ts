@@ -13,6 +13,19 @@ export const load: PageServerLoad = async ({ fetch }) => {
 	}
 
 	const initialData = await response.json() as ImportResponse;
-	return initialData;
+
+	const sessions = await db.query.sessionTable.findMany({
+		with: {
+			images: {
+				limit: 1,
+				columns: {
+					id: true
+				}
+			}
+		},
+		orderBy: (sessions, { desc }) => [desc(sessions.startedAt)],
+	});
+
+	return { ...initialData, sessions };
 }
 

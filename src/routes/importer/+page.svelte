@@ -4,6 +4,9 @@
 	import type { Import } from '$lib/server/db/schema';
 	import { app } from '$lib/state/app.svelte.js';
 	import { invalidateAll } from '$app/navigation';
+	import SegmentedControl from '$lib/ui/SegmentedControl.svelte';
+	import { slide } from 'svelte/transition';
+	import SessionPicker from '$lib/ui/SessionPicker.svelte';
 
 	let { data } = $props();
 
@@ -12,6 +15,8 @@
 	let showModal = $state(false);
 	let sessionName = $state('');
 	let isCreating = $state(false);
+	let importMode = $state<'new' | 'existing'>('new');
+	let selectedSessionId = $state<number | null>(null);
 
 	// Advanced Selection State
 	let inSelectionMode = $state(false);
@@ -160,15 +165,21 @@
 		inSelectionMode = false;
 	}
 
-	async function createSession(e: Event) {
+	async function importImages(e: Event) {
 		e.preventDefault();
 		isCreating = true;
+
+		const body = {
+			importIds: Array.from(selectedIds),
+			name: importMode === 'new' ? sessionName : undefined,
+			sessionId: importMode === 'existing' ? selectedSessionId : undefined
+		};
 
 		try {
 			const response = await fetch('/api/imports', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ name: sessionName, importIds: Array.from(selectedIds) })
+				body: JSON.stringify(body)
 			});
 			if (!response.ok) throw new Error('Failed to create session');
 			app.addToast('Session created successfully', 'success');
@@ -223,13 +234,43 @@
 </div>
 
 {#if showModal}
-	<Modal onClose={() => (showModal = false)}>
-		<h1 class="border-b border-neutral-600 p-4 text-lg font-medium text-neutral-200">Create New Photo Session</h1>
-		<form onsubmit={createSession} class="flex flex-col gap-4 p-4">
-			<label for="session-name" class="text-neutral-300">Name</label>
-			<input id="session-name" type="text" bind:value={sessionName} class="rounded-md border-neutral-600 border-1 bg-neutral-900 p-2 text-neutral-200 focus:ring-blue-500" required />
-			<div class="flex justify-end gap-2 mt-2">
-				<button class="rounded-md border border-neutral-600 bg-neutral-900 p-2 text-neutral-200 transition-colors" type="submit" disabled={isCreating}>
+	<Modal onClose={() => (showModal = false)} class="!max-w-md">
+		<div class="border-b border-neutral-700 p-4">
+			<h1 class="text-lg font-medium text-neutral-200">Import Images</h1>
+			<p class="text-sm text-neutral-400">Import {selectedIds.size} images into a session.</p>
+		</div>
+		<form onsubmit={importImages} class="flex flex-col gap-6 p-4">
+			<SegmentedControl
+				bind:value={importMode}
+				options={[
+					{ label: 'New Session', value: 'new' },
+					{ label: 'Existing Session', value: 'existing' }
+				]}
+			/>
+
+			{#if importMode === 'new'}
+				<div transition:slide|local>
+					<label for="session-name" class="mb-1 block text-sm font-medium text-neutral-300">Name</label>
+					<input
+						id="session-name"
+						type="text"
+						bind:value={sessionName}
+						class="w-full rounded-md border-neutral-400 bg-neutral-900 p-2.5 text-neutral-200 focus:ring-blue-500 border-1"
+						required
+					/>
+				</div>
+			{:else}
+				<div transition:slide|local>
+					<label for="session-select" class="mb-1 block text-sm font-medium text-neutral-300">Session</label>
+					<SessionPicker sessions={data.sessions} bind:value={selectedSessionId} />
+				</div>
+			{/if}
+
+			<div class="flex justify-end gap-2 pt-2">
+				<button type="button" onclick={() => (showModal = false)} class="rounded-md px-4 py-2 text-sm font-medium text-neutral-300 transition-colors hover:bg-neutral-800"
+					>Cancel</button
+				>
+				<button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500" type="submit" disabled={isCreating}>
 					{#if isCreating}
 						Importing...
 					{:else}
