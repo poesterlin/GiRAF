@@ -32,6 +32,10 @@ The developer has a specific workflow. It's crucial to understand and follow it 
 2.  **Rebasing on User Changes**: The developer may update files while the assistant is working. If a file modification fails, it's likely because the developer has changed the file. **Always re-read the file and adapt your changes to the new structure.** The developer prefers to revert the assistant's changes and have the assistant re-apply them to the new structure.
 3.  **Component-Driven Structure**: The developer is moving towards a structure where complex views are broken down into components. A key example is the use of a generic `Scroller.svelte` component for paginated lists.
 
+### Package Manager
+
+Always use **bun** for package management. Do not use npm or yarn.
+
 ### Background Services & Scripts
 
 The project uses `concurrently` to run background services alongside the main web server during development. This is configured in `package.json`.

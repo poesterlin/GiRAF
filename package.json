@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --bun bun:dev",
-    "watch:imports": "bun run --bun src/scripts/watch-and-import.ts",
     "bun:dev": "vite dev",
     "build": "bun run --bun bun:build",
     "bun:build": "vite build",

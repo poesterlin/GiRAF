@@ -23,12 +23,10 @@ services:
      - .env
     environment:
       - CLUT_DIR=/app/cluts
-      - IMG_DIR=/app/images
       - IMPORT_DIR=/app/import
       - EXPORT_DIR=/app/export
     volumes:
       - ./cluts:/app/cluts
-      - ./images:/app/images
       - ./import:/app/import
       - ./export:/app/export
     networks:
