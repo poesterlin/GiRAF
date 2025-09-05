@@ -17,6 +17,7 @@
 	let isCreating = $state(false);
 	let importMode = $state<'new' | 'existing'>('new');
 	let selectedSessionId = $state<number | null>(null);
+	let isRefreshing = $state(false);
 
 	// Advanced Selection State
 	let inSelectionMode = $state(false);
@@ -196,6 +197,23 @@
 		}
 	}
 
+	async function handleRefresh() {
+		isRefreshing = true;
+		try {
+			const response = await fetch('/api/importer/run-import', {
+				method: 'POST'
+			});
+			if (!response.ok) throw new Error('Failed to refresh imports');
+			app.addToast('Import process initiated.', 'success');
+			invalidateAll();
+		} catch (error) {
+			console.error('Refresh failed', error);
+			app.addToast('Failed to refresh imports', 'error');
+		} finally {
+			isRefreshing = false;
+		}
+	}
+
 	// TODO: Set locale from env
 	const formatter = Intl.DateTimeFormat('de-DE', {
 		hour: 'numeric',
@@ -205,6 +223,16 @@
 		return formatter.format(new Date(date));
 	}
 </script>
+
+<div class="p-4 text-right">
+	<button
+		onclick={handleRefresh}
+		class="rounded-md bg-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition-colors hover:bg-neutral-600"
+		disabled={isRefreshing}
+	>
+		{#if isRefreshing}Refreshing...{:else}Refresh{/if}
+	</button>
+</div>
 
 {#snippet empty()}
 	<div class="flex h-64 items-center justify-center">
@@ -231,6 +259,7 @@
 	{#if selectedIds.size !== 0}
 		<button onclick={clearSelection} class="rounded-full p-2 px-4 text-sm transition-colors hover:bg-neutral-700"> Clear </button>
 	{/if}
+	
 </div>
 
 {#if showModal}

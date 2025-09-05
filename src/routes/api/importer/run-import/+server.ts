@@ -1,28 +1,35 @@
-import chokidar from 'chokidar';
+
 import * as path from 'path';
 import * as fs from 'fs';
-import { db } from '../lib/server/db';
-import { importTable } from '../lib/server/db/schema';
+import { json } from '@sveltejs/kit';
+import { db } from '$lib/server/db';
+import { importTable } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { ExifDate, ExifDateTime, exiftool } from 'exiftool-vendored';
+import { env } from '$env/dynamic/private';
 
-console.log('Starting up...');
-
-const IMPORT_DIR = process.env.IMPORT_DIR;
+const IMPORT_DIR = env.IMPORT_DIR;
 
 if (!IMPORT_DIR) {
 	console.error('IMPORT_DIR environment variable is not set. Please create a .env file and set it.');
-	process.exit(1);
+	// In a server route, we should throw an error or return an appropriate response
+	// rather than exiting the process.
 }
 
-const absoluteImportDir = path.resolve(IMPORT_DIR);
-
-if (!fs.existsSync(absoluteImportDir)) {
-	console.log(`Import directory does not exist, creating it at: ${absoluteImportDir}`);
-	fs.mkdirSync(absoluteImportDir, { recursive: true });
-}
+const absoluteImportDir = IMPORT_DIR ? path.resolve(IMPORT_DIR) : '';
 
 const supportedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.tif', '.tiff', '.arw', '.nef', '.cr2', '.raf'];
+
+function toDate(value: string | number | ExifDateTime | ExifDate){
+	if (typeof value === 'string' || typeof value === 'number') {
+		return new Date(value);
+	}
+
+	if (value instanceof ExifDateTime || value instanceof ExifDate) {
+		return value.toDate();
+	}
+	return new Date(); // Fallback
+}
 
 async function importFile(filePath: string) {
 	const extension = path.extname(filePath).toLowerCase();
@@ -63,33 +70,15 @@ async function importFile(filePath: string) {
 	}
 }
 
-const watcher = chokidar.watch(absoluteImportDir, {
-	persistent: true,
-	ignoreInitial: false, // process files already in the directory on startup
-	depth: 0 // do not watch subdirectories
-});
-
-watcher
-	.on('add', (filePath) => importFile(filePath))
-	.on('ready', () =>
-		console.log(`\n✅ Ready and watching for new images in: ${absoluteImportDir}\n`)
-	)
-	.on('error', (error) => console.error(`Watcher error: ${error}`));
-
-process.on('SIGINT', () => {
-	console.log('\nGracefully shutting down...');
-	watcher.close();
-	exiftool.end();
-	process.exit(0);
-});
-
-
-function toDate(value: string | number | ExifDateTime | ExifDate){
-	if (typeof value === 'string' || typeof value === 'number') {
-		return new Date(value);
+export async function POST() {
+	if (!absoluteImportDir || !fs.existsSync(absoluteImportDir)) {
+		return json({ message: 'Import directory not found or not configured.', success: false }, { status: 400 });
 	}
 
-	if (value instanceof ExifDateTime || value instanceof ExifDate) {
-		return value.toDate();
-	}
+	const files = fs.readdirSync(absoluteImportDir);
+	const importPromises = files.map(file => importFile(path.join(absoluteImportDir, file)));
+
+			await Promise.all(importPromises);
+
+	return json({ message: 'Import process initiated.', success: true });
 }
