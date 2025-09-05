@@ -4,7 +4,7 @@
 
 <h1 class="text-2xl font-bold">Debug Page</h1>
 
-<div class="flex ">
+<div class="flex gap-8">
 
     <div class="mb-4 flex flex-col gap-2">
         <h2 class="text-xl font-semibold mt-4">Contents of {data.path} directory:</h2>

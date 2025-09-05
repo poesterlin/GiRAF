@@ -2,16 +2,12 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
+import { env } from '$env/dynamic/private';
 
 export async function createTempDir(prefix: string) {
-    const path = join(tmpdir(), prefix);
-    try {
-        await mkdir(path);
-    } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
-            throw error;
-        }
-    }
+    const TMP_DIR = env.TMP_DIR || tmpdir();
+    const rand = Math.random().toString(36).substring(2, 8);
+    const path = await mkdir(join(TMP_DIR, `${prefix}-${rand}`), { recursive: true });
 
     return path;
 }

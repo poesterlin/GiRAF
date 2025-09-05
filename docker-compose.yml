@@ -25,10 +25,12 @@ services:
       - CLUT_DIR=/app/cluts
       - IMPORT_DIR=/app/import
       - EXPORT_DIR=/app/export
+      - TMP_DIR=/app/tmp
     volumes:
       - ./cluts:/app/cluts
       - ./import:/app/import
       - ./export:/app/export
+      - ./tmp:/app/tmp
     networks:
       - traefik_web
     labels:
