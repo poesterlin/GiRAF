@@ -50,9 +50,11 @@
   "dependencies": {
     "@sveltejs/adapter-node": "^5.2.14",
     "@tabler/icons-svelte": "^3.34.1",
+    "blockhash-core": "^0.1.0",
     "comlink": "^4.4.2",
     "drizzle-orm": "^0.40.0",
     "exiftool-vendored": "^30.3.0",
+    "jpeg-js": "^0.4.4",
     "p-limit": "^7.1.1"
   }
 }

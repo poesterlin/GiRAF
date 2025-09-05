@@ -98,7 +98,7 @@
 		<!-- Image Preview -->
 		<div class="image-preview">
 			<BeforeAfter {beforeImage} afterImage={sampleImage} />
-			<EditModeNav img={page.params.img!} showCrop showUndoRedo showSnapshots showReset showClipboard />
+			<EditModeNav img={page.params.img!} showCrop showSnapshots showReset showClipboard />
 		</div>
 
 		<!-- Controls Panel -->

@@ -1,11 +1,36 @@
+import ExportPP3 from '$lib/assets/export.pp3?raw';
+import { applyPP3Diff, parsePP3, stringifyPP3 } from '$lib/pp3-utils';
 import { db } from '$lib/server/db';
 import { editImage, generateImportTif } from '$lib/server/image-editor';
-import ExportPP3 from '$lib/assets/export.pp3?raw';
-import type { ExportPayload, ImportPayload, JobResult } from './types';
-import { desc, eq } from 'drizzle-orm';
-import { imageTable, sessionTable, snapshotTable, type Image, type Session } from '../db/schema';
-import { applyPP3Diff, parsePP3, stringifyPP3 } from '$lib/pp3-utils';
+import { bmvbhash } from 'blockhash-core';
+import { and, desc, eq, isNull } from 'drizzle-orm';
+import { readFile } from 'fs/promises';
+import { decode } from 'jpeg-js';
 import { join } from 'path';
+import { imageTable, sessionTable, snapshotTable, type Image, type Session } from '../db/schema';
+import type { ExportPayload, ImportPayload, JobResult } from './types';
+
+import { exiftool } from 'exiftool-vendored';
+
+const SIMILARITY_THRESHOLD = 25; // Hamming distance threshold for considering images similar
+
+function hammingDistance(hex1: string, hex2: string): number {
+  if (hex1.length !== hex2.length) {
+    throw new Error('Strings must have the same length');
+  }
+
+  let distance = 0;
+  for (let i = 0; i < hex1.length; i++) {
+    const n1 = parseInt(hex1[i], 16);
+    const n2 = parseInt(hex2[i], 16);
+    let xor = n1 ^ n2;
+    while (xor > 0) {
+      distance += xor & 1;
+      xor >>= 1;
+    }
+  }
+  return distance;
+}
 
 export async function runImport(
 	payload: ImportPayload,
@@ -26,20 +51,70 @@ export async function runImport(
 			console.log(`[Executor] Processing ${image.filepath}`);
 			const { pp3, tif } = await generateImportTif(image.filepath, { signal });
 
+			// Calculate perceptual hash
+			const tempFile = "/tmp/" + image.id + "_preview.jpg";
+			await exiftool.extractPreview(image.filepath, tempFile, { ignoreMinorErrors: true, forceWrite: true });
+			const jpegData = await readFile(tempFile);
+			const { width, height, data } = decode(jpegData, { useTArray: true });
+			const hash = await bmvbhash({ data, width, height }, 16);
+
 			await db
 				.update(imageTable)
 				.set({
 					tifPath: tif,
 					whiteBalance: pp3.White_Balance?.Temperature as number,
-					tint: pp3.White_Balance?.Green as number
+					tint: pp3.White_Balance?.Green as number,
+					phash: hash,
+					previewPath: tempFile
 				})
 				.where(eq(imageTable.id, image.id));
+
+			// Find similar images and stack them
+			await stackSimilarImages(image, hash, sessionId);
 		}
 		console.log(`[Executor] Finished import for session: ${sessionId}.`);
 		return { status: 'success' };
 	} catch (e: any) {
 		console.error(`[Executor] Failed import for session: ${sessionId}`, e);
 		return { status: 'error', message: e.message };
+	}
+}
+
+async function stackSimilarImages(currentImage: Image, currentHash: string, sessionId: number) {
+	const otherImages = await db.query.imageTable.findMany({
+		where: and(
+			eq(imageTable.sessionId, sessionId),
+			isNull(imageTable.stackId),
+			eq(imageTable.isStackBase, false)
+		)
+	});
+
+	let similarImages: Image[] = [];
+
+	for (const otherImage of otherImages) {
+		if (otherImage.id === currentImage.id || !otherImage.phash) continue;
+
+		const distance = hammingDistance(currentHash, otherImage.phash);
+		if (distance <= SIMILARITY_THRESHOLD) {
+			similarImages.push(otherImage);
+		}
+	}
+
+	if (similarImages.length > 0) {
+		console.log(`[Executor] Found ${similarImages.length} similar images for image ${currentImage.id}`);
+		const allSimilar = [currentImage, ...similarImages].sort(
+			(a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()
+		);
+
+		const stackBase = allSimilar[0];
+
+		await db.update(imageTable).set({ isStackBase: true }).where(eq(imageTable.id, stackBase.id));
+
+		for (const img of allSimilar) {
+			if (img.id !== stackBase.id) {
+				await db.update(imageTable).set({ stackId: stackBase.id }).where(eq(imageTable.id, img.id));
+			}
+		}
 	}
 }
 
@@ -68,7 +143,7 @@ export async function runExport(
 			}
 			const image = images[i];
 			const edit = await db.query.snapshotTable.findFirst({
-				where: eq(snapshotTable.id, image.id),
+				where: eq(snapshotTable.imageId, image.id),
 				orderBy: desc(snapshotTable.createdAt)
 			});
 

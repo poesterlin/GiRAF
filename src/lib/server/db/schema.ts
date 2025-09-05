@@ -39,7 +39,10 @@ export const imageTable = pgTable('image', {
 	lens: text('lens'),
 	whiteBalance: real('white_balance'),
 	tint: real('tint'),
-	isArchived: boolean('is_archived').notNull().default(false)
+	isArchived: boolean('is_archived').notNull().default(false),
+	phash: text('phash'),
+	stackId: integer('stack_id').references(() => imageTable.id, { onDelete: 'set null' }),
+	isStackBase: boolean('is_stack_base').notNull().default(false)
 });
 
 export type Image = typeof imageTable.$inferSelect;
@@ -49,7 +52,15 @@ export const imageRelations = relations(imageTable, ({ one, many }) => ({
 		fields: [imageTable.sessionId],
 		references: [sessionTable.id]
 	}),
-	snapshots: many(snapshotTable)
+	snapshots: many(snapshotTable),
+	stackParent: one(imageTable, {
+		fields: [imageTable.stackId],
+		references: [imageTable.id],
+		relationName: 'stack'
+	}),
+	stackChildren: many(imageTable, {
+		relationName: 'stack'
+	})
 }));
 
 export const snapshotTable = pgTable('snapshot', {

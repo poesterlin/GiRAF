@@ -1,7 +1,7 @@
 import { db } from '$lib/server/db';
 import { sessionTable } from '$lib/server/db/schema';
 import { json } from '@sveltejs/kit';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 export type SessionsResponse = {
@@ -14,6 +14,12 @@ export type SessionsResponse = {
 			id: number;
 			filepath: string;
 			version: number;
+			isStackBase: boolean;
+			stackChildren: Array<{
+				id: number;
+				filepath: string;
+				version: number;
+			}>;
 		}>;
 	}>;
 	next: number | null;
@@ -30,9 +36,21 @@ export const GET: RequestHandler = async ({ url }) => {
 				columns: {
 					id: true,
 					filepath: true,
-					version: true
+					version: true,
+					isStackBase: true
 				},
-				where: (images, { eq }) => eq(images.isArchived, false)
+				with: {
+					stackChildren: {
+						columns: {
+							id: true,
+							filepath: true,
+							version: true
+						}
+					}
+				},
+				where: (images, { eq, and, isNull }) =>
+					and(eq(images.isArchived, false), isNull(images.stackId)),
+				orderBy: (images, { desc }) => [desc(images.recordedAt)]
 			}
 		},
 		where: eq(sessionTable.isArchived, false),
@@ -52,7 +70,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		...s,
 		startedAt: s.startedAt.toISOString(),
 		endedAt: s.endedAt ? s.endedAt.toISOString() : null,
-        images: s.images
+		images: s.images
 	}));
 
 	const response = {

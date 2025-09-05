@@ -98,13 +98,18 @@
 		</div>
 		<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
 			{#each item.images as preview}
-				<a href={`/editor/${preview.id}`} class="group block aspect-[3/2] overflow-hidden rounded-lg bg-neutral-900 ring-1 ring-transparent transition hover:ring-neutral-700">
+				<a href={`/editor/${preview.id}`} class="group relative block aspect-[3/2] overflow-hidden rounded-lg bg-neutral-900 ring-1 ring-transparent transition hover:ring-neutral-700">
 					<img
 						src="/api/images/{preview.id}/preview?version={preview.version}"
 						alt=""
 						loading="lazy"
 						class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
 					/>
+					{#if preview.isStackBase}
+						<div class="absolute right-2 top-2 rounded bg-black/50 px-2 py-1 text-xs text-white">
+							{preview.stackChildren.length + 1}
+						</div>
+					{/if}
 				</a>
 			{:else}
 				<div class="flex aspect-[3/2] items-center justify-center rounded-lg bg-neutral-900 text-neutral-500">
