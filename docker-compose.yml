@@ -17,8 +17,6 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
-      args:
-        DATABASE_URL: ${DATABASE_URL}
     env_file: 
      - .env
     environment:
