@@ -1,24 +1,31 @@
+import { db } from '$lib/server/db';
+import { imageTable, imageToTagTable, snapshotTable } from '$lib/server/db/schema';
+import { error } from '@sveltejs/kit';
 import { Glob } from 'bun';
-import type { PageServerLoad } from './$types';
+import { and, asc, desc, eq, gt, lt } from 'drizzle-orm';
 import { join } from 'node:path';
 import { env } from 'node:process';
-import { error } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { and, asc, desc, eq, gt, lt } from 'drizzle-orm';
-import { imageTable, snapshotTable } from '$lib/server/db/schema';
+import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {
 	const { img } = params;
 	const imageId = Number(img);
 
-	const [image, snapshots] = await Promise.all([
+	const [image, snapshots, imageTags, tags] = await Promise.all([
 		db.query.imageTable.findFirst({
-			where: eq(imageTable.id, imageId)
+			where: eq(imageTable.id, imageId),
 		}),
 		db.query.snapshotTable.findMany({
 			where: eq(snapshotTable.imageId, imageId),
 			orderBy: desc(snapshotTable.createdAt)
-		})
+		}),
+		db.query.imageToTagTable.findMany({
+			where: eq(imageToTagTable.imageId, imageId),
+			with: {
+				tag: true
+			}
+		}),
+		db.query.tagTable.findMany()
 	]);
 
 	if (!image) {
@@ -51,7 +58,15 @@ export const load: PageServerLoad = async ({ params }) => {
 		.orderBy(desc(imageTable.id))
 		.limit(1);
 
-	return { luts, image, snapshots, nextImage: nextImage?.id, previousImage: previousImage?.id };
+	return {
+		luts,
+		image,
+		imageTags: imageTags.map((it) => it.tag) as { id: number; name: string }[],
+		tags,
+		snapshots,
+		nextImage: nextImage?.id,
+		previousImage: previousImage?.id
+	};
 };
 
 function formatLut(path: string, cwd: string) {

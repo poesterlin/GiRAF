@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm';
-import { boolean, integer, pgTable, real, serial, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgTable, primaryKey, real, serial, text, timestamp } from 'drizzle-orm/pg-core';
 
 export const sessionTable = pgTable('session', {
 	id: serial('id').primaryKey(),
@@ -15,7 +15,7 @@ export const sessionRelations = relations(sessionTable, ({ many }) => ({
 	images: many(imageTable)
 }));
 
-export const imageTable = pgTable('image', {
+export const imageTable: any = pgTable('image', {
 	id: serial('id').primaryKey(),
 	filepath: text('filename').notNull(),
 	previewPath: text('preview_path'),
@@ -42,7 +42,7 @@ export const imageTable = pgTable('image', {
 	isArchived: boolean('is_archived').notNull().default(false),
 	phash: text('phash'),
 	stackId: integer('stack_id').references(() => imageTable.id, { onDelete: 'set null' }),
-	isStackBase: boolean('is_stack_base').notNull().default(false)
+	isStackBase: boolean('is_stack_base').notNull().default(false),
 });
 
 export type Image = typeof imageTable.$inferSelect;
@@ -60,7 +60,8 @@ export const imageRelations = relations(imageTable, ({ one, many }) => ({
 	}),
 	stackChildren: many(imageTable, {
 		relationName: 'stack'
-	})
+	}),
+	imageToTags: many(imageToTagTable)
 }));
 
 export const snapshotTable = pgTable('snapshot', {
@@ -91,3 +92,32 @@ export const importTable = pgTable('import', {
 });
 
 export type Import = typeof importTable.$inferSelect;
+
+export const tagTable = pgTable('tag', {
+	id: serial('id').primaryKey(),
+	name: text('name').notNull()
+});
+
+export type Tag = typeof tagTable.$inferSelect;
+
+export const imageToTagTable = pgTable('image_to_tag', {
+	imageId: integer('image_id')
+		.notNull()
+		.references(() => imageTable.id, { onDelete: 'cascade' }),
+	tagId: integer('tag_id')
+		.notNull()
+		.references(() => tagTable.id, { onDelete: 'cascade' })
+}, (table) => [
+	primaryKey({ columns: [table.imageId, table.tagId] })
+]);
+
+export const imageToTagRelations = relations(imageToTagTable, ({ one }) => ({
+	image: one(imageTable, {
+		fields: [imageToTagTable.imageId],
+		references: [imageTable.id]
+	}),
+	tag: one(tagTable, {
+		fields: [imageToTagTable.tagId],
+		references: [tagTable.id]
+	})
+}));

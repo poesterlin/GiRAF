@@ -12,17 +12,28 @@ import IconCopy from '@tabler/icons-svelte/icons/copy';
 import IconCrop from '@tabler/icons-svelte/icons/crop';
 import IconDeviceFloppy from '@tabler/icons-svelte/icons/device-floppy';
 import IconFidgetSpinner from '@tabler/icons-svelte/icons/fidget-spinner';
+import IconFlag from '@tabler/icons-svelte/icons/flag';
 import IconRestore from '@tabler/icons-svelte/icons/restore';
 import IconTransferIn from '@tabler/icons-svelte/icons/transfer-in';
 import IconX from '@tabler/icons-svelte/icons/x';
 
 export {
-	IconAdjustmentsHorizontal, IconArchive, IconArrowBackUp,
+	IconAdjustmentsHorizontal,
+	IconArchive,
+	IconArrowBackUp,
 	IconArrowForwardUp,
 	IconCameraFilled,
 	IconCameraPlus,
-	IconCheck, IconChevronLeft, IconChevronRight, IconClipboard,
+	IconCheck,
+	IconChevronLeft,
+	IconChevronRight,
+	IconClipboard,
 	IconCopy,
-	IconCrop, IconDeviceFloppy, IconFidgetSpinner, IconRestore, IconTransferIn, IconX
+	IconCrop,
+	IconDeviceFloppy,
+	IconFidgetSpinner,
+	IconFlag,
+	IconRestore,
+	IconTransferIn,
+	IconX
 };
-

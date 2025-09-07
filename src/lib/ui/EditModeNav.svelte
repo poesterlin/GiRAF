@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { parsePP3, stringifyPP3 } from '$lib/pp3-utils';
 	import { edits } from '$lib/state/editing.svelte';
+	import FlagModal from './FlagModal.svelte';
 	import {
 		IconAdjustmentsHorizontal,
 		IconArrowBackUp,
@@ -13,8 +14,10 @@
 		IconClipboard,
 		IconCopy,
 		IconCrop,
+		IconFlag,
 		IconRestore
 	} from '$lib/ui/icons';
+	import { IconFlagFilled } from '@tabler/icons-svelte';
 
 	interface Props {
 		img: string;
@@ -24,11 +27,13 @@
 		showReset?: boolean;
 		showEdit?: boolean;
 		showClipboard?: boolean;
+		showFlag?: boolean;
+		isFlagged?: boolean;
 	}
 
-	let { img, showSnapshots, showCrop, showUndoRedo, showReset, showEdit, showClipboard }: Props = $props();
+	let { img, showSnapshots, showCrop, showUndoRedo, showReset, showEdit, showClipboard, showFlag, isFlagged }: Props = $props();
 
-	let savedSnapshot = $state(false);
+	let showFlagModal = $state(false);
 	let copiedConfig = $state(false);
 	let pastedConfig = $state(false);
 	let hasClipboardContent = $state(false);
@@ -213,6 +218,17 @@
 		</a>
 	{/if}
 
+	<!-- flag button -->
+	{#if showFlag}
+		<button class="border-2 border-yellow-400" onclick={() => (showFlagModal = true)} aria-label="Flagged">
+			{#if isFlagged}
+				<IconFlagFilled />
+			{:else}
+				<IconFlag />
+			{/if}
+		</button>
+	{/if}
+
 	<!-- version snapshots -->
 	{#if showSnapshots}
 		<a href="?snapshot" aria-label="Snapshots">
@@ -240,6 +256,10 @@
 		{/if}
 	{/if}
 </nav>
+
+{#if showFlagModal}
+	<FlagModal {img} onClose={() => (showFlagModal = false)} />
+{/if}
 
 <style>
 	nav {

@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { getWorkerInstance } from '$lib';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
-	import { filterPP3, toBase64 } from '$lib/pp3-utils';
+	import { filterPP3, stringifyPP3, toBase64 } from '$lib/pp3-utils';
 	import { edits } from '$lib/state/editing.svelte';
 	import BeforeAfter from '$lib/ui/BeforeAfter.svelte';
 	import Button from '$lib/ui/Button.svelte';
@@ -14,6 +14,7 @@
 	import { fade } from 'svelte/transition';
 	import Adjustments from './Adjustments.svelte';
 	import Snapshots from './Snapshots.svelte';
+	import { tagStore } from '$lib/state/tag.svelte';
 
 	let { data } = $props();
 	let showLutPicker = $state(false);
@@ -51,7 +52,7 @@
 		const res = await fetch(`/api/images/${page.params.img}/snapshots`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ pp3: edits.pp3 })
+			body: JSON.stringify({ pp3: stringifyPP3($state.snapshot(edits.pp3)) })
 		});
 		if (res.ok) {
 			snapshotSaved = true;
@@ -69,6 +70,7 @@
 	onMount(() => {
 		const latestSnapshot = data.snapshots[0];
 		if (latestSnapshot) {
+			console.log('Loading latest snapshot PP3', latestSnapshot.pp3);
 			edits.initialize(latestSnapshot.pp3);
 		} else {
 			edits.initialize(BasePP3);
@@ -91,6 +93,11 @@
 				edits.isLoading = false;
 			});
 	});
+
+	$effect(() => {
+		tagStore.existingTags = data.tags.map((t) => t.name);
+		tagStore.selected = data.imageTags.map((it) => it.name);
+	});
 </script>
 
 <div class="image-editor">
@@ -98,7 +105,7 @@
 		<!-- Image Preview -->
 		<div class="image-preview">
 			<BeforeAfter {beforeImage} afterImage={sampleImage} />
-			<EditModeNav img={page.params.img!} showCrop showSnapshots showReset showClipboard />
+			<EditModeNav img={page.params.img!} showCrop showSnapshots showReset showClipboard showFlag />
 		</div>
 
 		<!-- Controls Panel -->
