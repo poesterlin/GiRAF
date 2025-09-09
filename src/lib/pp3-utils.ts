@@ -115,6 +115,10 @@ export function countPP3Properties(pp3: PP3): number {
 }
 
 export function filterPP3(pp3: PP3, chapters: string[]) {
+    if (!pp3) {
+        return {};
+    }
+
     const filtered: PP3 = {};
     for (const chapter of chapters) {
         if (pp3[chapter]) {

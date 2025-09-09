@@ -1,5 +1,6 @@
-import { throttle } from '$lib';
+import { assert, throttle } from '$lib';
 import { parsePP3, type PP3 } from '$lib/pp3-utils';
+import type { Image } from '$lib/server/db/schema';
 
 class EditingState {
 	public pp3 = $state<PP3>() as PP3;
@@ -11,8 +12,13 @@ class EditingState {
 	private history = $state<PP3[]>([]);
 	private historyIndex = $state(0);
 
-	initialize(pp3: string | PP3) {
+	initialize(pp3: string | PP3, image: Image) {
+		assert(image, 'Image must be provided to initialize editing state');
+		
 		const newPp3 = typeof pp3 === 'string' ? parsePP3(pp3) : pp3;
+		setDefault(newPp3.White_Balance, "Temperature", image.whiteBalance);
+		setDefault(newPp3.White_Balance, "Green", image.tint);
+
 		this.pp3 = newPp3;
 		this.throttledPP3 = newPp3;
 		this.history = [newPp3];
@@ -51,3 +57,14 @@ class EditingState {
 }
 
 export const edits = new EditingState();
+
+function setDefault(section: PP3[keyof PP3], key: string, value: any) {
+	if (key !in section){
+		section[key] = value;
+		return;
+	}
+
+	if (section[key] === undefined && value) {
+		section[key] = value;
+	}
+}

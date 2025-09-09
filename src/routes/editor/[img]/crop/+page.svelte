@@ -39,7 +39,7 @@
 		ctx.drawImage(imgEl, padding, padding, imgDimensions.width, imgDimensions.height);
 
 		// draw crop grid
-		if (!edits.pp3.Crop) {
+		if (!edits.pp3?.Crop) {
 			return;
 		}
 
@@ -65,7 +65,7 @@
 		lastX = x;
 		lastY = y;
 
-		if (!edits.pp3.Crop) {
+		if (!edits.pp3?.Crop) {
 			return;
 		}
 
@@ -116,10 +116,14 @@
 	}
 
 	function endMove(event: PointerEvent) {
+		if (!canvasEl) {
+			return;
+		}
+		
 		isMoving = false;
 		handle = undefined;
 
-		canvasEl!.releasePointerCapture(event.pointerId);
+		canvasEl.releasePointerCapture(event.pointerId);
 		moveCursor = false;
 
 		requestAnimationFrame(() => draw());

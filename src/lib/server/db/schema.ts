@@ -122,3 +122,12 @@ export const imageToTagRelations = relations(imageToTagTable, ({ one }) => ({
 		references: [tagTable.id]
 	})
 }));
+
+export const profileTable = pgTable('profile', {
+	id: serial('id').primaryKey(),
+	name: text('name').notNull(),
+	pp3: text('pp3').notNull(),
+	createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type Profile = typeof profileTable.$inferSelect;

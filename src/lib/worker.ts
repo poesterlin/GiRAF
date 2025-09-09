@@ -5,20 +5,35 @@ import { expose } from 'comlink';
 /** If this is set to true, the worker will use the most compatible code paths possible */
 export const compatMode = import.meta.env.VITE_COMPAT_MODE === 'true';
 
-async function refreshImage(imageId: string, config: string) {
-    const res = await fetch(`/api/images/${imageId}/edit?config=${config}`);
+const writelocks = new Set<string>();
 
-    let fileHandle: FileSystemFileHandle;
-    if (res.ok && res.body) {
-        fileHandle = await storeFile(res.body, 'images', `${imageId}.jpg`);
-    } else {
-        // If the fetch fails, we try to get the file handle from the OPFS
-        fileHandle = await getFileHandle('images', `${imageId}.jpg`);
+async function refreshImage(imageId: string, config: string) {
+    while (writelocks.has(imageId)) {
+        await new Promise(res => setTimeout(res, 10));
     }
 
-    const file = await fileHandle.getFile();
-    
-    return { url: URL.createObjectURL(file), error: !res.ok };
+    writelocks.add(imageId);
+
+    try {
+        const res = await fetch(`/api/images/${imageId}/edit?config=${config}`);
+
+        let fileHandle: FileSystemFileHandle;
+        if (res.ok && res.body) {
+            fileHandle = await storeFile(res.body, 'images', `${imageId}.jpg`);
+        } else {
+            // If the fetch fails, we try to get the file handle from the OPFS
+            fileHandle = await getFileHandle('images', `${imageId}.jpg`);
+        }
+
+        const file = await fileHandle.getFile();
+        return { url: URL.createObjectURL(file), error: !res.ok };
+    } catch (error) {
+        console.error("Error in refreshImage:", error);
+        throw error;
+    } finally {
+        writelocks.delete(imageId);
+    }
+
 }
 
 async function getFileHandle(folder: string, fileName: string) {

@@ -69,12 +69,9 @@
 	$effect(() => {
 		const latestSnapshot = data.snapshots[0];
 		if (latestSnapshot) {
-			edits.initialize(latestSnapshot.pp3);
+			edits.initialize(latestSnapshot.pp3, data.image);
 		} else {
-			const pp3 = parsePP3(BasePP3);
-			pp3.White_Balance.Setting = 'Camera';
-			pp3.White_Balance.Temperature = data.image.whiteBalance;
-			pp3.White_Balance.Tint = data.image.tint;
+			edits.initialize(parsePP3(BasePP3), data.image);
 		}
 	});
 
@@ -84,9 +81,11 @@
 		worker
 			.refreshImage(page.params.img!, toBase64(edits.throttledPP3))
 			.then((result) => {
-				sampleImage = result.url;
-				edits.isFaulty = result.error;
-				edits.isLoading = false;
+				if (result) {
+					sampleImage = result.url;
+					edits.isFaulty = result.error;
+					edits.isLoading = false;
+				}
 			})
 			.catch((error) => {
 				console.error('Error refreshing image:', error);
@@ -176,7 +175,7 @@
 {/if}
 
 {#if page.url.searchParams.has('snapshot')}
-	<Snapshots snapshots={data.snapshots} />
+	<Snapshots snapshots={data.snapshots} profiles={data.profiles} />
 {/if}
 
 <style>

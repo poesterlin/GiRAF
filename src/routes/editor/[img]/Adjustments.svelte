@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { getWorkerInstance, map } from '$lib';
-	import { countPP3Properties, filterPP3, setLut, stringifyPP3, toBase64 } from '$lib/pp3-utils';
+	import { filterPP3, setLut, toBase64 } from '$lib/pp3-utils';
 	import type { Image, Snapshot } from '$lib/server/db/schema';
 	import { edits } from '$lib/state/editing.svelte';
 	import Button from '$lib/ui/Button.svelte';
@@ -26,9 +26,11 @@
 		worker
 			.refreshImage(page.params.img!, toBase64(edits.throttledPP3))
 			.then((result) => {
-				sampleImage = result.url;
-				edits.isFaulty = result.error;
-				edits.isLoading = false;
+				if (result) {
+					sampleImage = result.url;
+					edits.isFaulty = result.error;
+					edits.isLoading = false;
+				}
 			})
 			.catch((error) => {
 				console.error('Error refreshing image:', error);

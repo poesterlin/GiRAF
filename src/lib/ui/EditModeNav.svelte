@@ -166,23 +166,10 @@
 
 		// try to parse PP3 text and apply
 		try {
-			const parsed = parsePP3(pp3Text);
-
-			// Deep clone parsed to avoid accidental shared references
-			const newPp3 = JSON.parse(JSON.stringify(parsed));
-
-			// Replace edits.pp3 with the new config and push to history
-			edits.pp3 = newPp3;
-			edits.update(newPp3);
-			edits.updateThrottledPP3(newPp3);
-
-			// invalidate so previews refresh
-			await invalidateAll();
-
+			edits.pp3 = parsePP3(pp3Text);
 			pastedConfig = true;
 			setTimeout(() => (pastedConfig = false), 2000);
 		} catch {
-			// parse failed; leave pastedConfig false
 			pastedConfig = false;
 		}
 	}

@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { imageTable, imageToTagTable, snapshotTable, type Image } from '$lib/server/db/schema';
+import { imageTable, imageToTagTable, snapshotTable, type Image, profileTable } from '$lib/server/db/schema';
 import { error } from '@sveltejs/kit';
 import { Glob } from 'bun';
 import { and, asc, desc, eq, gt, lt } from 'drizzle-orm';
@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	const { img } = params;
 	const imageId = Number(img);
 
-	const [image, snapshots, imageTags, tags] = await Promise.all([
+	const [image, snapshots, imageTags, tags, profiles] = await Promise.all([
 		db.query.imageTable.findFirst({
 			where: eq(imageTable.id, imageId),
 		}),
@@ -25,7 +25,10 @@ export const load: PageServerLoad = async ({ params }) => {
 				tag: true
 			}
 		}),
-		db.query.tagTable.findMany()
+		db.query.tagTable.findMany(),
+		db.query.profileTable.findMany({
+			orderBy: desc(profileTable.createdAt)
+		})
 	]);
 
 	if (!image) {
@@ -64,6 +67,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		imageTags: imageTags.map((it) => it.tag) as { id: number; name: string }[],
 		tags,
 		snapshots,
+		profiles,
 		nextImage: nextImage?.id,
 		previousImage: previousImage?.id
 	};
