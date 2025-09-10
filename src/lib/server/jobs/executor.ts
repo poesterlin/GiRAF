@@ -7,29 +7,30 @@ import { and, desc, eq, isNull } from 'drizzle-orm';
 import { readFile } from 'fs/promises';
 import { decode } from 'jpeg-js';
 import { join } from 'path';
-import { imageTable, sessionTable, snapshotTable, type Image, type Session } from '../db/schema';
+import { imageTable, mediaTable, sessionTable, snapshotTable, type Album, type Image, type Session } from '../db/schema';
 import type { ExportPayload, ImportPayload, JobResult } from './types';
-
+import { integrations } from '../integrations';
 import { exiftool } from 'exiftool-vendored';
+import { assert } from '$lib';
 
 const SIMILARITY_THRESHOLD = 45; // Hamming distance threshold for considering images similar
 
 function hammingDistance(hex1: string, hex2: string): number {
-  if (hex1.length !== hex2.length) {
-    throw new Error('Strings must have the same length');
-  }
+	if (hex1.length !== hex2.length) {
+		throw new Error('Strings must have the same length');
+	}
 
-  let distance = 0;
-  for (let i = 0; i < hex1.length; i++) {
-    const n1 = parseInt(hex1[i], 16);
-    const n2 = parseInt(hex2[i], 16);
-    let xor = n1 ^ n2;
-    while (xor > 0) {
-      distance += xor & 1;
-      xor >>= 1;
-    }
-  }
-  return distance;
+	let distance = 0;
+	for (let i = 0; i < hex1.length; i++) {
+		const n1 = parseInt(hex1[i], 16);
+		const n2 = parseInt(hex2[i], 16);
+		let xor = n1 ^ n2;
+		while (xor > 0) {
+			distance += xor & 1;
+			xor >>= 1;
+		}
+	}
+	return distance;
 }
 
 export async function runImport(
@@ -125,11 +126,16 @@ export async function runExport(
 	const { sessionId } = payload;
 
 	const session = await db.query.sessionTable.findFirst({ where: eq(sessionTable.id, sessionId) });
-
 	if (!session) {
 		console.error(`[Executor] Session not found for export: ${sessionId}`);
 		return { status: 'error', message: 'Session not found' };
 	}
+
+	const albums = await db.query.albumTable.findMany({
+		where: eq(sessionTable.id, sessionId)
+	});
+
+	console.log(`[Executor] Found ${albums.length} albums for session: ${sessionId}`, albums);
 
 	console.log(`[Executor] Starting export for session: ${sessionId}`);
 	try {
@@ -154,6 +160,10 @@ export async function runExport(
 			const outputPath = makeOutputPath(image, session, images.length);
 			await mkdirPath(outputPath);
 			await editImage(image.filepath, stringifyPP3(merged), { signal, outputPath });
+
+			for (const album of albums) {
+				upsertAlbumImage(album, image, outputPath);
+			}
 		}
 		console.log(`[Executor] Finished export for session: ${sessionId}`);
 		return { status: 'success' };
@@ -163,7 +173,7 @@ export async function runExport(
 	}
 }
 
-function makeOutputPath(image: Image, session: Session, totalImages: number): string {
+export function makeOutputPath(image: Image, session: Session, totalImages: number): string {
 	const digits = Math.max(2, Math.ceil(Math.log10(totalImages + 1)));
 
 	const year = image.recordedAt.getFullYear();
@@ -182,3 +192,57 @@ function makeOutputPath(image: Image, session: Session, totalImages: number): st
 async function mkdirPath(path: string) {
 	await Bun.file(path).write('');
 }
+
+
+async function upsertAlbumImage(album: Album, image: Image, outputPath: string) {
+	const integrationType = album.integration;
+	const integration = integrations.find((i) => i.type === integrationType);
+	assert(integration, `Integration not found: ${integrationType}`);
+
+	if (!integration.isConfigured()) {
+		console.warn(`Integration not configured: ${integrationType}`);
+		return;
+	}
+
+	const media = await db.query.mediaTable.findFirst({
+		where: and(
+			eq(mediaTable.albumId, album.id),
+			eq(mediaTable.imageId, image.id),
+			eq(mediaTable.integration, integrationType)
+		)
+	});
+
+	const buffer = await readFile(outputPath);
+
+	if (media) {
+		console.log(`Image ${image.id} already in album ${album.id}, replacing...`);
+
+		try {
+			const { id } = await integration.replaceInAlbum(album, media.externalId, buffer, outputPath, image);
+			await db.update(mediaTable).set({ externalId: id }).where(eq(mediaTable.id, media.id));
+		} catch (error) {
+			console.error(`Failed to replace image in album ${album.id} for image ${image.id}:`, error);
+		}
+
+		return;
+	}
+
+	try {
+		console.log(`Uploading image ${image.id} to album ${album.id}...`);
+		await db.transaction(async trx => {
+			const { id } = await integration.uploadFile(buffer, outputPath, image);
+			console.log(`Uploaded image ${image.id} to integration, got id ${id}`);
+			await trx.insert(mediaTable).values({
+				imageId: image.id,
+				albumId: album.id,
+				externalId: id,
+				integration: integrationType
+			});
+			await integration.addToAlbum(album, [id]);
+			console.log(`Added image ${image.id} to album ${album.id}`);
+		});
+	} catch (error) {
+		console.error(`Failed to upload image to album ${album.id} for image ${image.id}:`, error);
+	}
+}
+

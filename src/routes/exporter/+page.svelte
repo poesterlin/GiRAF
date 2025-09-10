@@ -14,6 +14,7 @@
 				data.sessions = [...data.sessions, ...sessions];
 				data.next = next;
 			}}
+			integrations={data.configuredIntegrations}
 		/>
 	</div>
 </div>

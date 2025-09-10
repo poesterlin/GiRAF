@@ -2,20 +2,26 @@
 	import { onDestroy } from 'svelte';
 	import Scroller from '$lib/ui/Scroller.svelte';
 	import type { ExporterSessionsResponse } from '../api/exporter/sessions/+server';
+	import Modal from '$lib/ui/Modal.svelte';
+	import { enhance } from '$app/forms';
+	import { app } from '$lib/state/app.svelte';
 
 	type Session = ExporterSessionsResponse['sessions'][number];
 	interface Props {
 		sessions: ExporterSessionsResponse['sessions'];
 		next: number | null;
 		onLoaded: (data: ExporterSessionsResponse) => void;
+		integrations: string[];
 	}
 
-	let { sessions, next, onLoaded }: Props = $props();
+	let { sessions, next, onLoaded, integrations }: Props = $props();
 
 	let scroller = $state<Scroller<Session>>();
 	let loading = $state(false);
 	let jobStates = $state<Record<number, 'exporting' | 'cancelling'>>({});
 	let pollingIntervals: Record<number, ReturnType<typeof setInterval>> = {};
+
+	let albumCreateSession = $state<number>();
 
 	function pollJobStatus(sessionId: number) {
 		const intervalId = setInterval(async () => {
@@ -86,6 +92,12 @@
 			</div>
 		</div>
 		<div class="flex items-center gap-4">
+			{#if integrations.length > 0}
+				<button onclick={() => (albumCreateSession = item.id)} class="rounded-md bg-neutral-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500">
+					Create Album
+				</button>
+			{/if}
+
 			{#if jobStates[item.id] === 'exporting'}
 				<span class="inline-flex items-center rounded-full bg-blue-900/50 px-2.5 py-1 text-xs font-medium text-blue-300">
 					<span class="me-2 h-2 w-2 animate-pulse rounded-full bg-blue-300"></span>
@@ -166,3 +178,49 @@
 		}}
 	></Scroller>
 </div>
+
+{#if albumCreateSession}
+	<Modal onClose={() => (albumCreateSession = undefined)} class="!max-w-md">
+		<div class="border-b border-neutral-700 p-4">
+			<h1 class="text-lg font-medium text-neutral-200">Create New Album</h1>
+			<p class="text-sm text-neutral-400">Create an album in a connected photo integration.</p>
+		</div>
+		<form
+			method="POST"
+			action="?/create-album"
+			use:enhance={() => {
+				return async ({ result }) => {
+					if (result.type === 'success') {
+						app.addToast('Album created successfully!', 'success');
+						albumCreateSession = undefined;
+						// } else if (result.type === 'error') {
+						// 	app.addToast(`Failed to create album: ${result.data?.error}`, 'error');
+					} else if (result.type === 'failure') {
+						app.addToast(`Failed to create album: ${result.data?.error}`, 'error');
+					}
+				};
+			}}
+			class="flex flex-col gap-6 p-4"
+		>
+			<input type="hidden" name="session" value={albumCreateSession} required />
+
+			<div>
+				<label for="integration-select" class="mb-1 block text-sm font-medium text-neutral-300">Integration</label>
+				<select
+					id="integration-select"
+					name="integration"
+					class="w-full rounded-md border-1 border-neutral-400 bg-neutral-900 p-2.5 text-neutral-200 focus:ring-neutral-500"
+					required
+				>
+					{#each integrations as integrationType}
+						<option value={integrationType}>{integrationType}</option>
+					{/each}
+				</select>
+			</div>
+
+			<div class="flex justify-end gap-2 pt-2">
+				<button class="rounded-md bg-neutral-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-neutral-500" type="submit"> Create Album </button>
+			</div>
+		</form>
+	</Modal>
+{/if}

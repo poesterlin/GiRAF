@@ -3,6 +3,7 @@
 	import Scroller from '$lib/ui/Scroller.svelte';
 	import type { SessionsResponse } from '../api/sessions/+server';
 	import { IconArchive, IconTransferIn } from '$lib/ui/icons';
+	import { app } from '$lib/state/app.svelte';
 
 	type Session = SessionsResponse['sessions'][number];
 	interface Props {
@@ -17,7 +18,7 @@
 
 	let scroller = $state<Scroller<Session>>();
 	let loading = $state(false);
-	let importJobStates = $state<Set<number>>(new Set(initialImports));
+	let importJobStates = $derived<Set<number>>(new Set(initialImports));
 
 	$effect(() => {
 		for (const session of initialImports) {
@@ -34,6 +35,7 @@
 			console.error('Failed to start import job', await response.text());
 			// Reset state on failure
 			importJobStates.delete(sessionId);
+			app.addToast('Failed to start import job', 'error');
 			await invalidateAll();
 		}
 
@@ -47,6 +49,7 @@
 				console.error('Failed to fetch import job status', await statusResponse.text());
 				clearInterval(interval);
 				await invalidateAll();
+				app.addToast('Import job completed successfully', 'success');
 				importJobStates.delete(sessionId);
 				return;
 			}

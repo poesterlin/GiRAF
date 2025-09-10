@@ -1,6 +1,6 @@
 import { relations } from 'drizzle-orm';
 import { foreignKey } from 'drizzle-orm/gel-core';
-import { boolean, integer, pgTable, primaryKey, real, serial, text, timestamp, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { boolean, integer, jsonb, pgTable, primaryKey, real, serial, text, timestamp, type AnyPgColumn } from 'drizzle-orm/pg-core';
 
 export const sessionTable = pgTable('session', {
 	id: serial('id').primaryKey(),
@@ -131,3 +131,48 @@ export const profileTable = pgTable('profile', {
 });
 
 export type Profile = typeof profileTable.$inferSelect;
+
+export const albumTable = pgTable('album', {
+	id: serial('id').primaryKey(),
+	integration: text('integration').notNull(),
+	externalId: text('external_id').notNull(),
+	title: text('title'),
+	url: text('url'),
+	sessionId: integer('session_id')
+		.references(() => sessionTable.id, { onDelete: 'cascade' }),
+});
+
+export const albumRelations = relations(albumTable, ({ one, many }) => ({
+	media: many(mediaTable),
+	session: one(sessionTable, {
+		fields: [albumTable.id],
+		references: [sessionTable.id]
+	})
+}));
+
+export type Album = typeof albumTable.$inferSelect;
+
+export const mediaTable = pgTable('media', {
+	id: serial('id').primaryKey(),
+	imageId: integer('image_id')
+		.notNull()
+		.references(() => imageTable.id, { onDelete: 'cascade' }),
+	albumId: integer('album_id')
+		.notNull()
+		.references(() => albumTable.id, { onDelete: 'cascade' }),
+	externalId: text('external_id').notNull(),
+	integration: text('integration').notNull(),
+});
+
+export const mediaRelations = relations(mediaTable, ({ one }) => ({
+	image: one(imageTable, {
+		fields: [mediaTable.imageId],
+		references: [imageTable.id]
+	}),
+	album: one(albumTable, {
+		fields: [mediaTable.albumId],
+		references: [albumTable.id]
+	}),
+}));
+
+export type Media = typeof mediaTable.$inferSelect;
