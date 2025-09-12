@@ -13,7 +13,8 @@ export const sessionTable = pgTable('session', {
 export type Session = typeof sessionTable.$inferSelect;
 
 export const sessionRelations = relations(sessionTable, ({ many }) => ({
-	images: many(imageTable)
+	images: many(imageTable),
+	albums: many(albumTable)
 }));
 
 export const imageTable = pgTable('image', {
@@ -145,7 +146,7 @@ export const albumTable = pgTable('album', {
 export const albumRelations = relations(albumTable, ({ one, many }) => ({
 	media: many(mediaTable),
 	session: one(sessionTable, {
-		fields: [albumTable.id],
+		fields: [albumTable.sessionId],
 		references: [sessionTable.id]
 	})
 }));

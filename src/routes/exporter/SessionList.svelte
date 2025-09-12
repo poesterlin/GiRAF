@@ -5,6 +5,7 @@
 	import Modal from '$lib/ui/Modal.svelte';
 	import { enhance } from '$app/forms';
 	import { app } from '$lib/state/app.svelte';
+	import { integrationLogos } from '$lib/ui/integrations';
 
 	type Session = ExporterSessionsResponse['sessions'][number];
 	interface Props {
@@ -85,24 +86,47 @@
 				<img src="/api/images/{item.images[0].id}/preview" alt={`${item.name} thumbnail`} class="h-16 w-16 rounded object-cover" />
 			{/if}
 			<div>
-				<h2 class="text-lg font-semibold text-neutral-200">{item.name}</h2>
+				<div class="flex items-center gap-4">
+					<h2 class="text-lg font-semibold text-neutral-200">{item.name}</h2>
+
+					{#if jobStates[item.id] === 'exporting'}
+						<span class="inline-flex items-center rounded-full bg-blue-900/50 px-2.5 py-1 text-xs font-medium text-blue-300">
+							<span class="me-2 h-2 w-2 animate-pulse rounded-full bg-blue-300"></span>
+							Exporting...
+						</span>
+					{:else if item.status === 'Updated'}
+						<span class="inline-flex items-center rounded-full bg-yellow-900/50 px-2.5 py-1 text-xs font-medium text-yellow-300">
+							<span class="me-2 h-2 w-2 rounded-full bg-yellow-300"></span>
+							Updated
+						</span>
+					{:else}
+						<span class="inline-flex items-center rounded-full bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-400">
+							<span class="me-2 h-2 w-2 rounded-full bg-neutral-500"></span>
+							Exported
+						</span>
+					{/if}
+				</div>
 				<p class="text-sm text-neutral-400">
 					{item.images.length} images • {formatDate(item.startedAt)}
 				</p>
 			</div>
 		</div>
 		<div class="flex items-center gap-4">
-			{#if integrations.length > 0}
-				<button onclick={() => (albumCreateSession = item.id)} class="rounded-md bg-neutral-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500">
-					Create Album
-				</button>
-			{/if}
-
+			{#each integrations as integration}
+				{@const album = item.albums.find((a) => a.integration === integration)}
+				{@const img = integrationLogos[integration]}
+				{@const style = 'flex h-10 w-10 items-center justify-center rounded-md p-1 text-white transition-colors hover:bg-neutral-500'}
+				{#if album}
+					<a href={album?.url} target="_blank" rel="noopener noreferrer" title="View Album on {integration}" class={style}>
+						{@html img}
+					</a>
+				{:else}
+					<button onclick={() => (albumCreateSession = item.id)} class="{style} opacity-50 hover:opacity-80" title="Create Album on {integration}">
+						{@html img}
+					</button>
+				{/if}
+			{/each}
 			{#if jobStates[item.id] === 'exporting'}
-				<span class="inline-flex items-center rounded-full bg-blue-900/50 px-2.5 py-1 text-xs font-medium text-blue-300">
-					<span class="me-2 h-2 w-2 animate-pulse rounded-full bg-blue-300"></span>
-					Exporting...
-				</span>
 				<button
 					onclick={() => cancelExport(item.id)}
 					class="rounded-md border border-transparent bg-neutral-800 px-4 py-2 text-sm font-semibold text-neutral-300 transition-colors hover:border-neutral-700 hover:bg-neutral-700"
@@ -110,10 +134,6 @@
 					Cancel
 				</button>
 			{:else if item.status === 'Updated'}
-				<span class="inline-flex items-center rounded-full bg-yellow-900/50 px-2.5 py-1 text-xs font-medium text-yellow-300">
-					<span class="me-2 h-2 w-2 rounded-full bg-yellow-300"></span>
-					Updated
-				</span>
 				<button
 					onclick={() => exportSession(item.id)}
 					class="rounded-md bg-neutral-50 px-4 py-2 text-sm font-semibold text-neutral-950 shadow-sm transition-colors hover:bg-neutral-200"
@@ -121,10 +141,6 @@
 					Export
 				</button>
 			{:else}
-				<span class="inline-flex items-center rounded-full bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-400">
-					<span class="me-2 h-2 w-2 rounded-full bg-neutral-500"></span>
-					Exported
-				</span>
 				<button
 					onclick={() => exportSession(item.id)}
 					class="rounded-md border border-transparent bg-neutral-800 px-4 py-2 text-sm font-semibold text-neutral-300 transition-colors hover:border-neutral-700 hover:bg-neutral-700"
@@ -209,11 +225,11 @@
 				<select
 					id="integration-select"
 					name="integration"
-					class="w-full rounded-md border-1 border-neutral-400 bg-neutral-900 p-2.5 text-neutral-200 focus:ring-neutral-500"
+					class="capsitalize w-full rounded-md border-1 border-neutral-400 bg-neutral-900 p-2.5 text-neutral-200 focus:ring-neutral-500"
 					required
 				>
 					{#each integrations as integrationType}
-						<option value={integrationType}>{integrationType}</option>
+						<option value={integrationType} class="capitalize">{integrationType}</option>
 					{/each}
 				</select>
 			</div>

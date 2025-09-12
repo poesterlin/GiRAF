@@ -14,6 +14,12 @@ export type ExporterSessionsResponse = {
 			id: number;
 			filepath: string;
 		}>;
+		albums: Array<{
+			id: number;
+			url: string | null;
+			title: string | null;
+			integration: string;
+		}>;
 		status: 'Updated' | 'Exported'; // Add status for exporter
 	}>;
 	next: number | null;
@@ -27,6 +33,14 @@ export const GET: RequestHandler = async ({ url }) => {
 		with: {
 			images: {
 				columns: { id: true, filepath: true }
+			},
+			albums: {
+				columns: {
+					id: true,
+					url: true,
+					title: true,
+					integration: true
+				}
 			}
 		},
 		orderBy: [desc(sessionTable.startedAt)],
@@ -46,6 +60,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		startedAt: s.startedAt.toISOString(),
 		endedAt: s.endedAt ? s.endedAt.toISOString() : null,
 		images: s.images,
+		albums: s.albums,
 		status: i % 2 === 0 ? ('Updated' as 'Updated' | 'Exported') : ('Exported' as 'Updated' | 'Exported')
 	}));
 

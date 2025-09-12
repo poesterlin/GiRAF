@@ -239,7 +239,7 @@
 {/snippet}
 
 <div class="fixed bottom-4 left-1/2 z-10 flex -translate-x-1/2 gap-2 rounded-full bg-neutral-800 p-2 shadow-2xl">
-	{#if selectedIds.size < data.items.length}
+	{#if selectedIds.size < data.items?.length}
 		<button onclick={selectAll} class="rounded-full p-2 px-4 text-sm transition-colors hover:bg-neutral-700"> Select All </button>
 	{/if}
 	{#if selectedIds.size > 0}
@@ -308,7 +308,7 @@
 {/if}
 
 <div class="p-4" ontouchend={handleTouchEnd}>
-	{#if data.items.length === 0}
+	{#if !data.items?.length}
 		{@render empty()}
 	{:else}
 		{#each groupedByDate as group}
@@ -373,5 +373,9 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fill, 160px);
 		gap: 0.75rem;
+	}
+	:global(main) {
+		overflow-y: auto;
+		padding-bottom: 4rem;
 	}
 </style>
