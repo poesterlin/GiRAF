@@ -1,5 +1,5 @@
 import ExportPP3 from '$lib/assets/export.pp3?raw';
-import { applyPP3Diff, parsePP3, stringifyPP3 } from '$lib/pp3-utils';
+import { applyPP3Diff, parsePP3, stringifyPP3, type PP3 } from '$lib/pp3-utils';
 import { db } from '$lib/server/db';
 import { editImage, generateImportTif } from '$lib/server/image-editor';
 import { bmvbhash } from 'blockhash-core';
@@ -147,8 +147,9 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 				orderBy: desc(snapshotTable.createdAt)
 			});
 
-			const pp3 = parsePP3(edit?.pp3 ?? '');
+			const pp3 = setWhiteBalance(parsePP3(edit?.pp3 ?? ''), image.whiteBalance, image.tint);
 			const merged = applyPP3Diff(pp3, parsePP3(ExportPP3));
+
 
 			console.log(`[Executor] Processing ${image.filepath}`);
 			const outputPath = makeOutputPath(image, session, images.length);
@@ -228,4 +229,24 @@ async function upsertAlbumImage(album: Album, image: Image, outputPath: string) 
 	} catch (error) {
 		console.error(`Failed to upload image to album ${album.id} for image ${image.id}:`, error);
 	}
+}
+
+
+export function setWhiteBalance(pp3: PP3, temperature: number | null, green: number | null): PP3 {
+	if (temperature === null || green === null) {
+		return pp3;
+	}
+
+	if (pp3.White_Balance.Setting !== 'Custom') {
+		return pp3;
+	}
+
+	const whiteBalanceMatches = pp3.White_Balance?.Temperature === temperature && pp3.White_Balance?.Green === green;
+	const tintMatches = pp3.White_Balance?.Green === green;
+
+	if (whiteBalanceMatches && tintMatches) {
+		pp3.White_Balance.Setting = 'Camera';
+	}
+
+	return pp3;
 }

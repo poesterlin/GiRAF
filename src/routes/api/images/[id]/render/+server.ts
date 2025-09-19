@@ -5,7 +5,7 @@ import type { RequestHandler } from "./$types";
 import { error } from "@sveltejs/kit";
 import { applyPP3Diff, parsePP3, stringifyPP3 } from "$lib/pp3-utils";
 import ExportPP3 from '$lib/assets/export.pp3?raw';
-import { makeOutputPath, mkdirPath } from "$lib/server/jobs/executor";
+import { makeOutputPath, mkdirPath, setWhiteBalance } from "$lib/server/jobs/executor";
 import { assert } from "$lib";
 import { env } from "$env/dynamic/private";
 import { editImage } from "$lib/server/image-editor";
@@ -39,7 +39,7 @@ export const GET: RequestHandler = async ({ params }) => {
         orderBy: desc(snapshotTable.createdAt)
     });
 
-    const pp3 = parsePP3(edit?.pp3 ?? '');
+    const pp3 = setWhiteBalance(parsePP3(edit?.pp3 ?? ''), image.whiteBalance, image.tint);
     const merged = applyPP3Diff(pp3, parsePP3(ExportPP3));
 
     console.log(`[Executor] Processing ${image.filepath}`);
@@ -47,6 +47,6 @@ export const GET: RequestHandler = async ({ params }) => {
     const outputPath = join(env.TMP_DIR, `${id}.jpg`);
     await mkdirPath(outputPath);
     await editImage(image.filepath, stringifyPP3(merged), { outputPath, recordedAt: image.recordedAt });
-    
+
     return respondWithFile(outputPath);
 };
