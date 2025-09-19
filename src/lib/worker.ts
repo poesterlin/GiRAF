@@ -7,7 +7,7 @@ export const compatMode = import.meta.env.VITE_COMPAT_MODE === 'true';
 
 const writelocks = new Set<string>();
 
-async function refreshImage(imageId: string, config: string) {
+async function refreshImage(imageId: string, config: string, version = 0) {
     while (writelocks.has(imageId)) {
         await new Promise(res => setTimeout(res, 10));
     }
@@ -15,7 +15,7 @@ async function refreshImage(imageId: string, config: string) {
     writelocks.add(imageId);
 
     try {
-        const res = await fetch(`/api/images/${imageId}/edit?config=${config}`);
+        const res = await fetch(`/api/images/${imageId}/edit?config=${config}&v=${version}`);
 
         let fileHandle: FileSystemFileHandle;
         if (res.ok && res.body) {
@@ -29,7 +29,7 @@ async function refreshImage(imageId: string, config: string) {
         return { url: URL.createObjectURL(file), error: !res.ok };
     } catch (error) {
         console.error("Error in refreshImage:", error);
-        throw error;
+       return { url: `/api/images/${imageId}/edit?config=${config}`, error: true };
     } finally {
         writelocks.delete(imageId);
     }

@@ -31,18 +31,20 @@ export function getFileDirectory(filePath: string) {
     return parts.join('/') || '/'; // Return the directory or root if empty
 }
 
-type SelectedType<Fields extends Record<string, PgColumn>> = {
-    [Property in keyof Fields]: GetColumnData<Fields[Property]>
+type SelectedType<Fields extends Record<string, PgColumn | SQL>> = {
+    [Property in keyof Fields]:  Fields[Property] extends PgColumn ? GetColumnData<Fields[Property]> : Fields[Property] extends SQL<infer U> ? U : never
 };
 
 type Prettify<T> = {
     [K in keyof T]: T[K];
 } & {};
 
-export function buildJSONColumn<Fields extends Record<string, PgColumn>>(fields: Fields) {
+export function buildJSONColumn<Fields extends Record<string, PgColumn | SQL<any>>>(fields: Fields, orderBy: PgColumn | PgColumn[] = []) {
+    const order = Array.isArray(orderBy) ? orderBy : [orderBy];
+
     return sql<Prettify<SelectedType<Fields>>>`json_agg(json_build_object(
         ${sql.join(
             Object.entries(fields).map(([key, value]) => sql`${sql.raw(`'${key}'`)}, ${value}`),
             sql`, `
-        )}))`;
+        )}) ${order.length ? sql`ORDER BY ${sql.join(order, sql`, `)}` : sql``})`;
 }

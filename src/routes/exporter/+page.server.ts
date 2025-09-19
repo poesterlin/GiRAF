@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ fetch }) => {
 	const req = await fetch('/api/exporter/sessions');
 	const data: ExporterSessionsResponse = await req.json();
 
-	const configuredIntegrations = integrations.filter((i) => i.isConfigured()).map((i) => i.type);
+	const configuredIntegrations = integrations.filter((i) => i.isConfigured() || i.canBeConfigured()).map((i) => i.type);
 
 	return { ...data, configuredIntegrations };
 };
@@ -23,7 +23,15 @@ export const actions: Actions = {
 
 		const integration = integrations.find((i) => i.type === integrationType);
 
-		if (!integration || !integration.isConfigured()) {
+		if (!integration ){
+			return fail(400, { error: 'Integration not found' });
+		}
+		
+		if (!integration.isConfigured()) {
+			if (integration.canBeConfigured()) {
+				return integration.configure();
+			}
+
 			return fail(400, { error: 'Integration not configured' });
 		}
 		if (!sessionId || isNaN(Number(sessionId))) {

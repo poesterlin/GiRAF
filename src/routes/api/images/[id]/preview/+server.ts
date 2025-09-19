@@ -31,6 +31,10 @@ export const GET: RequestHandler = async ({ params }) => {
         return respondWithFile(image.previewPath);
     }
 
+    if (!await Bun.file(image.filepath).exists()) {
+        redirect(302, "/error-thumbnail.jpg");
+    }
+
     const path = await createTempDir("thumbnails");
     const tempFile = join(path, image.id + "_preview.jpg");
     const compressedFile = join(path, image.id + "_preview_compressed.webp");
@@ -47,6 +51,8 @@ export const GET: RequestHandler = async ({ params }) => {
             .rotate(rotations[rotation])
             .webp({ quality: 80 })
             .toFile(compressedFile);
+
+        Bun.file(tempFile).delete();
 
         await db.update(imageTable).set({ previewPath: compressedFile }).where(eq(imageTable.id, image.id));
 

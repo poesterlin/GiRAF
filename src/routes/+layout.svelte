@@ -78,16 +78,14 @@
 </div>
 
 <!-- toasts -->
-<div class="fixed bottom-4 right-4 z-80 flex flex-col items-end gap-2">
+<div class="fixed right-4 bottom-4 z-80 flex flex-col items-end gap-2">
 	{#each app.toasts as toast (toast.id)}
 		{@const bg = {
 			success: 'bg-green-600/90',
 			error: 'bg-red-600/90',
 			info: 'bg-neutral-800/90'
 		}[toast.type]}
-		<div
-			class="rounded-lg {bg} z-80 px-4 py-2 text-sm font-medium text-neutral-50 shadow-lg backdrop-blur-sm"
-		>
+		<div class="rounded-lg {bg} z-80 px-4 py-2 text-sm font-medium text-neutral-50 shadow-lg backdrop-blur-sm">
 			{toast.message}
 		</div>
 	{/each}

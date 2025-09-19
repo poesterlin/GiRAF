@@ -33,10 +33,7 @@ function hammingDistance(hex1: string, hex2: string): number {
 	return distance;
 }
 
-export async function runImport(
-	payload: ImportPayload,
-	signal?: AbortSignal
-): Promise<JobResult> {
+export async function runImport(payload: ImportPayload, signal?: AbortSignal): Promise<JobResult> {
 	const { sessionId } = payload;
 
 	const images = await db.query.imageTable.findMany({
@@ -53,7 +50,7 @@ export async function runImport(
 			const { pp3, tif } = await generateImportTif(image.filepath, { signal });
 
 			// Calculate perceptual hash
-			const tempFile = "/tmp/" + image.id + "_preview.jpg";
+			const tempFile = '/tmp/' + image.id + '_preview.jpg';
 			await exiftool.extractPreview(image.filepath, tempFile, { ignoreMinorErrors: true, forceWrite: true });
 			const jpegData = await readFile(tempFile);
 			const { width, height, data } = decode(jpegData, { useTArray: true });
@@ -83,11 +80,7 @@ export async function runImport(
 
 async function stackSimilarImages(currentImage: Image, currentHash: string, sessionId: number) {
 	const otherImages = await db.query.imageTable.findMany({
-		where: and(
-			eq(imageTable.sessionId, sessionId),
-			isNull(imageTable.stackId),
-			eq(imageTable.isStackBase, false)
-		)
+		where: and(eq(imageTable.sessionId, sessionId), isNull(imageTable.stackId), eq(imageTable.isStackBase, false))
 	});
 
 	let similarImages: Image[] = [];
@@ -103,9 +96,7 @@ async function stackSimilarImages(currentImage: Image, currentHash: string, sess
 
 	if (similarImages.length > 0) {
 		console.log(`[Executor] Found ${similarImages.length} similar images for image ${currentImage.id}`);
-		const allSimilar = [currentImage, ...similarImages].sort(
-			(a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()
-		);
+		const allSimilar = [currentImage, ...similarImages].sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime());
 
 		const stackBase = allSimilar[0];
 
@@ -119,10 +110,7 @@ async function stackSimilarImages(currentImage: Image, currentHash: string, sess
 	}
 }
 
-export async function runExport(
-	payload: ExportPayload,
-	signal?: AbortSignal
-): Promise<JobResult> {
+export async function runExport(payload: ExportPayload, signal?: AbortSignal): Promise<JobResult> {
 	const { sessionId } = payload;
 
 	const session = await db.query.sessionTable.findFirst({ where: eq(sessionTable.id, sessionId) });
@@ -140,7 +128,8 @@ export async function runExport(
 	console.log(`[Executor] Starting export for session: ${sessionId}`);
 	try {
 		const images = await db.query.imageTable.findMany({
-			where: eq(imageTable.sessionId, sessionId)
+			where: eq(imageTable.sessionId, sessionId),
+			orderBy: desc(imageTable.recordedAt)
 		});
 
 		for (let i = 0; i < images.length; i++) {
@@ -148,6 +137,11 @@ export async function runExport(
 				throw new Error('Aborted');
 			}
 			const image = images[i];
+			if (image.isArchived) {
+				console.log(`[Executor] Skipping archived image: ${image.id}`);
+				continue;
+			}
+
 			const edit = await db.query.snapshotTable.findFirst({
 				where: eq(snapshotTable.imageId, image.id),
 				orderBy: desc(snapshotTable.createdAt)
@@ -159,10 +153,10 @@ export async function runExport(
 			console.log(`[Executor] Processing ${image.filepath}`);
 			const outputPath = makeOutputPath(image, session, images.length);
 			await mkdirPath(outputPath);
-			await editImage(image.filepath, stringifyPP3(merged), { signal, outputPath });
+			await editImage(image.filepath, stringifyPP3(merged), { signal, outputPath, recordedAt: image.recordedAt });
 
 			for (const album of albums) {
-				upsertAlbumImage(album, image, outputPath);
+				await upsertAlbumImage(album, image, outputPath);
 			}
 		}
 		console.log(`[Executor] Finished export for session: ${sessionId}`);
@@ -181,18 +175,12 @@ export function makeOutputPath(image: Image, session: Session, totalImages: numb
 	const day = image.recordedAt.getDate().toString().padStart(2, '0');
 
 	const exportDir = process.env.EXPORT_DIR || '/exports';
-	return join(
-		exportDir,
-		year.toString(),
-		`${year}-${month}-${day}_${session.name}`,
-		`${image.id.toString().padStart(digits, '0')}_${session.name}.jpg`
-	);
+	return join(exportDir, year.toString(), `${year}-${month}-${day}_${session.name}`, `${image.id.toString().padStart(digits, '0')}_${session.name}.jpg`);
 }
 
-async function mkdirPath(path: string) {
+export async function mkdirPath(path: string) {
 	await Bun.file(path).write('');
 }
-
 
 async function upsertAlbumImage(album: Album, image: Image, outputPath: string) {
 	const integrationType = album.integration;
@@ -205,11 +193,7 @@ async function upsertAlbumImage(album: Album, image: Image, outputPath: string) 
 	}
 
 	const media = await db.query.mediaTable.findFirst({
-		where: and(
-			eq(mediaTable.albumId, album.id),
-			eq(mediaTable.imageId, image.id),
-			eq(mediaTable.integration, integrationType)
-		)
+		where: and(eq(mediaTable.albumId, album.id), eq(mediaTable.imageId, image.id), eq(mediaTable.integration, integrationType))
 	});
 
 	const buffer = await readFile(outputPath);
@@ -229,7 +213,7 @@ async function upsertAlbumImage(album: Album, image: Image, outputPath: string) 
 
 	try {
 		console.log(`Uploading image ${image.id} to album ${album.id}...`);
-		await db.transaction(async trx => {
+		await db.transaction(async (trx) => {
 			const { id } = await integration.uploadFile(buffer, outputPath, image);
 			console.log(`Uploaded image ${image.id} to integration, got id ${id}`);
 			await trx.insert(mediaTable).values({
@@ -245,4 +229,3 @@ async function upsertAlbumImage(album: Album, image: Image, outputPath: string) 
 		console.error(`Failed to upload image to album ${album.id} for image ${image.id}:`, error);
 	}
 }
-

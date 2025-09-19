@@ -49,16 +49,16 @@ export const load: PageServerLoad = async ({ params }) => {
 	const [nextImage] = await db
 		.select({ id: imageTable.id })
 		.from(imageTable)
-		.where(and(gt(imageTable.id, Number(img)), eq(imageTable.sessionId, image.sessionId)))
-		.orderBy(asc(imageTable.id))
+		.where(and(gt(imageTable.recordedAt, image.recordedAt), eq(imageTable.sessionId, image.sessionId), eq(imageTable.isArchived, false)))
+		.orderBy(asc(imageTable.recordedAt))
 		.limit(1);
 
 	// find previous image in line
 	const [previousImage] = await db
 		.select({ id: imageTable.id })
 		.from(imageTable)
-		.where(and(lt(imageTable.id, Number(img)), eq(imageTable.sessionId, image.sessionId)))
-		.orderBy(desc(imageTable.id))
+		.where(and(lt(imageTable.recordedAt, image.recordedAt), eq(imageTable.sessionId, image.sessionId), eq(imageTable.isArchived, false)))
+		.orderBy(desc(imageTable.recordedAt))
 		.limit(1);
 
 	return {

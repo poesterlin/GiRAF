@@ -205,12 +205,14 @@
 			method="POST"
 			action="?/create-album"
 			use:enhance={() => {
-				return async ({ result }) => {
+				return async ({ result, update }) => {
 					if (result.type === 'success') {
 						app.addToast('Album created successfully!', 'success');
 						albumCreateSession = undefined;
-						// } else if (result.type === 'error') {
-						// 	app.addToast(`Failed to create album: ${result.data?.error}`, 'error');
+					} else if (result.type === 'error') {
+						app.addToast(`Failed to create album`, 'error');
+					} else if (result.type === 'redirect') {
+						update();
 					} else if (result.type === 'failure') {
 						app.addToast(`Failed to create album: ${result.data?.error}`, 'error');
 					}

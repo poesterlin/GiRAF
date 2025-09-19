@@ -14,7 +14,7 @@ import ImportPP3 from '$lib/assets/import.pp3?raw';
  * @param options 
  * @returns 
 */
-export async function editImage(imagePath: string, pp3: string, options: { allowConcurrent?: boolean, signal?: AbortSignal, outputPath?: string } = {}): Promise<string> {
+export async function editImage(imagePath: string, pp3: string, options: { allowConcurrent?: boolean, signal?: AbortSignal, outputPath?: string, recordedAt?: Date } = {}): Promise<string> {
     const start = performance.now();
 
     let name = getFileNameFromPath(imagePath);
@@ -53,6 +53,19 @@ export async function editImage(imagePath: string, pp3: string, options: { allow
     console.log(`Running command: ${command.join(" ")}`);
 
     await runCommand(command, { signal: options.signal });
+
+
+    if (options.recordedAt) {
+        const recordedAt = options.recordedAt.toISOString().slice(0, 19).replace('T', ' ');
+        const exifCommand = [
+            'exiftool',
+            `-DateTimeOriginal=${recordedAt}`,
+            '-overwrite_original',
+            imagePath
+        ];
+        console.log(`Running command: ${exifCommand.join(" ")}`);
+        await runCommand(exifCommand, { signal: options.signal });
+    }
 
     const end = performance.now();
     console.log(`Image edited in ${((end - start) / 1000).toFixed(2)} seconds`);

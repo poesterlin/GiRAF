@@ -11,6 +11,14 @@ export class ImmichProvider implements PhotoIntegration {
         return !!this.apiKey && !!this.baseUrl;
     }
 
+    public canBeConfigured(): boolean {
+		return false;
+	}
+
+    public configure(): Promise<void> | never {
+        throw new Error('Immich integration must be configured via environment variables.');
+    }
+
     private headers(json = true) {
         return {
             "x-api-key": this.apiKey,

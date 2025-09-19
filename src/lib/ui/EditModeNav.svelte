@@ -40,6 +40,13 @@
 	let pastedConfig = $state(false);
 	let hasClipboardContent = $state(false);
 
+	const keyMap = $derived(
+		new Map<string, () => void>([
+			['c', () => copyConfig()],
+			['v', () => pasteConfig()]
+		])
+	);
+
 	async function getClipboardPermissionState() {
 		if (!browser) return 'unsupported';
 		if (typeof navigator === 'undefined' || !navigator.permissions) return 'unsupported';
@@ -175,9 +182,20 @@
 			pastedConfig = false;
 		}
 	}
+
+	function handleKeyUp(event: KeyboardEvent) {
+		if (event.target && (event.target as HTMLElement).tagName === 'INPUT') {
+			return; // Ignore key events when focused on input fields
+		}
+		const action = keyMap.get(event.key);
+		if (action) {
+			event.preventDefault();
+			action();
+		}
+	}
 </script>
 
-<svelte:window onfocus={() => checkClipboard()} />
+<svelte:window onfocus={() => checkClipboard()} onkeyup={handleKeyUp} />
 
 <nav>
 	{#if showUndoRedo}

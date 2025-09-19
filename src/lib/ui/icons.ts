@@ -18,9 +18,11 @@ import IconTransferIn from '@tabler/icons-svelte/icons/transfer-in';
 import IconX from '@tabler/icons-svelte/icons/x';
 import IconTrash from '@tabler/icons-svelte/icons/trash';
 import IconHistory from '@tabler/icons-svelte/icons/history';
+import IconAdjustmentsFilled from '@tabler/icons-svelte/icons/adjustments-filled';
 
 export {
 	IconAdjustmentsHorizontal,
+	IconAdjustmentsFilled,
 	IconArchive,
 	IconArrowBackUp,
 	IconArrowForwardUp,

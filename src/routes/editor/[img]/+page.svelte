@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getWorkerInstance } from '$lib';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
@@ -18,10 +18,11 @@
 	let { data } = $props();
 	let showLutPicker = $state(false);
 
+	let cacheBuster = $state(0); 
 	let sampleImage = $state('');
 	let apiPath = $derived(`/api/images/${data.image.id}`);
 	let snapshotSaved = $state(false);
-	let beforeImage = $derived(apiPath + `/edit?preview&config=${toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
+	let beforeImage = $derived(apiPath + `/edit?preview&v=${cacheBuster}&config=${toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
 
 	async function archiveImage() {
 		const res = await fetch(`/api/images/${page.params.img}/archive`, {
@@ -82,7 +83,7 @@
 		const worker = getWorkerInstance();
 		edits.isLoading = true;
 		worker
-			.refreshImage(page.params.img!, toBase64(edits.throttledPP3))
+			.refreshImage(page.params.img!, toBase64(edits.throttledPP3), cacheBuster)
 			.then((result) => {
 				if (result) {
 					sampleImage = result.url;
@@ -101,13 +102,46 @@
 		tagStore.existingTags = data.tags.map((t) => t.name);
 		tagStore.selected = data.imageTags.map((it) => it.name);
 	});
+
+	const keyMap = $derived(new Map<string, () => void>([
+		['s', snapshot],
+		['ArrowRight', () => (data.nextImage ? (goto(`/editor/${data.nextImage}`)) : undefined)],
+		['ArrowLeft', () => (data.previousImage ? (goto(`/editor/${data.previousImage}`)) : undefined)],
+		['a', () => (data.image.isArchived ? restoreImage() : archiveImage())],
+		['r', () => fixImageRendering()],
+		['p', () => showPreview()]
+	]));
+
+	function handleKeyUp(event: KeyboardEvent) {
+		if (event.target && (event.target as HTMLElement).tagName === 'INPUT') {
+			return; // Ignore key events when focused on input fields
+		}
+		const action = keyMap.get(event.key);
+		if (action) {
+			event.preventDefault();
+			action();
+		}
+	}
+
+	function fixImageRendering() {
+		// This function forces a re-render of the image by toggling the edits.pp3 object
+		cacheBuster += 1;
+		console.log('Cache buster incremented to', cacheBuster);
+	}
+
+	function showPreview(){
+		const url = new URL(apiPath + `/render`, location.origin);
+		window.open(url, '_blank');
+	}
 </script>
+
+<svelte:window onkeyup={handleKeyUp} />
 
 <div class="image-editor">
 	<div class="editor-layout">
 		<!-- Image Preview -->
 		<div class="image-preview">
-			<BeforeAfter {beforeImage} afterImage={sampleImage} />
+			<BeforeAfter {beforeImage} afterImage={sampleImage}  />
 			<EditModeNav img={page.params.img!} showCrop showSnapshots showReset showClipboard showFlag showLast />
 		</div>
 

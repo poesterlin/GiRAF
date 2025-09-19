@@ -17,6 +17,11 @@ export const GET: RequestHandler = async ({ params }) => {
         error(404, "Import file not found");
     }
 
+    const importExists = await Bun.file(importFile.filePath).exists();
+    if (!importExists) {
+        redirect(302, "/error-thumbnail.jpg");
+    }
+
     if (importFile.previewPath && await Bun.file(importFile.previewPath).exists()) {
         return respondWithFile(importFile.previewPath);
     }

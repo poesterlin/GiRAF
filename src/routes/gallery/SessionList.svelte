@@ -2,7 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import Scroller from '$lib/ui/Scroller.svelte';
 	import type { SessionsResponse } from '../api/sessions/+server';
-	import { IconArchive, IconTransferIn } from '$lib/ui/icons';
+	import { IconAdjustmentsFilled, IconArchive, IconTransferIn } from '$lib/ui/icons';
 	import { app } from '$lib/state/app.svelte';
 
 	type Session = SessionsResponse['sessions'][number];
@@ -88,11 +88,11 @@
 </script>
 
 {#snippet item({ item }: { item: Session })}
-	<section class="pt-6 mx-4">
+	<section class="mx-4 pt-6">
 		<div class="sticky top-0 z-10 mb-2 flex items-center justify-between bg-neutral-950 py-4">
 			<div class="flex items-center gap-4">
 				<h2 class="text-xl font-semibold text-neutral-200 sm:text-2xl">{item.name}</h2>
-				<p class="text-neutral-900 bg-neutral-200 rounded-full px-2">{item.imageCount}</p>
+				<p class="rounded-full bg-neutral-200 px-2 text-neutral-900">{item.imageCount}</p>
 				{#if importJobStates.has(item.id)}
 					<span class="inline-flex items-center rounded-full bg-blue-900/50 px-2.5 py-1 text-xs font-medium text-blue-300">
 						<span class="me-2 h-2 w-2 animate-pulse rounded-full bg-blue-300"></span>
@@ -126,11 +126,18 @@
 						loading="lazy"
 						class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
 					/>
-					<!-- {#if preview.isStackBase}
+					<!-- <div class="absolute top-2 right-2 rounded bg-black/50 px-2 py-1 text-xs text-white">
+						{preview.stackChildren.length + 1}
+					</div> -->
+					{#if preview.isArchived}
 						<div class="absolute top-2 right-2 rounded bg-black/50 px-2 py-1 text-xs text-white">
-							{preview.stackChildren.length + 1}
+							<IconArchive />
 						</div>
-					{/if} -->
+					{:else if preview.hasSnapshot}
+						<div class="absolute top-2 right-2 rounded bg-black/50 px-2 py-1 text-xs text-white">
+							<IconAdjustmentsFilled />
+						</div>
+					{/if}
 				</a>
 			{:else}
 				<div class="flex aspect-[3/2] items-center justify-center rounded-lg bg-neutral-900 text-neutral-500">
@@ -181,3 +188,9 @@
 		loading = false;
 	}}
 ></Scroller>
+
+<style>
+	.grayscale {
+		filter: grayscale(100%);
+	}
+</style>

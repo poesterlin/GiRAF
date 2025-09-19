@@ -3,6 +3,8 @@ import type { Album, Image } from "../db/schema";
 export interface PhotoIntegration {
     type: string;
     isConfigured(): boolean;
+    canBeConfigured(): boolean;
+    configure(): void | never;
     createAlbum(title: string): Promise<{ id: string; }>;
     uploadFile(fileBuffer: Uint8Array | Buffer, filename: string, image: Image): Promise<{ id: string }>;
     addToAlbum(album: Album, media: string[]): Promise<void>;

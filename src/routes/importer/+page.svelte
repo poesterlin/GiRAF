@@ -333,6 +333,9 @@
 						onclick={(e) => handleClick(item.id, itemIndex, e)}
 						ontouchstart={(e) => handleTouchStart(e, item.id, itemIndex)}
 						ontouchmove={handleTouchMove}
+						oncontextmenu={(e) => {
+							e.preventDefault();
+						}}
 					>
 						<img
 							src={`/api/imports/${item.id}/preview`}

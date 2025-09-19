@@ -32,14 +32,16 @@ export const GET: RequestHandler = async ({ url }) => {
 	const sessions = await db.query.sessionTable.findMany({
 		with: {
 			images: {
-				columns: { id: true, filepath: true }
+				columns: { id: true, filepath: true },
+				where: (images, { eq }) => eq(images.isArchived, false) // Only include non-archived images
 			},
 			albums: {
 				columns: {
 					id: true,
 					url: true,
 					title: true,
-					integration: true
+					integration: true,
+					externalId: true
 				}
 			}
 		},
