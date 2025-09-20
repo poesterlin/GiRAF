@@ -77,7 +77,7 @@
 </svelte:head>
 
 <div
-	class="relative flex h-full w-full select-none items-center justify-center bg-neutral-950"
+	class="relative flex h-full w-full max-w-full max-h-full select-none items-center justify-center bg-neutral-950"
 	onmousedown={handleMouseDown}
 	onmouseup={handleMouseUp}
 	onmouseleave={() => (isDragging = false)}
@@ -92,7 +92,7 @@
 					src={`/api/exporter/sessions/${data.session.id}/${image}`}
 					alt={`Exported image ${i + 1} for session ${data.session.name}`}
 					loading="lazy"
-					class="h-full w-full object-contain transition-opacity duration-300 {i === currentIndex
+					class="h-full w-full max-w-screen max-h-screen object-contain transition-opacity duration-300 {i === currentIndex
 						? 'opacity-100'
 						: 'opacity-0'}"
 					style={i === currentIndex ? '' : 'position: absolute;'}
