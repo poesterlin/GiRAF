@@ -45,6 +45,7 @@ export const imageTable = pgTable('image', {
 	phash: text('phash'),
 	stackId: integer('stack_id').references((): AnyPgColumn => imageTable.id),
 	isStackBase: boolean('is_stack_base').notNull().default(false),
+	lastExportedAt: timestamp('last_exported_at', { withTimezone: true, mode: 'date' }),
 });
 
 export type Image = typeof imageTable.$inferSelect;

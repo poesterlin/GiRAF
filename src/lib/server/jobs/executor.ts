@@ -3,7 +3,7 @@ import { applyPP3Diff, parsePP3, stringifyPP3, type PP3 } from '$lib/pp3-utils';
 import { db } from '$lib/server/db';
 import { editImage, generateImportTif, setWhiteBalance } from '$lib/server/image-editor';
 import { bmvbhash } from 'blockhash-core';
-import { and, asc, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, lt, or } from 'drizzle-orm';
 import { readFile } from 'fs/promises';
 import { decode } from 'jpeg-js';
 import { join } from 'path';
@@ -129,7 +129,7 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 	console.log(`[Executor] Starting export for session: ${sessionId}`);
 	try {
 		const images = await db.query.imageTable.findMany({
-			where: eq(imageTable.sessionId, sessionId),
+			where: and(eq(imageTable.sessionId, sessionId), or(lt(imageTable.lastExportedAt, imageTable.updatedAt), isNull(imageTable.lastExportedAt))),
 			orderBy: asc(imageTable.recordedAt)
 		});
 
@@ -156,6 +156,7 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 			const outputPath = makeOutputPath(image, session, images.length);
 			await mkdirPath(outputPath);
 			await editImage(image.filepath, stringifyPP3(merged), { signal, outputPath, recordedAt: image.recordedAt });
+			await db.update(imageTable).set({ lastExportedAt: new Date() }).where(eq(imageTable.id, image.id));
 
 			for (const album of albums) {
 				await upsertAlbumImage(album, image, outputPath);

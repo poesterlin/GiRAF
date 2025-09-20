@@ -1,19 +1,16 @@
  <script lang="ts">
 	import type { Image } from '$lib/server/db/schema';
     import { IconArchive } from '$lib/ui/icons';
+    import { fade } from 'svelte/transition';
 
 	let { images, currentImageId }: { images: Image[]; currentImageId: number } = $props();
     let imageElements: (HTMLAnchorElement | null)[] = [];
 
-	const started = Date.now();
-
     $effect(() => {
-		const elapsed = Date.now() - started;
-		const minDelay = 300; 
         const currentIndex = images.findIndex(img => img.id === currentImageId);
         if (currentIndex !== -1) {
             const element = imageElements[currentIndex];
-            element?.scrollIntoView({ behavior: elapsed > minDelay ? 'smooth' : 'instant', block: 'center' });
+            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     });
 </script>
@@ -30,7 +27,7 @@
 		>
 			<img src={`/api/images/${image.id}/preview`} alt={`Preview of image ${image.id}`} loading="lazy" />
             {#if image.isArchived}
-                <div class="absolute inset-0 flex items-center justify-center bg-black/50">
+                <div transition:fade class="absolute inset-0 flex items-center justify-center bg-black/50">
                     <IconArchive />
                 </div>
             {/if}

@@ -8,33 +8,40 @@
 
 	let { data } = $props();
 
-	let showTagModal = $state(false);
-
-	async function archiveImage() {
-		const res = await fetch(`/api/images/${page.params.img}/archive`, {
-			method: 'POST'
-		});
-		if (res.ok) {
-			await invalidateAll();
-			if (data.nextImage) {
-				goto(`/triage/${data.nextImage}`);
+		let showTagModal = $state(false);
+		let isArchiving = $state(false);
+		let justRestored = $state(false);
+	
+		async function archiveImage() {
+			isArchiving = true;
+			await new Promise((r) => setTimeout(r, 300));
+	
+			const res = await fetch(`/api/images/${page.params.img}/archive`, {
+				method: 'POST'
+			});
+			if (res.ok) {
+				await invalidateAll();
+				if (data.nextImage) {
+					goto(`/triage/${data.nextImage}`);
+				}
+			} else {
+				alert('Failed to archive image.');
 			}
-		} else {
-			alert('Failed to archive image.');
+			isArchiving = false;
 		}
-	}
-
-	async function restoreImage() {
-		const res = await fetch(`/api/images/${page.params.img}/archive`, {
-			method: 'DELETE'
-		});
-		if (res.ok) {
-			await invalidateAll();
-		} else {
-			alert('Failed to restore image.');
+	
+		async function restoreImage() {
+			const res = await fetch(`/api/images/${page.params.img}/archive`, {
+				method: 'DELETE'
+			});
+			if (res.ok) {
+				await invalidateAll();
+				justRestored = true;
+				setTimeout(() => (justRestored = false), 1000);
+			} else {
+				alert('Failed to restore image.');
+			}
 		}
-	}
-
 	$effect(() => {
 		tagStore.existingTags = data.tags.map((t) => t.name);
 		tagStore.selected = data.imageTags.map((it) => it.name);

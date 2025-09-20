@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
-import { sessionTable } from '$lib/server/db/schema';
+import { sessionTable, snapshotTable } from '$lib/server/db/schema';
 import { desc } from 'drizzle-orm';
 
 export type ExporterSessionsResponse = {
@@ -13,6 +13,7 @@ export type ExporterSessionsResponse = {
 		images: Array<{
 			id: number;
 			filepath: string;
+			needsExport: boolean;
 		}>;
 		albums: Array<{
 			id: number;
@@ -20,20 +21,26 @@ export type ExporterSessionsResponse = {
 			title: string | null;
 			integration: string;
 		}>;
-		status: 'Updated' | 'Exported'; // Add status for exporter
+		status: 'Updated' | 'Exported';
 	}>;
 	next: number | null;
 };
 
 export const GET: RequestHandler = async ({ url }) => {
-	const limit = 10; // Exporter can show more per page
+	const limit = 10;
 	const cursor = Number(url.searchParams.get('cursor')) || 0;
 
 	const sessions = await db.query.sessionTable.findMany({
 		with: {
 			images: {
-				columns: { id: true, filepath: true },
-				where: (images, { eq }) => eq(images.isArchived, false) // Only include non-archived images
+				columns: { id: true, filepath: true, lastExportedAt: true },
+				where: (images, { eq }) => eq(images.isArchived, false),
+				with: {
+					snapshots: {
+						orderBy: [desc(snapshotTable.createdAt)],
+						limit: 1
+					}
+				}
 			},
 			albums: {
 				columns: {
@@ -56,15 +63,31 @@ export const GET: RequestHandler = async ({ url }) => {
 		nextCursor = cursor + limit;
 	}
 
-	// Augment with mock status and serialize dates
-	const sessionsWithStatus = sessions.map((s, i) => ({
-		...s,
-		startedAt: s.startedAt.toISOString(),
-		endedAt: s.endedAt ? s.endedAt.toISOString() : null,
-		images: s.images,
-		albums: s.albums,
-		status: i % 2 === 0 ? ('Updated' as 'Updated' | 'Exported') : ('Exported' as 'Updated' | 'Exported')
-	}));
+	const sessionsWithStatus = sessions.map((s) => {
+		const imagesWithStatus = s.images.map((img) => {
+			let needsExport = false;
+			if (img.snapshots.length > 0) {
+				if (!img.lastExportedAt) {
+					needsExport = true;
+				} else {
+					needsExport = img.snapshots[0].createdAt > img.lastExportedAt;
+				}
+			}
+			return { ...img, needsExport };
+		});
+
+		const hasImagesToExport = imagesWithStatus.some((img) => img.needsExport);
+		const sessionStatus = hasImagesToExport ? 'Updated' : 'Exported';
+
+		return {
+			...s,
+			startedAt: s.startedAt.toISOString(),
+			endedAt: s.endedAt ? s.endedAt.toISOString() : null,
+			images: imagesWithStatus.map((img) => ({ id: img.id, filepath: img.filepath, needsExport: img.needsExport })),
+			albums: s.albums,
+			status: sessionStatus
+		};
+	});
 
 	const response = {
 		sessions: sessionsWithStatus,
