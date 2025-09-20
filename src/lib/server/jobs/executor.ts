@@ -1,9 +1,9 @@
 import ExportPP3 from '$lib/assets/export.pp3?raw';
 import { applyPP3Diff, parsePP3, stringifyPP3, type PP3 } from '$lib/pp3-utils';
 import { db } from '$lib/server/db';
-import { editImage, generateImportTif } from '$lib/server/image-editor';
+import { editImage, generateImportTif, setWhiteBalance } from '$lib/server/image-editor';
 import { bmvbhash } from 'blockhash-core';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { readFile } from 'fs/promises';
 import { decode } from 'jpeg-js';
 import { join } from 'path';
@@ -37,7 +37,8 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 	const { sessionId } = payload;
 
 	const images = await db.query.imageTable.findMany({
-		where: eq(imageTable.sessionId, sessionId)
+		where: eq(imageTable.sessionId, sessionId),
+		orderBy: asc(imageTable.recordedAt)
 	});
 
 	console.log(`[Executor] Starting import for session: ${sessionId}`);
@@ -129,7 +130,7 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 	try {
 		const images = await db.query.imageTable.findMany({
 			where: eq(imageTable.sessionId, sessionId),
-			orderBy: desc(imageTable.recordedAt)
+			orderBy: asc(imageTable.recordedAt)
 		});
 
 		for (let i = 0; i < images.length; i++) {
@@ -231,22 +232,3 @@ async function upsertAlbumImage(album: Album, image: Image, outputPath: string) 
 	}
 }
 
-
-export function setWhiteBalance(pp3: PP3, temperature: number | null, green: number | null): PP3 {
-	if (temperature === null || green === null) {
-		return pp3;
-	}
-
-	if (pp3.White_Balance.Setting !== 'Custom') {
-		return pp3;
-	}
-
-	const whiteBalanceMatches = pp3.White_Balance?.Temperature === temperature && pp3.White_Balance?.Green === green;
-	const tintMatches = pp3.White_Balance?.Green === green;
-
-	if (whiteBalanceMatches && tintMatches) {
-		pp3.White_Balance.Setting = 'Camera';
-	}
-
-	return pp3;
-}

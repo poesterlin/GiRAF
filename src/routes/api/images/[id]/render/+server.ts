@@ -5,10 +5,10 @@ import type { RequestHandler } from "./$types";
 import { error } from "@sveltejs/kit";
 import { applyPP3Diff, parsePP3, stringifyPP3 } from "$lib/pp3-utils";
 import ExportPP3 from '$lib/assets/export.pp3?raw';
-import { makeOutputPath, mkdirPath, setWhiteBalance } from "$lib/server/jobs/executor";
+import { mkdirPath } from "$lib/server/jobs/executor";
 import { assert } from "$lib";
 import { env } from "$env/dynamic/private";
-import { editImage } from "$lib/server/image-editor";
+import { editImage, setWhiteBalance } from "$lib/server/image-editor";
 import { join } from "path";
 import { respondWithFile } from "$lib/server/utils";
 

@@ -111,3 +111,23 @@ export async function generateImportTif(imagePath: string, options: { signal?: A
 
     return { pp3: parsePP3(pp3Text), tif: join(outDir, outputName) };
 }
+
+
+export function setWhiteBalance(pp3: PP3, temperature: number | null, green: number | null): PP3 {
+	if (temperature === null || green === null) {
+		return pp3;
+	}
+
+	if (pp3.White_Balance.Setting !== 'Custom') {
+		return pp3;
+	}
+
+	const whiteBalanceMatches = pp3.White_Balance?.Temperature === temperature && pp3.White_Balance?.Green === green;
+	const tintMatches = pp3.White_Balance?.Green === green;
+
+	if (whiteBalanceMatches && tintMatches) {
+		pp3.White_Balance.Setting = 'Camera';
+	}
+
+	return pp3;
+}

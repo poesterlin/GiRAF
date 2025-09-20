@@ -4,10 +4,6 @@ import { runImport, runExport } from './executor';
 class JobManager {
 	private activeJobs = new Map<JobId, AbortController>();
 
-	constructor() {
-		console.log('[JobManager] Initialized.');
-	}
-
 	public submit<T extends { sessionId: JobId }>(type: JobType, payload: T): { job: Job<T> } | null {
 		const id = payload.sessionId;
 
