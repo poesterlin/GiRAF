@@ -7,20 +7,20 @@ import { importTable } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { ExifDate, ExifDateTime, exiftool } from 'exiftool-vendored';
 import { env } from '$env/dynamic/private';
+import { Glob } from 'bun';
+import pLimit from 'p-limit';
+import { cpus } from 'os';
 
+const limit = pLimit(cpus().length);
 const IMPORT_DIR = env.IMPORT_DIR;
 
 if (!IMPORT_DIR) {
 	console.error('IMPORT_DIR environment variable is not set. Please create a .env file and set it.');
-	// In a server route, we should throw an error or return an appropriate response
-	// rather than exiting the process.
 }
-
-const absoluteImportDir = IMPORT_DIR ? path.resolve(IMPORT_DIR) : '';
 
 const supportedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.tif', '.tiff', '.arw', '.nef', '.cr2', '.raf'];
 
-function toDate(value: string | number | ExifDateTime | ExifDate){
+function toDate(value: string | number | ExifDateTime | ExifDate) {
 	if (typeof value === 'string' || typeof value === 'number') {
 		return new Date(value);
 	}
@@ -51,10 +51,10 @@ async function importFile(filePath: string) {
 			console.log(`[SKIP] "${fileName}" is already in the import queue.`);
 			return;
 		}
-		
+
 		const tags = await exiftool.read(filePath);
 		const recordingDate = tags?.CreateDate || tags?.DateTimeOriginal;
-		
+
 		if (!recordingDate) {
 			console.log(`[IGNORE] "${fileName}" is missing a recording date.`);
 			return;
@@ -72,12 +72,15 @@ async function importFile(filePath: string) {
 }
 
 export async function POST() {
-	if (!absoluteImportDir || !fs.existsSync(absoluteImportDir)) {
+	if (!IMPORT_DIR || !fs.existsSync(IMPORT_DIR)) {
 		return json({ message: 'Import directory not found or not configured.', success: false }, { status: 400 });
 	}
 
-	const files = fs.readdirSync(absoluteImportDir);
-	const importPromises = files.map(file => importFile(path.join(absoluteImportDir, file)));
+	const glob = new Glob('**/*');
+	const matches = glob.scan({ cwd: IMPORT_DIR });
+
+	const files = await Array.fromAsync(matches);
+	const importPromises = files.map(file => limit(() => importFile(path.join(IMPORT_DIR, file))));
 
 	const existingImports = await db.query.importTable.findMany();
 	for (const imp of existingImports) {
@@ -87,7 +90,6 @@ export async function POST() {
 			await db.delete(importTable).where(eq(importTable.id, imp.id));
 		}
 	}
-
 
 	await Promise.all(importPromises);
 
