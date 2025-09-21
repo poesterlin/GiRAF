@@ -65,7 +65,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
             .webp({ quality: 80 })
             .toFile(compressedFile);
 
-        Bun.file(tempFile).delete();
+        Bun.file(tempFile).delete().catch(() => { /* ignore */ });
 
         await db.update(imageTable).set({ previewPath: compressedFile }).where(eq(imageTable.id, image.id));
 
