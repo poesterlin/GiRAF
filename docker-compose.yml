@@ -53,7 +53,6 @@ services:
       - ${SD_CARD_IMPORT_PATH}:/app/sd-card-import
     environment:
       - IMPORT_DIR=/app/import
-      - SD_CARD_IMPORT_PATH=/app/sd-card-import
       - EDITOR_API_URL=http://editor:3000/api/imports/run-import
 
 networks:

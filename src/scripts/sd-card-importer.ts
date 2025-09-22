@@ -6,7 +6,7 @@ const supportedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.tif', '.tiff', '
 
 const env = process.env as Record<string, string>;
 const IMPORT_DIR = env.IMPORT_DIR;
-const SD_CARD_IMPORT_PATH = env.SD_CARD_IMPORT_PATH;
+const SD_CARD_IMPORT_PATH = '/app/sd-card-import';
 const EDITOR_API_URL = env.EDITOR_API_URL || 'http://localhost:3000/api/imports/run-import';
 const POLLING_INTERVAL_MS = 5000;
 
