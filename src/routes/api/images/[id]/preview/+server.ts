@@ -57,10 +57,10 @@ export const GET: RequestHandler = async ({ params, url }) => {
         const rotation = tags.Orientation ?? 1;
 
         const startTime = performance.now();
-        await exiftool.extractThumbnail(image.filepath, tempFile, { ignoreMinorErrors: true, forceWrite: true });
+        await exiftool.extractPreview(image.filepath, tempFile, { ignoreMinorErrors: true, forceWrite: true });
 
         await sharp(tempFile)
-            .resize({ width: 3500, height: 3500, fit: 'contain' })
+            .resize({ width: 2000, height: 2000, fit: 'contain', withoutEnlargement: true })
             .rotate(rotations[rotation])
             .webp({ quality: 80 })
             .toFile(compressedFile);

@@ -55,13 +55,10 @@ async function processSdCard() {
     isProcessingSdCard = true;
     console.log(`[SD_CARD_IMPORTER] Checking SD card at ${SD_CARD_IMPORT_PATH}...`);
 
-    let filesCopied = 0;
-
     try {
         const sdCardStat = await fs.stat(SD_CARD_IMPORT_PATH);
         if (!sdCardStat.isDirectory()) {
             console.log(`[SD_CARD_IMPORTER] SD_CARD_IMPORT_PATH is not a directory.`);
-            isProcessingSdCard = false;
             return;
         }
 
@@ -70,7 +67,6 @@ async function processSdCard() {
             const dcimStat = await fs.stat(dcimPath);
             if (!dcimStat.isDirectory()) {
                 console.log(`[SD_CARD_IMPORTER] DCIM folder not found in ${SD_CARD_IMPORT_PATH}.`);
-                isProcessingSdCard = false;
                 return;
             }
         } catch (e: any) {
@@ -79,7 +75,6 @@ async function processSdCard() {
             } else {
                 console.error(`[SD_CARD_IMPORTER ERROR] Error accessing DCIM folder:`, e);
             }
-            isProcessingSdCard = false;
             return;
         }
 
@@ -104,43 +99,45 @@ async function processSdCard() {
             }
         }
 
-        console.log(`[SD_CARD_IMPORTER] Found ${filesToProcess.length} potential image files.`);
-
-        for (const { sdFilePath, size } of filesToProcess) {
+        const newFilesToCopy = filesToProcess.filter(({ sdFilePath, size }) => {
             const relativePathFromDcim = path.relative(dcimPath, sdFilePath);
-            const uniqueFileId = `${relativePathFromDcim}_${size}bytes`; // Unique ID for persistent tracking
+            const uniqueFileId = `${relativePathFromDcim}_${size}bytes`;
+            return !processedSdCardFiles.has(uniqueFileId);
+        });
 
-            if (processedSdCardFiles.has(uniqueFileId)) {
-                continue;
-            }
+        if (newFilesToCopy.length > 0) {
+            console.log(`[SD_CARD_IMPORTER] Found ${newFilesToCopy.length} new files to copy.`);
 
-            const originalFileName = path.basename(sdFilePath);
-            const originalExtension = path.extname(originalFileName);
-            const originalBaseName = path.basename(originalFileName, originalExtension);
-            const relativeDirPathFromDcim = path.dirname(relativePathFromDcim);
+            const copyPromises = newFilesToCopy.map(async ({ sdFilePath, size }) => {
+                const relativePathFromDcim = path.relative(dcimPath, sdFilePath);
+                const uniqueFileId = `${relativePathFromDcim}_${size}bytes`;
 
-            // Create a unique suffix from the directory path, replacing slashes with underscores
-            const uniqueSuffix = relativeDirPathFromDcim === '.' ? '' : `_${relativeDirPathFromDcim.replace(/\//g, '_')}`;
+                const originalFileName = path.basename(sdFilePath);
+                const originalExtension = path.extname(originalFileName);
+                const originalBaseName = path.basename(originalFileName, originalExtension);
+                const relativeDirPathFromDcim = path.dirname(relativePathFromDcim);
 
-            const uniqueFileNameInImportDir = `${originalBaseName}${uniqueSuffix}${originalExtension}`;
-            const destinationPath = path.join(IMPORT_DIR, uniqueFileNameInImportDir);
+                const uniqueSuffix = relativeDirPathFromDcim === '.' ? '' : `_${relativeDirPathFromDcim.replace(/\//g, '_')}`;
+                const uniqueFileNameInImportDir = `${originalBaseName}${uniqueSuffix}${originalExtension}`;
+                const destinationPath = path.join(IMPORT_DIR, uniqueFileNameInImportDir);
 
-            try {
-                console.log(`[SD_CARD_IMPORTER] Copying ${sdFilePath} to ${destinationPath}...`);
-                await fs.copyFile(sdFilePath, destinationPath);
-                console.log(`[SD_CARD_IMPORTER] Successfully copied ${uniqueFileNameInImportDir}.`);
-                processedSdCardFiles.add(uniqueFileId);
-                filesCopied++;
-            } catch (copyError) {
-                console.error(`[SD_CARD_IMPORTER ERROR] Failed to copy ${sdFilePath}:`, copyError);
-            }
-        }
+                try {
+                    console.log(`[SD_CARD_IMPORTER] Copying ${sdFilePath} to ${destinationPath}...`);
+                    await fs.copyFile(sdFilePath, destinationPath);
+                    console.log(`[SD_CARD_IMPORTER] Successfully copied ${uniqueFileNameInImportDir}.`);
+                    processedSdCardFiles.add(uniqueFileId);
+                } catch (copyError) {
+                    console.error(`[SD_CARD_IMPORTER ERROR] Failed to copy ${sdFilePath}:`, copyError);
+                }
+            });
 
-        console.log(`[SD_CARD_IMPORTER] SD card processing complete.`);
-
-        if (filesCopied > 0) {
+            await Promise.all(copyPromises);
+            console.log(`[SD_CARD_IMPORTER] All new files copied.`);
             await triggerMainServiceImport();
+        } else {
+            console.log(`[SD_CARD_IMPORTER] No new files to copy.`);
         }
+        console.log(`[SD_CARD_IMPORTER] SD card processing complete.`);
 
     } catch (error: any) {
         if (error.code === 'ENOENT') {
