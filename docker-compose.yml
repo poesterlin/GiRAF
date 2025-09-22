@@ -33,6 +33,8 @@ services:
       - traefik_web
       - editor
     labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.editor.rule=Host(`${HOST_DOMAIN}`)"
       - "traefik.http.services.editor.loadbalancer.server.port=3000"
 
   watchers:
