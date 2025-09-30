@@ -9,7 +9,10 @@ export interface Job<T> {
 	id: JobId;
 	type: JobType;
 	payload: T;
+	progress: number;
 }
+
+export type ProgressCallback = (progress: number) => void;
 
 export interface ImportPayload {
 	sessionId: JobId;

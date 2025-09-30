@@ -48,6 +48,7 @@
 
 	async function exportSession(sessionId: number) {
 		jobStates[sessionId] = 'exporting';
+		jobProgress[sessionId] = 0;
 		await fetch(`/api/sessions/${sessionId}/export`, { method: 'POST' });
 		pollJobStatus(sessionId);
 	}
@@ -97,12 +98,23 @@
 						<h2 class="text-lg font-semibold text-neutral-200">{item.name}</h2>
 
 						{#if jobStates[item.id] === 'exporting'}
-							<span
-								class="inline-flex items-center rounded-full bg-blue-900/50 px-2.5 py-1 text-xs font-medium text-blue-300"
-							>
-								<span class="me-2 h-2 w-2 animate-pulse rounded-full bg-blue-300"></span>
-								Exporting...
-							</span>
+							<div class="flex items-center gap-2">
+								<span
+									class="inline-flex items-center rounded-full bg-blue-900/50 px-2.5 py-1 text-xs font-medium text-blue-300"
+								>
+									<span class="me-2 h-2 w-2 animate-pulse rounded-full bg-blue-300"></span>
+									Exporting
+								</span>
+								<div class="relative h-2 w-20 rounded-full bg-neutral-700">
+									<div
+										class="absolute left-0 top-0 h-2 rounded-full bg-blue-500"
+										style="width: {jobProgress[item.id] || 0}%"
+									></div>
+								</div>
+								<span class="text-xs font-medium text-neutral-400"
+									>{jobProgress[item.id] || 0}%</span
+								>
+							</div>
 						{:else if item.status === 'Updated'}
 							<span
 								class="inline-flex items-center rounded-full bg-yellow-900/50 px-2.5 py-1 text-xs font-medium text-yellow-300"

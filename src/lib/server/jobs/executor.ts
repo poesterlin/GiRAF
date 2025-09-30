@@ -33,7 +33,10 @@ function hammingDistance(hex1: string, hex2: string): number {
 	return distance;
 }
 
-export async function runImport(payload: ImportPayload, signal?: AbortSignal): Promise<JobResult> {
+export async function runImport(
+	payload: ImportPayload,
+	{ signal, onProgress }: { signal?: AbortSignal; onProgress: ProgressCallback }
+): Promise<JobResult> {
 	const { sessionId } = payload;
 
 	const images = await db.query.imageTable.findMany({
@@ -43,7 +46,8 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 
 	console.log(`[Executor] Starting import for session: ${sessionId}`);
 	try {
-		for (const image of images) {
+		for (let i = 0; i < images.length; i++) {
+			const image = images[i];
 			if (signal?.aborted) {
 				throw new Error('Aborted');
 			}
@@ -80,6 +84,7 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 
 			// Find similar images and stack them
 			await stackSimilarImages(image, hash, sessionId);
+			onProgress((i / images.length) * 100);
 		}
 		console.log(`[Executor] Finished import for session: ${sessionId}.`);
 		return { status: 'success' };
@@ -121,7 +126,10 @@ async function stackSimilarImages(currentImage: Image, currentHash: string, sess
 	}
 }
 
-export async function runExport(payload: ExportPayload, signal?: AbortSignal): Promise<JobResult> {
+export async function runExport(
+	payload: ExportPayload,
+	{ signal, onProgress }: { signal?: AbortSignal; onProgress: ProgressCallback }
+): Promise<JobResult> {
 	const { sessionId } = payload;
 
 	const session = await db.query.sessionTable.findFirst({ where: eq(sessionTable.id, sessionId) });
@@ -171,6 +179,7 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 			for (const album of albums) {
 				await upsertAlbumImage(album, image, outputPath);
 			}
+			onProgress((i / images.length) * 100);
 		}
 		console.log(`[Executor] Finished export for session: ${sessionId}`);
 		return { status: 'success' };

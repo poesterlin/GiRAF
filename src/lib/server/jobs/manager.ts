@@ -2,7 +2,7 @@ import { type Job, type JobId, type JobResult, JobType } from './types';
 import { runImport, runExport } from './executor';
 
 class JobManager {
-	private activeJobs = new Map<JobId, AbortController>();
+	private activeJobs = new Map<JobId, { job: Job<any>; controller: AbortController }>();
 
 	public submit<T extends { sessionId: JobId }>(type: JobType, payload: T): { job: Job<T> } | null {
 		const id = payload.sessionId;
@@ -12,9 +12,13 @@ class JobManager {
 			return null;
 		}
 
-		const job: Job<T> = { id, type, payload };
+		const job: Job<T> = { id, type, payload, progress: 0 };
 		const controller = new AbortController();
-		this.activeJobs.set(id, controller);
+		this.activeJobs.set(id, { job, controller });
+
+		const onProgress = (progress: number) => {
+			job.progress = progress;
+		};
 
 		console.log(`[JobManager] Submitting job ${id} of type ${type}`);
 
@@ -23,10 +27,10 @@ class JobManager {
 			try {
 				switch (type) {
 					case JobType.IMPORT:
-						res = await runImport(payload as any, controller.signal);
+						res = await runImport(payload as any, { signal: controller.signal, onProgress });
 						break;
 					case JobType.EXPORT:
-						res = await runExport(payload as any, controller.signal);
+						res = await runExport(payload as any, { signal: controller.signal, onProgress });
 						break;
 					default:
 						throw new Error(`Unknown job type: ${type}`);
@@ -43,22 +47,26 @@ class JobManager {
 	}
 
 	public cancel(id: JobId): void {
-		const controller = this.activeJobs.get(id);
-		if (controller) {
+		const activeJob = this.activeJobs.get(id);
+		if (activeJob) {
 			console.log(`[JobManager] Requesting cancellation for job ${id}`);
-			controller.abort();
+			activeJob.controller.abort();
 			this.activeJobs.delete(id);
 		}
 	}
 
+	public getJob(id: JobId) {
+		return this.activeJobs.get(id)?.job;
+	}
+
 	public getActiveJobs() {
-		return Array.from(this.activeJobs.keys());
+		return Array.from(this.activeJobs.values()).map((j) => j.job);
 	}
 
 	public terminate() {
 		console.log('[JobManager] Terminating all active jobs.');
-		for (const controller of this.activeJobs.values()) {
-			controller.abort();
+		for (const activeJob of this.activeJobs.values()) {
+			activeJob.controller.abort();
 		}
 		this.activeJobs.clear();
 	}
