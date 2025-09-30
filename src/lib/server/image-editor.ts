@@ -56,15 +56,20 @@ export async function editImage(imagePath: string, pp3: string, options: { allow
 
 
     if (options.recordedAt) {
-        const recordedAt = options.recordedAt.toISOString().slice(0, 19).replace('T', ' ');
-        const exifCommand = [
-            'exiftool',
-            `-DateTimeOriginal=${recordedAt}`,
-            '-overwrite_original',
-            imagePath
-        ];
-        console.log(`Running command: ${exifCommand.join(" ")}`);
-        await runCommand(exifCommand, { signal: options.signal });
+        try {
+
+            const recordedAt = options.recordedAt.toISOString().slice(0, 19).replace('T', ' ');
+            const exifCommand = [
+                'exiftool',
+                `-DateTimeOriginal=${recordedAt}`,
+                '-overwrite_original',
+                imagePath
+            ];
+            console.log(`Running command: ${exifCommand.join(" ")}`);
+            await runCommand(exifCommand, { signal: options.signal });
+        } catch (error) {
+            console.error('Failed to set DateTimeOriginal EXIF tag:', error);
+        }
     }
 
     const end = performance.now();
@@ -114,20 +119,20 @@ export async function generateImportTif(imagePath: string, options: { signal?: A
 
 
 export function setWhiteBalance(pp3: PP3, temperature: number | null, green: number | null): PP3 {
-	if (temperature === null || green === null) {
-		return pp3;
-	}
+    if (temperature === null || green === null) {
+        return pp3;
+    }
 
-	if (pp3.White_Balance?.Setting !== 'Custom') {
-		return pp3;
-	}
+    if (pp3.White_Balance?.Setting !== 'Custom') {
+        return pp3;
+    }
 
-	const whiteBalanceMatches = pp3.White_Balance?.Temperature === temperature && pp3.White_Balance?.Green === green;
-	const tintMatches = pp3.White_Balance?.Green === green;
+    const whiteBalanceMatches = pp3.White_Balance?.Temperature === temperature && pp3.White_Balance?.Green === green;
+    const tintMatches = pp3.White_Balance?.Green === green;
 
-	if (whiteBalanceMatches && tintMatches) {
-		pp3.White_Balance.Setting = 'Camera';
-	}
+    if (whiteBalanceMatches && tintMatches) {
+        pp3.White_Balance.Setting = 'Camera';
+    }
 
-	return pp3;
+    return pp3;
 }
