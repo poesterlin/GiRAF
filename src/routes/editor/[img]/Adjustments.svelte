@@ -71,16 +71,14 @@
 			<Slider
 				label="Temperature"
 				bind:value={edits.pp3.White_Balance.Temperature as number}
-				min={-3000}
-				max={3000}
+				min={data.image.whiteBalance! - 3000}
+				max={data.image.whiteBalance! + 3000}
 				step={1}
 				centered
 				resetValue={data.image.whiteBalance!}
 				ignored={edits.pp3.White_Balance.Setting !== 'Custom'}
 				onchange={() => (edits.pp3.White_Balance.Setting = 'Custom')}
 				overlay="bg-gradient-to-r from-[#0000FF] to-[#FFFF00]"
-				map={(x) => map(x, -3000, 3000, data.image.whiteBalance! - 3000, data.image.whiteBalance! + 3000)}
-				inverseMap={(y) => map(y, data.image.whiteBalance! - 3000, data.image.whiteBalance! + 3000, -3000, 3000)}
 			/>
 			<Slider
 				label="Tint"
