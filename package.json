@@ -49,7 +49,9 @@
   "dependencies": {
     "@sveltejs/adapter-node": "^5.2.14",
     "@tabler/icons-svelte": "^3.34.1",
+    "@types/archiver": "^6.0.3",
     "@types/sharp": "^0.32.0",
+    "archiver": "^7.0.1",
     "blockhash-core": "^0.1.0",
     "comlink": "^4.4.2",
     "drizzle-orm": "^0.40.0",

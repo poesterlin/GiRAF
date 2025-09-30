@@ -90,3 +90,9 @@ The application is designed to run in a containerized environment using Docker C
 -   **Concurrent Processes**: The main service runs both the SvelteKit server and any background scripts (like the file watcher) using `concurrently`. This is triggered by the `dev` script in `package.json`.
 
 By following these guidelines, you can effectively contribute to the project in a way that aligns with the developer's established patterns and expectations.
+
+## Recent Changes
+
+### SD Card Importer Service
+
+A new standalone service has been introduced to automatically import photos from an SD card. This service is defined in `src/scripts/sd-card-importer.ts` and runs in its own Docker container, configured by `Dockerfile.watchers`. The main `docker-compose.yml` file has been updated to include this new `watchers` service, which polls a specified `SD_CARD_IMPORT_PATH`. When new images are found, it copies them to a shared `import` volume and triggers the main application's import process via an API call.

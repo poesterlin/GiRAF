@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import Scroller from '$lib/ui/Scroller.svelte';
-	import { IconAdjustmentsFilled, IconArchive, IconLayoutGrid, IconTransferIn } from '$lib/ui/icons';
+	import { IconAdjustmentsFilled, IconArchive, IconLayoutGrid, IconTransferIn, IconDeviceFloppy } from '$lib/ui/icons';
 	import { app } from '$lib/state/app.svelte';
 	import type { SessionsResponse } from '../../routes/api/sessions/+server';
 
@@ -10,7 +10,7 @@
 		sessions: SessionsResponse['sessions'];
 		next: number | null;
 		onLoaded: (data: SessionsResponse) => void;
-        basePath?: 'editor' | 'triage';
+		basePath?: 'editor' | 'triage';
 	}
 
 	let { sessions, next, onLoaded, basePath = 'editor' }: Props = $props();
@@ -112,11 +112,35 @@
 				<button onclick={() => archiveSession(item.id)} aria-label="Archive Session" title="Archive Session" class="text-neutral-400 transition-colors hover:text-neutral-100">
 					<IconArchive></IconArchive>
 				</button>
-                {#if basePath !== 'triage' && item.images.length > 0}
-                    <a href={`/triage/${item.images[0].id}`} aria-label="Triage Session" title="Triage Session" class="text-neutral-400 transition-colors hover:text-neutral-100">
-                        <IconLayoutGrid />
-                    </a>
-                {/if}
+				{#if basePath !== 'triage' && item.images.length > 0}
+					<a href={`/triage/${item.images[0].id}`} aria-label="Triage Session" title="Triage Session" class="text-neutral-400 transition-colors hover:text-neutral-100">
+						<IconLayoutGrid />
+					</a>
+				{/if}
+				<button
+					aria-label="Download Raw Files"
+					title="Download Raw Files"
+					class="text-neutral-400 transition-colors hover:text-neutral-100"
+					onclick={async () => {
+						const res = await fetch(`/api/sessions/${item.id}/download-raw`);
+						if (!res.ok) {
+							app.addToast('Failed to download raw files', 'error');
+							return;
+						}
+
+						const blob = await res.blob();
+						const url = URL.createObjectURL(blob);
+						const a = document.createElement('a');
+						a.href = url;
+						a.download = `${item.name}-raw.zip`;
+						document.body.appendChild(a);
+						a.click();
+						a.remove();
+						URL.revokeObjectURL(url);
+					}}
+				>
+					<IconDeviceFloppy />
+				</button>
 			</div>
 			<p class="ml-4 flex-shrink-0 text-neutral-400">{formatDate(item.startedAt)}</p>
 		</div>
