@@ -8,7 +8,7 @@ import { readFile } from 'fs/promises';
 import { decode } from 'jpeg-js';
 import { join } from 'path';
 import { imageTable, mediaTable, sessionTable, snapshotTable, type Album, type Image, type Session } from '../db/schema';
-import type { ExportPayload, ImportPayload, JobResult, ProgressCallback } from './types';
+import type { ExportPayload, ImportPayload, JobResult } from './types';
 import { integrations } from '../integrations';
 import { exiftool } from 'exiftool-vendored';
 import { assert } from '$lib';

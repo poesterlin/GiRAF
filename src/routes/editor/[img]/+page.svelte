@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, invalidate, invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getWorkerInstance } from '$lib';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
@@ -18,7 +18,7 @@
 	let { data } = $props();
 	let showLutPicker = $state(false);
 
-	let cacheBuster = $state(0);
+	let cacheBuster = $state(0); 
 	let sampleImage = $state('');
 	let apiPath = $derived(`/api/images/${data.image.id}`);
 	let snapshotSaved = $state(false);
@@ -59,10 +59,7 @@
 
 		if (res.ok) {
 			snapshotSaved = true;
-			await invalidate((url) => {
-				console.log('Invalidating', url);
-				return true;
-			});
+			await invalidateAll();
 		} else {
 			// Handle error (optional)
 			alert('Failed to save snapshot.');
@@ -106,16 +103,14 @@
 		tagStore.selected = data.imageTags.map((it) => it.name);
 	});
 
-	const keyMap = $derived(
-		new Map<string, () => void>([
-			['s', snapshot],
-			['ArrowRight', () => (data.nextImage ? goto(`/editor/${data.nextImage}`) : undefined)],
-			['ArrowLeft', () => (data.previousImage ? goto(`/editor/${data.previousImage}`) : undefined)],
-			['a', () => (data.image.isArchived ? restoreImage() : archiveImage())],
-			['r', () => fixImageRendering()],
-			['p', () => showPreview()]
-		])
-	);
+	const keyMap = $derived(new Map<string, () => void>([
+		['s', snapshot],
+		['ArrowRight', () => (data.nextImage ? (goto(`/editor/${data.nextImage}`)) : undefined)],
+		['ArrowLeft', () => (data.previousImage ? (goto(`/editor/${data.previousImage}`)) : undefined)],
+		['a', () => (data.image.isArchived ? restoreImage() : archiveImage())],
+		['r', () => fixImageRendering()],
+		['p', () => showPreview()]
+	]));
 
 	function handleKeyUp(event: KeyboardEvent) {
 		if (event.target && (event.target as HTMLElement).tagName === 'INPUT') {
@@ -134,7 +129,7 @@
 		console.log('Cache buster incremented to', cacheBuster);
 	}
 
-	function showPreview() {
+	function showPreview(){
 		const url = new URL(apiPath + `/render`, location.origin);
 		window.open(url, '_blank');
 	}
@@ -146,7 +141,7 @@
 	<div class="editor-layout">
 		<!-- Image Preview -->
 		<div class="image-preview">
-			<BeforeAfter {beforeImage} afterImage={sampleImage} />
+			<BeforeAfter {beforeImage} afterImage={sampleImage}  />
 			<EditModeNav img={page.params.img!} showCrop showSnapshots showReset showClipboard showFlag showLast showFilter />
 		</div>
 
