@@ -105,8 +105,8 @@
 
 	const keyMap = $derived(new Map<string, () => void>([
 		['s', snapshot],
-		['ArrowRight', () => (data.nextImage ? (goto(`/editor/${data.nextImage}`)) : undefined)],
-		['ArrowLeft', () => (data.previousImage ? (goto(`/editor/${data.previousImage}`)) : undefined)],
+		['ArrowRight', () => (data.nextImage ? (goto(`/editor/${data.nextImage}?filter=${page.url.searchParams.get('filter')}`)) : undefined)],
+		['ArrowLeft', () => (data.previousImage ? (goto(`/editor/${data.previousImage}?filter=${page.url.searchParams.get('filter')}`)) : undefined)],
 		['a', () => (data.image.isArchived ? restoreImage() : archiveImage())],
 		['r', () => fixImageRendering()],
 		['p', () => showPreview()]
