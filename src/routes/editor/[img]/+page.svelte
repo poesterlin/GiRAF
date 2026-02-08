@@ -23,6 +23,8 @@
 	let apiPath = $derived(`/api/images/${data.image.id}`);
 	let snapshotSaved = $state(false);
 	let beforeImage = $derived(apiPath + `/edit?preview&v=${cacheBuster}&config=${toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
+	let flashKey = $state<string | null>(null);
+	let flashTimer: number | null = null;
 
 	async function archiveImage() {
 		const res = await fetch(`/api/images/${page.params.img}/archive`, {
@@ -112,13 +114,29 @@
 		['p', () => showPreview()]
 	]));
 
-	function handleKeyUp(event: KeyboardEvent) {
-		if (event.target && (event.target as HTMLElement).tagName === 'INPUT') {
+	function handleKeyDown(event: KeyboardEvent) {
+		const target = event.target as HTMLElement | null;
+		if (event.repeat) {
+			return;
+		}
+		if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) {
 			return; // Ignore key events when focused on input fields
 		}
-		const action = keyMap.get(event.key);
+		const normalizedKey = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+		const action = keyMap.get(normalizedKey);
 		if (action) {
 			event.preventDefault();
+			if (normalizedKey === 'a' || normalizedKey === 's' || normalizedKey === 'ArrowLeft' || normalizedKey === 'ArrowRight') {
+				flashKey = normalizedKey;
+				if (flashTimer) {
+					clearTimeout(flashTimer);
+				}
+				flashTimer = window.setTimeout(() => {
+					if (flashKey === normalizedKey) {
+						flashKey = null;
+					}
+				}, 220);
+			}
 			action();
 		}
 	}
@@ -135,7 +153,7 @@
 	}
 </script>
 
-<svelte:window onkeyup={handleKeyUp} />
+<svelte:window onkeydown={handleKeyDown} />
 
 <div class="image-editor">
 	<div class="editor-layout">
@@ -164,17 +182,17 @@
 
 			<div class="flex flex-col justify-between gap-2 border-t border-neutral-800 p-4">
 				{#if data.image.isArchived}
-					<Button aria-label="Restore Image" onclick={restoreImage}>
+					<Button aria-label="Restore Image" onclick={restoreImage} flash={flashKey === 'a'}>
 						<span>Restore Image</span>
 						<IconRestore />
 					</Button>
 				{:else}
-					<Button onclick={archiveImage} aria-label="Archive Image">
+					<Button onclick={archiveImage} aria-label="Archive Image" flash={flashKey === 'a'}>
 						<span>Archive Image</span>
 						<IconArchive />
 					</Button>
 				{/if}
-				<Button onclick={snapshot}>
+				<Button onclick={snapshot} flash={flashKey === 's'}>
 					<span>Save Edits</span>
 					{#if snapshotSaved}
 						<IconCheck />
@@ -184,20 +202,30 @@
 				</Button>
 				<div class="mt-2 flex flex-row justify-between gap-2">
 					{#if data.previousImage}
-						<a href={`/editor/${data.previousImage}?filter=${page.url.searchParams.get('filter')}`} class="p-4" title="Previous Image">
+						<a
+							href={`/editor/${data.previousImage}?filter=${page.url.searchParams.get('filter')}`}
+							class="p-4"
+							class:nav-flash={flashKey === 'ArrowLeft'}
+							title="Previous Image"
+						>
 							<IconChevronLeft />
 						</a>
 					{:else}
-						<span class="cursor-not-allowed p-4 opacity-50">
+						<span class="cursor-not-allowed p-4 opacity-50" class:nav-flash={flashKey === 'ArrowLeft'}>
 							<IconChevronLeft />
 						</span>
 					{/if}
 					{#if data.nextImage}
-						<a href={`/editor/${data.nextImage}?filter=${page.url.searchParams.get('filter')}`} class="p-4" title="Next Image">
+						<a
+							href={`/editor/${data.nextImage}?filter=${page.url.searchParams.get('filter')}`}
+							class="p-4"
+							class:nav-flash={flashKey === 'ArrowRight'}
+							title="Next Image"
+						>
 							<IconChevronRight />
 						</a>
 					{:else}
-						<span class="cursor-not-allowed p-4 opacity-50">
+						<span class="cursor-not-allowed p-4 opacity-50" class:nav-flash={flashKey === 'ArrowRight'}>
 							<IconChevronRight />
 						</span>
 					{/if}
@@ -288,6 +316,27 @@
 		flex: 1;
 		overflow-y: auto;
 		padding: 1rem 1.25rem 1.25rem;
+	}
+
+	.nav-flash {
+		animation: navFlash 180ms ease-out;
+		border-radius: 999px;
+		box-shadow:
+			0 0 0 2px rgba(229, 229, 229, 0.35),
+			0 10px 24px rgba(10, 10, 10, 0.35);
+		filter: brightness(1.15);
+	}
+
+	@keyframes navFlash {
+		0% {
+			filter: brightness(1.05);
+		}
+		45% {
+			filter: brightness(1.2);
+		}
+		100% {
+			filter: brightness(1);
+		}
 	}
 
 	/* Responsive */
