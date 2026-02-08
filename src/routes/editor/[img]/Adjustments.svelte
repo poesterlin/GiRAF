@@ -116,15 +116,27 @@
 			ignored={edits.pp3.Exposure.Auto as boolean}
 			onchange={() => (edits.pp3.Exposure.Auto = false)}
 		/>
-		<Slider label="Contrast" bind:value={edits.pp3.Exposure.Contrast as number} centered />
-		<Slider label="Saturation" bind:value={edits.pp3.Exposure.Saturation as number} centered />
 		<Slider
+			label="Contrast"
+			bind:value={edits.pp3.Exposure.Contrast as number}
+			centered
+			ignored={edits.pp3.Exposure.Auto as boolean}
+			onchange={() => (edits.pp3.Exposure.Auto = false)}
+		/>
+		<Slider
+			label="Saturation"
+			bind:value={edits.pp3.Exposure.Saturation as number}
+			centered
+			ignored={edits.pp3.Exposure.Auto as boolean}
+			onchange={() => (edits.pp3.Exposure.Auto = false)}
+		/>
+		<!-- <Slider
 			label="Black"
 			bind:value={edits.pp3.Exposure.Black as number}
 			centered
 			ignored={edits.pp3.Exposure.Auto as boolean}
 			onchange={() => (edits.pp3.Exposure.Auto = false)}
-		/>
+		/> -->
 	</Section>
 	<Section title="Shadows & Highlights" section="Shadows_&_Highlights">
 		{@const shadowsHighlights = edits.pp3['Shadows_&_Highlights']}

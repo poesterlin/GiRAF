@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { clamp } from '$lib';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		label: string;
@@ -222,6 +223,17 @@
 		let logPrecision = Math.max(0, Math.min(5, 2 - Math.floor(Math.log10(abs))));
 		return n.toFixed(logPrecision).replace(/\.0+$/, '');
 	}
+
+	onMount(() => {
+		const handleContextMenu = (event: MouseEvent) => {
+			if (wrapperRef && event.target instanceof Node && wrapperRef.contains(event.target)) {
+				event.preventDefault();
+			}
+		};
+
+		document.addEventListener('contextmenu', handleContextMenu, true);
+		return () => document.removeEventListener('contextmenu', handleContextMenu, true);
+	});
 </script>
 
 <!-- Container -->
@@ -232,8 +244,9 @@
 		bind:this={wrapperRef}
 		class="
       relative h-14 w-full cursor-grab touch-pan-y rounded-md
-      select-none active:cursor-grabbing
+      select-none active:cursor-grabbing no-touch-callout
     "
+		oncontextmenu={(e) => e.preventDefault()}
 		onpointerdown={handlePointerDown}
 		onpointermove={handlePointerMove}
 		onpointerup={handlePointerUp}
@@ -315,7 +328,8 @@
 			onchange={() => onchange(value)}
 			onfocusin={handleFocusIn}
 			onfocusout={handleFocusOut}
-			class="pointer-events-none absolute inset-0 opacity-0"
+			class="pointer-events-none absolute inset-0 opacity-0 no-touch-callout"
+			oncontextmenu={(e) => e.preventDefault()}
 		/>
 	</div>
 </div>
@@ -323,5 +337,8 @@
 <style>
 	.saturate-0 {
 		filter: saturate(0);
+	}
+	.no-touch-callout {
+		-webkit-touch-callout: none;
 	}
 </style>
