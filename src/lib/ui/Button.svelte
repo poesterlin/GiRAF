@@ -9,9 +9,10 @@
 		'aria-label'?: string;
 		disabled?: boolean;
 		flash?: boolean;
+		class?: string;
 	}
 
-	const { children, onclick, title, type = 'button', disabled = false, 'aria-label': ariaLabel, flash = false }: Props = $props();
+	const { children, onclick, title, type = 'button', disabled = false, 'aria-label': ariaLabel, flash = false, class: className = '' }: Props = $props();
 </script>
 
 <button
@@ -19,7 +20,7 @@
 	{type}
 	aria-label={ariaLabel}
 	disabled={disabled}
-	class="rounded-md border-2 flex flex-row items-center justify-between border-neutral-500/30 bg-linear-to-r from-neutral-800 to-neutral-900 p-2.5 transition-colors hover:border-neutral-200 hover:from-neutral-600 hover:to-neutral-800 focus:ring-2 focus:ring-neutral-200"
+	class="rounded-md border-2 flex flex-row items-center justify-between border-neutral-500/30 bg-linear-to-r from-neutral-800 to-neutral-900 p-2.5 transition-colors hover:border-neutral-200 hover:from-neutral-600 hover:to-neutral-800 focus:ring-2 focus:ring-neutral-200 {className}"
 	class:key-flash={flash}
 	{title}
 >

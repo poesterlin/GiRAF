@@ -21,6 +21,7 @@
 	let sampleImage = $state('');
 	let apiPath = $derived(`/api/images/${data.image.id}`);
 	let snapshotSaved = $state(false);
+	let resetSaved = $state(false);
 	let beforeImage = $derived(apiPath + `/edit?preview&config=${toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
 	let flashKey = $state<string | null>(null);
 	let flashTimer: number | null = null;
@@ -105,7 +106,8 @@
 		['ArrowRight', () => (data.nextImage ? (goto(`/editor/${data.nextImage}?filter=${page.url.searchParams.get('filter')}`)) : undefined)],
 		['ArrowLeft', () => (data.previousImage ? (goto(`/editor/${data.previousImage}?filter=${page.url.searchParams.get('filter')}`)) : undefined)],
 		['a', () => (data.image.isArchived ? restoreImage() : archiveImage())],
-		['p', () => showPreview()]
+		['p', () => showPreview()],
+		['r', ()=>reset()]
 	]));
 
 	function handleKeyDown(event: KeyboardEvent) {
@@ -139,6 +141,22 @@
 		const url = new URL(apiPath + `/render`, location.origin);
 		window.open(url, '_blank');
 	}
+
+	async function reset(){
+		if (edits.hasChanges) {
+			await snapshot();
+		}
+
+		edits.pp3 = parsePP3(BasePP3);
+		await edits.snapshot();
+
+		resetSaved = true;
+		await invalidateAll();
+
+		setTimeout(() => {
+			resetSaved = false;
+		}, 2000);
+	}
 </script>
 
 <svelte:window onkeydown={handleKeyDown} />
@@ -169,6 +187,33 @@
 			</div>
 
 			<div class="flex flex-col justify-between gap-2 border-t border-neutral-800 p-4">
+				<div class="flex gap-2 w-full">
+					<Button onclick={reset} flash={flashKey === 'r'} class="flex-1">
+						<span>Reset</span>
+						{#if resetSaved}
+						<IconCheck />
+						{:else}
+						<div class="relative">
+							<IconRestore />
+						</div>
+						{/if}
+					</Button>
+
+					<Button onclick={snapshot} flash={flashKey === 's'} class="flex-1">
+						<span>Save Edits</span>
+						{#if snapshotSaved}
+						<IconCheck />
+						{:else}
+						<div class="relative">
+							<IconDeviceFloppy />
+							
+							{#if edits.hasChanges}
+							<span class="absolute -top-0.5 -right-1 block h-1.5 w-1.5 rounded-full bg-neutral-500"></span>
+							{/if}
+						</div>
+						{/if}
+					</Button>
+				</div>
 				{#if data.image.isArchived}
 					<Button aria-label="Restore Image" onclick={restoreImage} flash={flashKey === 'a'}>
 						<span>Restore Image</span>
@@ -180,14 +225,6 @@
 						<IconArchive />
 					</Button>
 				{/if}
-				<Button onclick={snapshot} flash={flashKey === 's'}>
-					<span>Save Edits</span>
-					{#if snapshotSaved}
-						<IconCheck />
-					{:else}
-						<IconDeviceFloppy />
-					{/if}
-				</Button>
 				<div class="mt-2 flex flex-row justify-between gap-2">
 					{#if data.previousImage}
 						<a
