@@ -1,98 +1,162 @@
-# Assistant Guide for the Raw Editor Project
-
-This document provides guidance for AI assistants working on this project. It outlines the project's architecture, conventions, and the developer's workflow. Adhering to these guidelines will ensure smooth and efficient collaboration.
-
-
-## Workflow
-
-unfortunately there is currenlty a bug where files are not properly refreshed so its hard to edit them. If you get this error:
-```
-    Failed to edit, 0 occurrences found for old_string. No edits made. The exact text in old_string was not found. Ensure you're not escaping content incorrectly and check whitespace, indentation, and context. Use read_file tool to verify.     
-``` 
-The solution is just to create a new file next the one your trying to edit. that way i can copy it in.
+This file provides guidance to AI Agents when working with code in this repository.
 
 ## Project Overview
 
-This project is a web-based photo editor application for processing RAW image files. It is built with SvelteKit and utilizes Svelte 5. In the production environment its going to be containerized.  
+Web-based RAW photo editor that uses RawTherapee CLI for remote-controlled RAW image editing from low-power devices. Built with SvelteKit 5, Bun runtime, PostgreSQL + Drizzle ORM, and TailwindCSS 4.
 
--   **Frontend**: Svelte 5, SvelteKit, Tailwind CSS
--   **Backend**: SvelteKit API routes, Drizzle ORM
--   **Database**: PostgreSQL
--   **Core Features**:
-    -   **Gallery**: Displays image sessions in a paginated view.
-    -   **Editor**: The core image editing interface (details are in `/[img]`).
-    -   **Exporter**: Lists sessions with changes and allows exporting them.
-    -   **Importer**: A file-watcher service automatically detects new images in a designated directory and adds them to an import queue. A dedicated page at `/importer` displays these pending imports with lazy-loaded previews.
+The application imports RAW images, generates TIFF intermediates and preview images, allows web-based editing via PP3 configuration files, and exports to external integrations (Google Photos, Immich).
 
-## Development Workflow & Conventions
+## Development Commands
 
-The developer has a specific workflow. It's crucial to understand and follow it to avoid rework.
+### Running the Application
 
-1.  **Incremental Implementation**: The developer often provides a basic structure or a starting point and expects the assistant to complete the implementation based on that.
-2.  **Rebasing on User Changes**: The developer may update files while the assistant is working. If a file modification fails, it's likely because the developer has changed the file. **Always re-read the file and adapt your changes to the new structure.** The developer prefers to revert the assistant's changes and have the assistant re-apply them to the new structure.
-3.  **Component-Driven Structure**: The developer is moving towards a structure where complex views are broken down into components. A key example is the use of a generic `Scroller.svelte` component for paginated lists.
+```bash
+# Development server (uses Bun)
+bun run dev
 
-### Package Manager
+# Build for production
+bun run build
 
-Always use **bun** for package management. Do not use npm or yarn. The developer always has a bun dev server running. Do not stop it. Do not run any other dev server. Do not try to update the database schema or run migrations. The developer will handle that.
-
-### Background Services & Scripts
-
-The project uses `concurrently` to run background services alongside the main web server during development. This is configured in `package.json`.
-
--   **File Watcher**: A script at `src/scripts/watch-and-import.ts` uses `chokidar` to monitor a directory (configured via `IMPORT_DIR` in `.env`) for new images.
-
-## Frontend Conventions
-
-### Styling
--   **Theme**: The application uses a dark, grayscale, and expressive theme optimized for touch interactions.
--   **Framework**: Styling is done exclusively with **Tailwind CSS**.
--   **Color Palette**: Use the `neutral` color palette from Tailwind CSS (e.g., `bg-neutral-900`, `text-neutral-200`). Avoid custom CSS variables or other colors unless for specific expressive elements like status indicators (e.g., yellow for "Updated").
-
-### Component Architecture
--   **Lists & Pagination**: For lists of data (like in the Gallery and Exporter), the project uses a central `Scroller.svelte` component.
--   **Snippets**: This `Scroller` component uses **Svelte 5 snippets** for rendering. When building or modifying lists, conform to this pattern by defining `#snippet` blocks for `item`, `empty`, and `footer`.
--   **Empty States**: Provide visually appealing and informative empty states for any list or data view that can be empty.
-
-## Backend & Data Conventions
-
-### Data Loading
--   **SSR First**: All data for pages is loaded on the server within `+page.server.ts` files.
--   **API Endpoints**: The `load` functions in `+page.server.ts` should not contain direct database logic. Instead, they should `fetch` from internal API routes located under `/src/routes/api/`.
-
-### API Route Design
--   **Separation**: Each data type should have its own API route (e.g., `/api/sessions`, `/api/exporter/sessions`).
--   **Pagination**: API endpoints for lists must be paginated. The current approach uses a cursor/offset system (`/api/sessions?cursor=...`). The API response for a list should include the `sessions` (or other data) array and a `next` property for the next cursor.
--   **Database Logic**: The API routes are the only place where direct database queries should be made.
-
-### Import Process
-
-The application features an automated import pipeline:
-
-1.  A file watcher (`src/scripts/watch-and-import.ts`) detects new image files in the `IMPORT_DIR`.
-2.  Instead of creating a session directly, it adds a record to the `importTable`, queuing the file for user review.
-3.  The `/importer` page fetches this queue from the `/api/importer/sessions` endpoint.
-4.  Preview images are served dynamically via the `/api/importer/image/[id]` endpoint, which reads the file path from the database and returns the image data.
+# Preview production build
+bun run preview
+```
 
 ### Database
--   **ORM**: The project uses **Drizzle ORM**.
--   **Schema**: The database schema is defined in `/src/lib/server/db/schema.ts`.
--   **Naming Conventions**:
-    -   Table variables should be camelCase and end with `Table` (e.g., `sessionTable`).
-    -   Relation variables should be camelCase and end with `Relations` (e.g., `sessionRelations`).
--   **Queries**: Use the Drizzle query API (e.g., `db.query.sessionTable.findMany(...)`) for all database access.
 
-## Docker Development Environment
+```bash
+# Start PostgreSQL via Docker Compose
+bun run db:start
 
-The application is designed to run in a containerized environment using Docker Compose.
+# Push schema changes to database (development)
+bun run db:push
 
--   **Volume Mapping**: To allow services inside the container to access files on the host machine (like the image import directory), directories are mapped as volumes in `docker-compose.yml`. For example, the `./import` directory on the host is mapped to `/app/import` inside the container.
--   **Concurrent Processes**: The main service runs both the SvelteKit server and any background scripts (like the file watcher) using `concurrently`. This is triggered by the `dev` script in `package.json`.
+# Generate migrations from schema
+bun run db:generate
 
-By following these guidelines, you can effectively contribute to the project in a way that aligns with the developer's established patterns and expectations.
+# Run migrations
+bun run db:migrate
 
-## Recent Changes
+# Open Drizzle Studio (database GUI)
+bun run db:studio
+```
 
-### SD Card Importer Service
+### Code Quality
 
-A new standalone service has been introduced to automatically import photos from an SD card. This service is defined in `src/scripts/sd-card-importer.ts` and runs in its own Docker container, configured by `Dockerfile.watchers`. The main `docker-compose.yml` file has been updated to include this new `watchers` service, which polls a specified `SD_CARD_IMPORT_PATH`. When new images are found, it copies them to a shared `import` volume and triggers the main application's import process via an API call.
+```bash
+# Type checking
+bun run check
+
+# Watch mode for type checking
+bun run check:watch
+
+# Format code
+bun run format
+
+# Lint (runs Prettier check + ESLint)
+bun run lint
+```
+
+## Architecture
+
+### PP3 File System
+
+The core editing mechanism uses RawTherapee's PP3 files (text-based configuration format):
+
+- **Base PP3**: Template file in `src/lib/assets/` (import.pp3, export.pp3, client.pp3, base.pp3)
+- **PP3 Utils** (`src/lib/pp3-utils.ts`): Parse, stringify, diff, apply, filter PP3 files
+- **Snapshots**: Each edit state is saved as a PP3 string in the database (snapshot table)
+- **Image Editor** (`src/lib/server/image-editor.ts`): Wraps `rawtherapee-cli` to apply PP3 to RAW files
+
+The PP3 format is parsed into a typed object structure `PP3 = Record<string, Record<string, string | number | boolean>>`, where top-level keys are "chapters" (sections like `White_Balance`, `Film_Simulation`) and nested keys are settings.
+
+### Data Model (Drizzle ORM)
+
+Schema in `src/lib/server/db/schema.ts`:
+
+- **Session**: Groups images from an import session (e.g., a photoshoot)
+- **Image**: RAW file metadata, preview path, TIFF path, EXIF data, rating, tags, stacking
+- **Snapshot**: Versioned PP3 edits for an image (multiple snapshots per image)
+- **Import**: Tracks files pending import
+- **Tag**: User-created tags with many-to-many relationship to images
+- **Profile**: Saved PP3 presets that can be applied to images
+- **Album**: External integration albums (Google Photos, Immich)
+- **Media**: Links images to external album items
+
+Key relationships:
+- Images belong to Sessions
+- Images have many Snapshots
+- Images can be stacked (stackId self-reference, isStackBase flag)
+- Images have perceptual hash (phash) for duplicate detection
+
+### Job System
+
+Background job processing for long-running operations (`src/lib/server/jobs/`):
+
+- **JobManager** (singleton): Manages import/export jobs, one active job per session
+- **JobType**: `IMPORT` (RAW → database), `EXPORT` (database → external integrations)
+- Jobs are keyed by sessionId, support cancellation via AbortController
+- Jobs run in-process (not a separate queue worker)
+
+### External Integrations
+
+Photo storage integrations (`src/lib/server/integrations/`):
+
+- **PhotoIntegration interface**: Common API for uploading, creating albums, managing media
+- **Google Photos**: OAuth2 flow, uses Google Photos Library API
+- **Immich**: Self-hosted photo management integration
+- Each integration implements: configure, createAlbum, uploadFile, addToAlbum, removeFromAlbum, replaceInAlbum
+
+### Image Processing Workflow
+
+1. **Import**: RAW file → generate TIFF with `generateImportTif()` → extract EXIF → create preview → save to database
+2. **Edit**: User adjusts PP3 settings in UI (Svelte reactive state) → throttled preview regeneration via worker → save snapshot
+3. **Export**: Job reads images + snapshots → renders final JPEG with PP3 → uploads to integration → tracks in Media table
+
+### State Management (Svelte 5)
+
+- **editing.svelte.ts**: Global reactive state for current image PP3, undo/redo history, throttled updates
+- **tag.svelte.ts**: Tag autocomplete and management
+- **app.svelte.ts**: App-level state
+- Uses Svelte 5 runes (`$state`, `$derived`, `$effect`)
+
+### RawTherapee CLI Integration
+
+Commands are executed via `runCommand()` in `src/lib/server/command-runner.ts`:
+
+- **Edit image**: `rawtherapee-cli --no-gui -p <pp3> -o <output> -j<quality> -Y -c <input>`
+- **Generate TIFF**: `rawtherapee-cli --no-gui -p <pp3> -b16 -t -O <outdir> -Y -c <input>`
+- Supports AbortSignal for cancellation
+- Uses temp directories for intermediate files
+
+### Worker for Client-Side Preview
+
+`src/lib/worker.ts`: Web Worker (via Comlink) for fetching preview images without blocking UI. Debounces requests and caches results.
+
+## Key Conventions
+
+- **Bun runtime**: Package manager and dev server (not Node.js)
+- **Svelte 5 syntax**: Use runes (`$state`, `$derived`, `$effect`) not legacy stores
+- **Database queries**: Use Drizzle ORM relational queries, not raw SQL
+- **File paths**: Environment variables for directories (IMPORT_DIR, EXPORT_DIR, TMP_DIR, CLUT_DIR)
+- **Error handling**: Commands reject on non-zero exit code with full stdout/stderr
+- **PP3 editing**: Always parse → modify object → stringify, never manipulate strings directly
+
+## Environment Variables
+
+Required in `.env` (see `.env.example`):
+
+- `DATABASE_URL`: PostgreSQL connection string
+- `CLUT_DIR`: Directory containing LUT files for film simulation
+- `IMPORT_DIR`: Directory watched for automatic imports
+- `EXPORT_DIR`: Directory for exported images
+- `SD_CARD_IMPORT_PATH`: Optional path to SD card mount for auto-import
+- `HOST_DOMAIN`: Domain for Traefik routing (production)
+
+## Docker Deployment
+
+Two services in `docker-compose.yml`:
+
+1. **editor**: Main SvelteKit app (Node adapter), port 3000
+2. **watchers**: Separate service running file watchers for SD card import
+
+Both share volumes for import/export directories and CLUT files.
