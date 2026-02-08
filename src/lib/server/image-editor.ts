@@ -5,6 +5,7 @@ import { parsePP3, stringifyPP3, type PP3 } from "$lib/pp3-utils";
 import { tmpdir } from "os";
 import { mkdtemp, readdir, readFile } from "node:fs/promises";
 import ImportPP3 from '$lib/assets/import.pp3?raw';
+import { exiftool } from "exiftool-vendored";
 
 /**
  * uses rawtherapee's pp3 file to edit an image
@@ -154,6 +155,80 @@ export async function generateExportTif(imagePath: string, options: { signal?: A
     console.log(`Generated export TIF for ${imagePath} in ${((end - start) / 1000).toFixed(2)} seconds`);
 
     return join(outDir, outputName);
+}
+
+async function getImageDimensions(path: string): Promise<{ width: number; height: number } | null> {
+    try {
+        const tags = await exiftool.read(path);
+        const width = Number((tags as any).ImageWidth ?? (tags as any).ExifImageWidth);
+        const height = Number((tags as any).ImageHeight ?? (tags as any).ExifImageHeight);
+        if (!Number.isFinite(width) || !Number.isFinite(height)) {
+            return null;
+        }
+        return { width, height };
+    } catch {
+        return null;
+    }
+}
+
+export function mapCropToTarget(pp3: PP3, sourceWidth: number, sourceHeight: number, targetWidth: number, targetHeight: number): PP3 {
+    if (!pp3.Crop) {
+        return pp3;
+    }
+
+    if (!sourceWidth || !sourceHeight || !targetWidth || !targetHeight) {
+        return pp3;
+    }
+
+    if (sourceWidth === targetWidth && sourceHeight === targetHeight) {
+        return pp3;
+    }
+
+    const scaleX = targetWidth / sourceWidth;
+    const scaleY = targetHeight / sourceHeight;
+
+    if (!Number.isFinite(scaleX) || !Number.isFinite(scaleY) || scaleX <= 0 || scaleY <= 0) {
+        return pp3;
+    }
+
+    const crop = pp3.Crop as unknown as Record<string, number>;
+
+    const x = Number(crop.X ?? 0);
+    const y = Number(crop.Y ?? 0);
+    const w = Number(crop.W ?? 0);
+    const h = Number(crop.H ?? 0);
+
+    // If crop values already exceed preview bounds, assume they're in full-res space.
+    if (x > sourceWidth || y > sourceHeight || w > sourceWidth || h > sourceHeight || x + w > sourceWidth + 1 || y + h > sourceHeight + 1) {
+        return pp3;
+    }
+
+    crop.X = Math.round((crop.X ?? 0) * scaleX);
+    crop.Y = Math.round((crop.Y ?? 0) * scaleY);
+    crop.W = Math.round((crop.W ?? 0) * scaleX);
+    crop.H = Math.round((crop.H ?? 0) * scaleY);
+
+    return pp3;
+}
+
+export async function mapCropFromPreviewToExport(pp3: PP3, previewPath: string | null | undefined, exportPath: string | null | undefined): Promise<PP3> {
+    if (!pp3.Crop || !previewPath || !exportPath) {
+        return pp3;
+    }
+
+    const start = performance.now();
+    const [previewDims, exportDims] = await Promise.all([
+        getImageDimensions(previewPath),
+        getImageDimensions(exportPath)
+    ]);
+    const duration = performance.now() - start;
+    console.log(`[CropMap] Dimension lookup took ${duration.toFixed(2)}ms`);
+
+    if (!previewDims || !exportDims) {
+        return pp3;
+    }
+
+    return mapCropToTarget(pp3, previewDims.width, previewDims.height, exportDims.width, exportDims.height);
 }
 
 export function setWhiteBalance(pp3: PP3, temperature: number | null, green: number | null): PP3 {

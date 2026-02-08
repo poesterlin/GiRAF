@@ -1,6 +1,6 @@
 import { parsePP3, stringifyPP3 } from '$lib/pp3-utils';
 import { db } from '$lib/server/db';
-import { editImage, generateExportTif, generateImportTif } from '$lib/server/image-editor';
+import { editImage, generateExportTif, generateImportTif, mapCropFromPreviewToExport } from '$lib/server/image-editor';
 import { bmvbhash } from 'blockhash-core';
 import { and, asc, desc, eq, isNull, lt, or } from 'drizzle-orm';
 import { readFile } from 'fs/promises';
@@ -165,7 +165,8 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 
 			// Two-step pipeline: RAW → full-res TIFF → JPEG (matches preview pipeline)
 			const tifPath = await generateExportTif(image.filepath, { signal });
-			await editImage(tifPath, stringifyPP3(pp3), { signal, outputPath, recordedAt: image.recordedAt, quality: 90 });
+			const mappedPP3 = await mapCropFromPreviewToExport(pp3, image.tifPath, tifPath);
+			await editImage(tifPath, stringifyPP3(mappedPP3), { signal, outputPath, recordedAt: image.recordedAt, quality: 90 });
 			await db.update(imageTable).set({ lastExportedAt: new Date() }).where(eq(imageTable.id, image.id));
 
 			for (const album of albums) {
@@ -246,4 +247,3 @@ async function upsertAlbumImage(album: Album, image: Image, outputPath: string) 
 		console.error(`Failed to upload image to album ${album.id} for image ${image.id}:`, error);
 	}
 }
-

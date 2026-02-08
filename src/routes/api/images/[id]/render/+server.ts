@@ -7,7 +7,7 @@ import { parsePP3, stringifyPP3 } from "$lib/pp3-utils";
 import { mkdirPath } from "$lib/server/jobs/executor";
 import { assert } from "$lib";
 import { env } from "$env/dynamic/private";
-import { editImage, generateExportTif } from "$lib/server/image-editor";
+import { editImage, generateExportTif, mapCropFromPreviewToExport } from "$lib/server/image-editor";
 import { join } from "path";
 import { respondWithFile } from "$lib/server/utils";
 
@@ -47,7 +47,8 @@ export const GET: RequestHandler = async ({ params }) => {
 
     // Two-step pipeline: RAW → full-res TIFF → JPEG (matches preview pipeline)
     const tifPath = await generateExportTif(image.filepath);
-    await editImage(tifPath, stringifyPP3(pp3), { outputPath, recordedAt: image.recordedAt });
+    const mappedPP3 = await mapCropFromPreviewToExport(pp3, image.tifPath, tifPath);
+    await editImage(tifPath, stringifyPP3(mappedPP3), { outputPath, recordedAt: image.recordedAt });
 
     return respondWithFile(outputPath, 0);
 };
