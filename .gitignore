@@ -42,4 +42,7 @@ data/google_tokens.json
 
 pgdata
 
+
+src/lib/assets/THIRD_PARTY_LICENSES.txt
+
 deploy.sh
