@@ -201,14 +201,14 @@
 <svelte:window onfocus={() => checkClipboard()} onkeyup={handleKeyUp} />
 
 <nav>
-	{#if showUndoRedo}
+	<!-- {#if showUndoRedo}
 		<button disabled={!edits.canRedo} onclick={edits.redo} aria-label="Redo">
 			<IconArrowBackUp />
 		</button>
 		<button disabled={!edits.canUndo} onclick={edits.undo} aria-label="Undo">
 			<IconArrowForwardUp />
 		</button>
-	{/if}
+	{/if} -->
 	
 	{#if showReset && edits.canUndo}
 		<button class="reset-btn" onclick={() => {}} aria-label="Reset All">
