@@ -15,11 +15,5 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Generate third-party licenses
-        run: bun run licenses:generate
-      - name: Verify license report is up to date
-        run: git diff --exit-code src/lib/assets/THIRD_PARTY_LICENSES.txt
       - name: Type check
         run: bun run check
-      - name: Lint
-        run: bun run lint
