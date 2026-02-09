@@ -100,6 +100,9 @@ RUN mkdir -p /app/import
 # Copy the single compiled executable from the 'build' stage
 COPY --from=build /app/build/ build/
 
+# Include app license in the runtime image
+COPY --from=build /app/LICENSE /app/LICENSE
+
 # Copy production-only node_modules and package.json
 COPY --from=deps /app/node_modules/ node_modules
 COPY --from=build /app/package.json ./

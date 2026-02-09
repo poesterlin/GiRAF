@@ -62,4 +62,4 @@ bun run dev
 
 ## License
 
-Add a LICENSE file before publishing the repo.
+See `LICENSE` for GPLv3 terms.

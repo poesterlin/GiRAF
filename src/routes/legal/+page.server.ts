@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 const VERSION_PATH = '/opt/rawtherapee/metadata/VERSION';
 const SOURCE_URL_PATH = '/opt/rawtherapee/metadata/SOURCE_URL';
 const RAWTHERAPEE_BIN = '/opt/rawtherapee/usr/bin/rawtherapee-cli';
+const APP_LICENSE_PATH = '/app/LICENSE';
 
 const execFileAsync = promisify(execFile);
 
@@ -18,9 +19,10 @@ const safeRead = async (path: string) => {
 };
 
 export const load: PageServerLoad = async () => {
-	let [rawtherapeeVersion, rawtherapeeSourceUrl] = await Promise.all([
+	let [rawtherapeeVersion, rawtherapeeSourceUrl, appLicenseText] = await Promise.all([
 		safeRead(VERSION_PATH),
-		safeRead(SOURCE_URL_PATH)
+		safeRead(SOURCE_URL_PATH),
+		safeRead(APP_LICENSE_PATH)
 	]);
 
 	if (!rawtherapeeVersion) {
@@ -39,6 +41,7 @@ export const load: PageServerLoad = async () => {
 
 	return {
 		rawtherapeeVersion,
-		rawtherapeeSourceUrl
+		rawtherapeeSourceUrl,
+		appLicenseText
 	};
 };
