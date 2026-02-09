@@ -57,28 +57,6 @@ export const imageTable = pgTable('image', {
 
 export type Image = typeof imageTable.$inferSelect;
 
-export const sessionRelations = relations(sessionTable, ({ many }) => ({
-	images: many(imageTable),
-	albums: many(albumTable)
-}));
-
-export const imageRelations = relations(imageTable, ({ one, many }) => ({
-	session: one(sessionTable, {
-		fields: [imageTable.sessionId],
-		references: [sessionTable.id]
-	}),
-	snapshots: many(snapshotTable),
-	stackParent: one(imageTable, {
-		fields: [imageTable.stackId],
-		references: [imageTable.id],
-		relationName: 'stack'
-	}),
-	stackChildren: many(imageTable, {
-		relationName: 'stack'
-	}),
-	imageToTags: many(imageToTagTable)
-}));
-
 export const snapshotTable = pgTable('snapshot', {
 	id: serial('id').primaryKey(),
 	pp3: text('pp3').notNull(),
@@ -92,13 +70,6 @@ export const snapshotTable = pgTable('snapshot', {
 ]);
 
 export type Snapshot = typeof snapshotTable.$inferSelect;
-
-export const snapshotRelations = relations(snapshotTable, ({ one }) => ({
-	image: one(imageTable, {
-		fields: [snapshotTable.imageId],
-		references: [imageTable.id]
-	})
-}));
 
 export const importTable = pgTable('import', {
 	id: serial('id').primaryKey(),
@@ -134,17 +105,6 @@ export const imageToTagTable = pgTable('image_to_tag', {
 	primaryKey({ columns: [table.imageId, table.tagId] })
 ]);
 
-export const imageToTagRelations = relations(imageToTagTable, ({ one }) => ({
-	image: one(imageTable, {
-		fields: [imageToTagTable.imageId],
-		references: [imageTable.id]
-	}),
-	tag: one(tagTable, {
-		fields: [imageToTagTable.tagId],
-		references: [tagTable.id]
-	})
-}));
-
 export const profileTable = pgTable('profile', {
 	id: serial('id').primaryKey(),
 	name: text('name').notNull(),
@@ -166,14 +126,6 @@ export const albumTable = pgTable('album', {
 	index('album_integration_external_id_idx').on(table.integration, table.externalId),
 ]);
 
-export const albumRelations = relations(albumTable, ({ one, many }) => ({
-	media: many(mediaTable),
-	session: one(sessionTable, {
-		fields: [albumTable.sessionId],
-		references: [sessionTable.id]
-	})
-}));
-
 export type Album = typeof albumTable.$inferSelect;
 
 export const mediaTable = pgTable('media', {
@@ -189,6 +141,55 @@ export const mediaTable = pgTable('media', {
 }, (table) => [
 	index('media_integration_external_id_idx').on(table.integration, table.externalId),
 ]);
+export type Media = typeof mediaTable.$inferSelect;
+
+export const sessionRelations = relations(sessionTable, ({ many }) => ({
+	images: many(imageTable),
+	albums: many(albumTable)
+}));
+
+export const imageRelations = relations(imageTable, ({ one, many }) => ({
+	session: one(sessionTable, {
+		fields: [imageTable.sessionId],
+		references: [sessionTable.id]
+	}),
+	snapshots: many(snapshotTable),
+	stackParent: one(imageTable, {
+		fields: [imageTable.stackId],
+		references: [imageTable.id],
+		relationName: 'stack'
+	}),
+	stackChildren: many(imageTable, {
+		relationName: 'stack'
+	}),
+	imageToTags: many(imageToTagTable)
+}));
+
+export const snapshotRelations = relations(snapshotTable, ({ one }) => ({
+	image: one(imageTable, {
+		fields: [snapshotTable.imageId],
+		references: [imageTable.id]
+	})
+}));
+
+export const imageToTagRelations = relations(imageToTagTable, ({ one }) => ({
+	image: one(imageTable, {
+		fields: [imageToTagTable.imageId],
+		references: [imageTable.id]
+	}),
+	tag: one(tagTable, {
+		fields: [imageToTagTable.tagId],
+		references: [tagTable.id]
+	})
+}));
+
+export const albumRelations = relations(albumTable, ({ one, many }) => ({
+	media: many(mediaTable),
+	session: one(sessionTable, {
+		fields: [albumTable.sessionId],
+		references: [sessionTable.id]
+	})
+}));
 
 export const mediaRelations = relations(mediaTable, ({ one }) => ({
 	image: one(imageTable, {
@@ -200,5 +201,3 @@ export const mediaRelations = relations(mediaTable, ({ one }) => ({
 		references: [albumTable.id]
 	}),
 }));
-
-export type Media = typeof mediaTable.$inferSelect;
