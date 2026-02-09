@@ -16,7 +16,7 @@ async function createDb() {
     }
 
     const client = postgres(env.DATABASE_URL!);
-    const db = drizzle({ client, logger: true, schema });
+    const db = drizzle({ client, logger: false, schema });
 
     if (!building) {
         console.log('Migrating database...');
