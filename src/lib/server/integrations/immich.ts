@@ -12,8 +12,8 @@ export class ImmichProvider implements PhotoIntegration {
     }
 
     public canBeConfigured(): boolean {
-		return false;
-	}
+        return false;
+    }
 
     public configure(): Promise<void> | never {
         throw new Error('Immich integration must be configured via environment variables.');
@@ -34,7 +34,7 @@ export class ImmichProvider implements PhotoIntegration {
             body: JSON.stringify({ albumName: title }),
         });
         if (!res.ok) throw new Error(`Immich.createAlbum failed: ${res.status} ${await res.text()}`);
-        return (await res.json()) as { id: string; };
+        return (await res.json()) as { id: string; url: undefined };
     }
 
     // Upload asset using multipart/form-data. Form field name may vary by Immich version.
@@ -103,7 +103,7 @@ export class ImmichProvider implements PhotoIntegration {
         const uploaded = await this.uploadFile(fileBuffer, filename, image);
         const newId = uploaded.id;
         await this.addToAlbum(album, [newId]);
-        
+
         try {
             await this.removeFromAlbum(album, [oldMediaId]);
         } catch (error) {
