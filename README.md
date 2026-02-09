@@ -6,9 +6,9 @@ Web-based RAW photo editor, you can edit and export from anywhere.
 
 - RAW import
 - Web-based editing with versioned snapshots
-- Mobile-friendly UI
+- Touch-friendly UI
+- Background import/export
 - Export to external integrations (Immich, Google Photos)
-- Background import/export jobs per session
 - Docker-first setup for self-hosting
 
 ## Screenshots
@@ -87,6 +87,8 @@ services:
 ## Roadmap
 
 - [ ] User authentication
+- [ ] Undo/Redo functionality
+- [ ] Processing notifications
 - More editing tools
    - [ ] Black Point/White Point
    - [ ] Curves
@@ -94,6 +96,7 @@ services:
    - [ ] ColorToning
    - [ ] HSV Equalizer
    - [ ] Lens corrections
+- [ ] Automatic SD-card import
 - [ ] Progressive loading for better quality previews
 
 ## License
