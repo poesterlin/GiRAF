@@ -212,8 +212,8 @@
 				<h2 class="text-xs font-bold tracking-widest uppercase text-neutral-400">Adjustments</h2>
 			</div>
 			{#if edits.isLoading}
-				<div in:fade={{ duration: 200, delay: 200 }}>
-					<IconFidgetSpinner class="animate-spin text-neutral-500" size={18} />
+				<div in:fade={{ duration: 200, delay: 200 }} class="mr-4">
+					<IconFidgetSpinner class="animate-spin text-neutral-500" size={16} />
 				</div>
 			{/if}
 		</div>
