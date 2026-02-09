@@ -5,19 +5,21 @@ import postgres from 'postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 
 async function createDb() {
-    if (!env.DATABASE_URL && !building) {
+    if (!env.DATABASE_URL) {
         throw new Error('DATABASE_URL is not set');
     }
-    
+
     const schema = await import('./schema');
     const client = postgres(env.DATABASE_URL!);
-    return drizzle({ client, logger: true, schema });
+    const db = drizzle({ client, logger: true, schema });
+    
+    if (!building){
+        console.log('Migrating database...');
+        await migrate(db, { migrationsFolder: 'drizzle' });
+        console.log('Database migrated');
+    }
+
+    return db;
 }
 
 export const db = await createDb();
-
-if (!building) {
-    console.log('Migrating database...');
-    await migrate(db, { migrationsFolder: 'drizzle' });
-    console.log('Database migrated');
-}
