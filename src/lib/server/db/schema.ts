@@ -1,6 +1,5 @@
 import { relations } from 'drizzle-orm';
-import { foreignKey } from 'drizzle-orm/gel-core';
-import { boolean, index, integer, jsonb, pgTable, primaryKey, real, serial, text, timestamp, type AnyPgColumn, uniqueIndex } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, pgTable, primaryKey, real, serial, text, timestamp, uniqueIndex, type AnyPgColumn } from 'drizzle-orm/pg-core';
 
 export const sessionTable = pgTable('session', {
 	id: serial('id').primaryKey(),

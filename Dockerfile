@@ -120,8 +120,9 @@ COPY --from=build /app/LICENSE /app/LICENSE
 COPY --from=deps /app/node_modules/ node_modules
 COPY --from=build /app/package.json ./
 
+# Copy drizzle migration files
+COPY --from=build /app/drizzle drizzle
+
 EXPOSE 3000
 
-# Run your compiled application (assumes it calls rawtherapee-cli internally)
-# Your app can now call `rawtherapee-cli` directly as it's in the system's PATH.
 CMD ["bun", "/app/build/index.js"]
