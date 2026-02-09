@@ -252,6 +252,8 @@
 
 				uploadedCount += batch.length;
 				uploadProgress = (uploadedCount / totalFiles) * 100;
+				// Refresh UI incrementally
+				invalidateAll();
 			} catch (error) {
 				console.error('Upload error:', error);
 				app.addToast('Some files failed to upload', 'error');
@@ -447,7 +449,6 @@
 					{#if data.sessions.length > 0}
 						<SegmentedControl
 							bind:value={importMode}
-							class="!rounded-2xl !bg-neutral-900 !p-1.5"
 							options={[
 								{ label: 'New', value: 'new' },
 								{ label: 'Existing', value: 'existing' }
