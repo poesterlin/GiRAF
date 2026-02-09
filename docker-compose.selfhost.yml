@@ -15,7 +15,7 @@ services:
       retries: 10
 
   editor:
-    image: ghcr.io/poesterlin/raw-editor:latest
+    image: ghcr.io/poesterlin/raw-editor:main
     env_file:
       - .env
     environment:
@@ -28,7 +28,6 @@ services:
       - ./cluts:/app/cluts
       - ./import:/app/import:ro
       - ./export:/app/export
-      - ./tmp:/app/tmp
     ports:
       - "4893:3000"
     depends_on:
