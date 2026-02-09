@@ -57,7 +57,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install rawtherapee from appimage
-RUN set -euo pipefail; \
+RUN set -eu; \
   if [ "$RAWTHERAPEE_VERSION" = "latest" ]; then \
     RAWTHERAPEE_VERSION="$(curl -fsSL "https://api.github.com/repos/rawtherapee/rawtherapee/releases/latest" \
       | jq -r '.tag_name // empty')"; \
