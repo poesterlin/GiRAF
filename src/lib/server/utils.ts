@@ -1,6 +1,5 @@
-import { SQL, sql, type GetColumnData } from "drizzle-orm";
+import { type SQL, sql, type GetColumnData } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
-
 
 export async function respondWithFile(filePath: string, ageSeconds = 31536000) {
     const file = Bun.file(filePath);
