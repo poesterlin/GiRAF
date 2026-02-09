@@ -10,7 +10,7 @@ function createDb() {
         throw new Error('DATABASE_URL is not set');
     }
     
-    const client = postgres(env.DATABASE_URL);
+    const client = postgres(env.DATABASE_URL!);
     drizzle(client, { schema });
 
     return drizzle({ client, logger: false, schema });
