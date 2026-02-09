@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm';
-import { boolean, index, integer, pgTable, primaryKey, real, serial, text, timestamp, uniqueIndex, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { boolean, foreignKey, index, integer, pgTable, primaryKey, real, serial, text, timestamp, uniqueIndex, type AnyPgColumn } from 'drizzle-orm/pg-core';
 
 export const imageTable = pgTable('image', {
 	id: serial('id').primaryKey(),
@@ -27,7 +27,7 @@ export const imageTable = pgTable('image', {
 	tint: real('tint'),
 	isArchived: boolean('is_archived').notNull().default(false),
 	phash: text('phash'),
-	stackId: integer('stack_id').references((): AnyPgColumn => imageTable.id),
+	stackId: integer('stack_id'),
 	isStackBase: boolean('is_stack_base').notNull().default(false),
 	lastExportedAt: timestamp('last_exported_at', { withTimezone: true, mode: 'date' }),
 }, (table) => [
@@ -35,6 +35,11 @@ export const imageTable = pgTable('image', {
 	index('image_is_archived_idx').on(table.isArchived),
 	index('image_phash_idx').on(table.phash),
 	index('image_rating_idx').on(table.rating),
+	foreignKey({
+		name: 'stack_id_fkey',
+		columns: [table.stackId],
+		foreignColumns: [table.id],
+	}).onDelete('set null').onUpdate('cascade'),
 ]);
 
 export type Image = typeof imageTable.$inferSelect;
