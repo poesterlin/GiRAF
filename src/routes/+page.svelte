@@ -2,7 +2,7 @@
 	import { IconCameraPlus, IconLayoutGrid, IconAdjustmentsHorizontal, IconArchive } from '$lib/ui/icons';
 </script>
 
-<div class="mx-auto flex max-w-7xl h-full flex-col items-center justify-center p-6 lg:p-12">
+<div class="mx-auto flex max-w-7xl h-full max-h-full overflow-auto flex-col items-center sm:justify-center p-6 pt-12 lg:p-12">
 	<div class="text-center mb-16 lg:mb-24">
 		<h1 class="mb-6 text-6xl lg:text-8xl font-black tracking-tighter text-neutral-100 italic">
 			RAW<span class="text-neutral-500 not-italic font-light">EDITOR</span>
