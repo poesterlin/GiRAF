@@ -31,25 +31,29 @@ Web-based RAW photo editor, you can edit and export from anywhere.
 
 1) Download the compose file: [docker-compose.yml](https://raw.githubusercontent.com/poesterlin/raw-editor/main/docker-compose.selfhost.yml)
 
-2) Copy the env file and edit values:
+2) Create an empty env file:
+
+This is where you can setup secrets for configuring the export integrations.
 
 ```bash
-cp .env.example .env
+touch .env
 ```
 
 3) Start the stack (app + Postgres):
 
 ```bash
-docker compose -f docker-compose.yml up -d
+docker compose up -d
 ```
 
-3) Open Port 4893
+4) [optional] Download Film Emulation Profiles
+The editor can use the Hald CLUT pack for easy film emulations. Download the zip and unzip it to `./cluts`: http://rawtherapee.com/shared/HaldCLUT.zip
+
+5) Open Port 4893
 
 ## Configuration
 
-- Edit `.env` for database and paths
+- Edit `docker-compose.yaml` for database and paths
 - See `docs/CONFIGURATION.md` for environment variables
-- CLUT source (Hald CLUT pack): http://rawtherapee.com/shared/HaldCLUT.zip
 
 ## Integrations
 
