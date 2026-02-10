@@ -100,6 +100,7 @@ services:
    - [ ] ColorToning
    - [ ] HSV Equalizer
    - [ ] Lens corrections
+- [ ] Allow multiple import directories, configurable in the UI
 - [ ] Automatic SD-card import
 - [ ] Progressive loading for better quality previews
 
