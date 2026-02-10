@@ -2,7 +2,7 @@ This file provides guidance to AI Agents when working with code in this reposito
 
 ## Project Overview
 
-Web-based RAW photo editor that uses RawTherapee CLI for remote-controlled RAW image editing from low-power devices. Built with SvelteKit 5, Bun runtime, PostgreSQL + Drizzle ORM, and TailwindCSS 4.
+GiRAF is a web-based RAW photo editor that uses RawTherapee CLI for remote-controlled RAW image editing from low-power devices. Built with SvelteKit 5, Bun runtime, PostgreSQL + Drizzle ORM, and TailwindCSS 4.
 
 The application imports RAW images, generates TIFF intermediates and preview images, allows web-based editing via PP3 configuration files, and exports to external integrations (Google Photos, Immich).
 

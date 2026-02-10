@@ -1,4 +1,4 @@
-# RAW Editor
+# GiRAF
 
 Web-based RAW photo editor, you can edit and export from anywhere.
 
@@ -29,7 +29,7 @@ Web-based RAW photo editor, you can edit and export from anywhere.
 
 ## Quick start
 
-1) Download the compose file: [docker-compose.yml](https://raw.githubusercontent.com/poesterlin/raw-editor/main/docker-compose.selfhost.yml)
+1) Download the compose file: [docker-compose.yml](https://raw.githubusercontent.com/poesterlin/giraf/main/docker-compose.selfhost.yml)
 
 2) Create an empty env file:
 
@@ -57,7 +57,7 @@ The editor can use the Hald CLUT pack for easy film emulations. Download the zip
 
 ## Integrations
 
-RAW Editor supports exporting to external photo management services.
+GiRAF supports exporting to external photo management services.
 
 ### Immich
 
@@ -92,7 +92,7 @@ services:
 
 - [ ] User authentication
 - [x] Undo/Redo functionality
-- [ ] Processing notifications
+- [x] Processing notifications
 - More editing tools
    - [ ] Black Point/White Point
    - [ ] Curves

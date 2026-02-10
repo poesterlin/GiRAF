@@ -74,7 +74,7 @@
 </script>
 
 <svelte:head>
-	<title>Exporter: {data.session.name}</title>
+	<title>GiRAF | Exporter: {data.session.name}</title>
 </svelte:head>
 
 <div

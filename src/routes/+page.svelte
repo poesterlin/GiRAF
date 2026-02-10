@@ -4,8 +4,8 @@
 
 <div class="mx-auto flex max-w-7xl h-full max-h-full overflow-auto flex-col items-center sm:justify-center p-6 pt-12 lg:p-12">
 	<div class="text-center mb-16 lg:mb-24">
-		<h1 class="mb-6 text-6xl lg:text-8xl font-black tracking-tighter text-neutral-100 italic">
-			RAW<span class="text-neutral-500 not-italic font-light">EDITOR</span>
+		<h1 class="mb-6 text-6xl lg:text-9xl font-black tracking-tighter text-neutral-100 italic uppercase">
+			Gi<span class="text-neutral-500 not-italic font-light">RAF</span>
 		</h1>
 		<p class="mx-auto max-w-2xl text-lg lg:text-xl text-neutral-400 font-medium leading-relaxed">
 			A streamlined, non-destructive workflow for professional photo editing. 

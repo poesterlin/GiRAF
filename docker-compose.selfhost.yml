@@ -15,7 +15,7 @@ services:
       retries: 10
 
   editor:
-    image: ghcr.io/poesterlin/raw-editor:main
+    image: ghcr.io/poesterlin/giraf:main
     env_file:
       - .env
     environment:

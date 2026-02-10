@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import favicon from '$lib/assets/favicon.svg';
+	import logo from '$lib/assets/logo.webp';
 	import { onNavigate } from '$app/navigation';
 	import { app } from '$lib/state/app.svelte';
 	import { edits } from '$lib/state/editing.svelte';
@@ -47,7 +47,7 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
+	<link rel="icon" href={logo} />
 </svelte:head>
 
 <div class="grid h-screen grid-rows-[auto_1fr] bg-neutral-950 text-neutral-200 font-sans">
@@ -56,11 +56,9 @@
 	>
 		<!-- Brand -->
 		<a href="/" class="flex items-center gap-2 sm:gap-3">
-			<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100 sm:h-9 sm:w-9">
-				<IconCameraFilled size={20} class="text-neutral-950 sm:size-[22px]" />
-			</div>
-			<span class="hidden text-base font-bold tracking-tight text-neutral-100 sm:text-lg lg:block">
-				RAW<span class="font-light text-neutral-500">EDITOR</span>
+			<img src={logo} alt="GiRAF Logo" class="h-8 w-8 sm:h-9 sm:w-9 rounded-full" />
+			<span class="hidden text-base font-bold tracking-tight text-neutral-100 sm:text-lg lg:block uppercase">
+				Gi<span class="font-light text-neutral-500">RAF</span>
 			</span>
 		</a>
 
