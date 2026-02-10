@@ -235,19 +235,13 @@
 		const totalFiles = files.length;
 		let uploadedCount = 0;
 
-		const batchSize = 5;
-		const maxConcurrentBatches = 3;
+		const maxConcurrent = 3;
 		const fileArray = Array.from(files);
-		const limit = pLimit(maxConcurrentBatches);
-		const batches: File[][] = [];
+		const limit = pLimit(maxConcurrent);
 
-		for (let i = 0; i < fileArray.length; i += batchSize) {
-			batches.push(fileArray.slice(i, i + batchSize));
-		}
-
-		const uploadBatch = async (batch: File[]) => {
+		const uploadFile = async (file: File) => {
 			const formData = new FormData();
-			batch.forEach((file) => formData.append('files', file));
+			formData.append('files', file);
 
 			try {
 				const response = await fetch('/api/imports/upload', {
@@ -257,17 +251,16 @@
 
 				if (!response.ok) throw new Error('Upload failed');
 
-				uploadedCount += batch.length;
+				uploadedCount += 1;
 				uploadProgress = (uploadedCount / totalFiles) * 100;
-				// Refresh UI incrementally
 				invalidateAll();
 			} catch (error) {
 				console.error('Upload error:', error);
-				app.addToast('Some files failed to upload', 'error');
+				app.addToast(`Failed to upload ${file.name}`, 'error');
 			}
 		};
 
-		await Promise.all(batches.map((batch) => limit(() => uploadBatch(batch))));
+		await Promise.all(fileArray.map((file) => limit(() => uploadFile(file))));
 
 		app.addToast(`Successfully uploaded ${uploadedCount} files`, 'success');
 		isUploading = false;
