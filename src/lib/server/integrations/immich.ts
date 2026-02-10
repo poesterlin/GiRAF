@@ -46,8 +46,7 @@ export class ImmichProvider implements PhotoIntegration {
         // @ts-ignore
         form.append("assetData", new Blob([fileBuffer], { type: "image/jpeg" }), filename);
         form.append("deviceAssetId", image.id.toString());
-        form.append("deviceId", 'raw-editor');
-        form.append("fileCreatedAt", image.recordedAt.toISOString());
+        		form.append("deviceId", 'giraf');        form.append("fileCreatedAt", image.recordedAt.toISOString());
         form.append("fileModifiedAt", image.updatedAt.toISOString());
 
         const res = await fetch(`${this.baseUrl}/api/assets`, {

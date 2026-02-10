@@ -14,6 +14,7 @@ class EditingState {
 
 	private history = $state<PP3[]>([]);
 	private historyIndex = $state(0);
+	private lastChangeKey: string | null = null;
 	private baselineByImageId = {} as Record<string, PP3>;
 
 
@@ -52,7 +53,8 @@ class EditingState {
 
 		this.pp3 = newPp3;
 		this.throttledPP3 = newPp3;
-		this.history = [newPp3];
+		// Store an immutable snapshot so undo can restore the initial state.
+		this.history = [structuredClone($state.snapshot(newPp3))];
 		this.historyIndex = 0;
 		this.currentImageId = id;
 		this.lastSavedPP3 = structuredClone($state.snapshot(newPp3));
@@ -98,6 +100,53 @@ class EditingState {
 		edits.isFaulty = false;
 	}
 
+	pushHistory() {
+		const snapshot = structuredClone($state.snapshot(this.pp3));
+		const prev = this.history[this.historyIndex];
+
+		const diff = diffPP3(prev, snapshot);
+		const changedCount = countPP3Properties(diff);
+
+		if (changedCount === 0) return;
+
+		let changeKey: string | null = null;
+		if (changedCount === 1) {
+			for (const section in diff) {
+				for (const key in diff[section]) {
+					changeKey = `${section}.${key}`;
+				}
+			}
+		}
+
+		if (changeKey && changeKey === this.lastChangeKey) {
+			this.history[this.historyIndex] = snapshot;
+		} else {
+			this.history = this.history.slice(0, this.historyIndex + 1);
+			this.history.push(snapshot);
+			this.historyIndex = this.history.length - 1;
+		}
+
+		this.lastChangeKey = changeKey;
+	}
+
+	undo() {
+		if (!this.canUndo) return;
+		this.historyIndex--;
+		this.lastChangeKey = null;
+		this.applyHistorySnapshot(this.history[this.historyIndex]);
+		this.throttledPP3 = this.pp3;
+		this.hasChanges = this.hasChangesFor(this.currentImageId!);
+	}
+
+	redo() {
+		if (!this.canRedo) return;
+		this.historyIndex++;
+		this.lastChangeKey = null;
+		this.applyHistorySnapshot(this.history[this.historyIndex]);
+		this.throttledPP3 = this.pp3;
+		this.hasChanges = this.hasChangesFor(this.currentImageId!);
+	}
+
 	hasChangesFor(imageId: string) {
 		const baseline = this.baselineByImageId[imageId];
 		if (!baseline) return false;
@@ -107,6 +156,31 @@ class EditingState {
 	private setBaseline(imageId: string, pp3: PP3) {
 		const snapshot = structuredClone($state.snapshot(pp3));
 		this.baselineByImageId = { ...this.baselineByImageId, [imageId]: snapshot };
+	}
+
+	private applyHistorySnapshot(snapshot: PP3) {
+		if (!this.pp3) {
+			this.pp3 = structuredClone(snapshot);
+			return;
+		}
+
+		let next: PP3 = {};
+		try {
+			// sometimes failes
+			next = structuredClone(snapshot);
+		} catch (error) {
+			next = JSON.parse(JSON.stringify(snapshot));
+		}
+
+		for (const section in this.pp3) {
+			if (!(section in next)) {
+				delete this.pp3[section];
+			}
+		}
+
+		for (const section in next) {
+			this.pp3[section] = next[section];
+		}
 	}
 }
 

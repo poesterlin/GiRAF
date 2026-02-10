@@ -11,7 +11,7 @@
 	import EditModeNav from '$lib/ui/EditModeNav.svelte';
 	import Tooltip from '$lib/ui/Tooltip.svelte';
 	import LutPicker from '$lib/ui/LutPicker.svelte';
-	import { IconArchive, IconCheck, IconChevronLeft, IconChevronRight, IconDeviceFloppy, IconFidgetSpinner, IconRestore, IconFilter } from '$lib/ui/icons';
+	import { IconArchive, IconArrowBackUp, IconArrowForwardUp, IconCheck, IconChevronLeft, IconChevronRight, IconDeviceFloppy, IconFidgetSpinner, IconRestore, IconFilter } from '$lib/ui/icons';
 	import { fade } from 'svelte/transition';
 	import Adjustments from './Adjustments.svelte';
 	import Snapshots from './Snapshots.svelte';
@@ -110,7 +110,9 @@
 		['ArrowLeft', () => (data.previousImage ? (goto(`/editor/${data.previousImage}?filter=${page.url.searchParams.get('filter')}`)) : undefined)],
 		['a', () => (data.image.isArchived ? restoreImage() : archiveImage())],
 		['p', () => showPreview()],
-		['r', ()=>reset()]
+		['r', ()=>reset()],
+		['z', () => edits.undo()],
+		['y', () => edits.redo()]
 	]));
 
 	function handleKeyDown(event: KeyboardEvent) {
@@ -151,6 +153,7 @@
 		}
 
 		edits.pp3 = parsePP3(BasePP3);
+		edits.pushHistory();
 		await edits.snapshot();
 
 		resetSaved = true;
@@ -210,11 +213,29 @@
 				<div class="h-2 w-2 rounded-full bg-neutral-500"></div>
 				<h2 class="text-xs font-bold tracking-widest uppercase text-neutral-400">Adjustments</h2>
 			</div>
-			{#if edits.isLoading}
-				<div in:fade={{ duration: 200, delay: 200 }} class="mr-4">
-					<IconFidgetSpinner class="animate-spin text-neutral-500" size={16} />
-				</div>
-			{/if}
+			<div class="flex items-center gap-1">
+				{#if edits.isLoading}
+					<div in:fade={{ duration: 200, delay: 200 }} class="mr-2">
+						<IconFidgetSpinner class="animate-spin text-neutral-500" size={16} />
+					</div>
+				{/if}
+				<button
+					onclick={() => edits.undo()}
+					disabled={!edits.canUndo}
+					class="flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-200 disabled:opacity-25 disabled:pointer-events-none"
+					aria-label="Undo"
+				>
+					<IconArrowBackUp size={16} />
+				</button>
+				<button
+					onclick={() => edits.redo()}
+					disabled={!edits.canRedo}
+					class="flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-200 disabled:opacity-25 disabled:pointer-events-none"
+					aria-label="Redo"
+				>
+					<IconArrowForwardUp size={16} />
+				</button>
+			</div>
 		</div>
 
 		<!-- Scrollable Controls -->

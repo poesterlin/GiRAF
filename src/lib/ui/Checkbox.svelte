@@ -18,10 +18,12 @@
 	}
 </script>
 
-<div class="focus flex flex-1 items-center justify-between gap-3" class:py-2={!small}>
-	<label for={id} class="flex-1 font-medium text-zinc-300 select-none">
-		{label}
-	</label>
+<div class="focus flex items-center gap-3" class:flex-1={!!label} class:justify-between={!!label} class:py-2={!small}>
+	{#if label}
+		<label for={id} class="flex-1 font-medium text-zinc-300 select-none">
+			{label}
+		</label>
+	{/if}
 
 	<!-- Switch wrapper -->
 	<label
@@ -57,19 +59,26 @@
 		></div>
 
 		<!-- Native checkbox for keyboard + screen readers -->
-		<input {id} {name} type="checkbox" class="absolute inset-0 opacity-0 pointer-events-auto" {disabled} bind:checked onchange={handleChange} />
+		<input
+			{id}
+			{name}
+			type="checkbox"
+			class="absolute inset-0 opacity-0 pointer-events-auto"
+			{disabled}
+			bind:checked
+			onchange={handleChange}
+			onpointerdown={(e) => e.stopPropagation()}
+			onclick={(e) => e.stopPropagation()}
+		/>
 	</label>
 </div>
 
 <style>
-	div[role='switch'] {
+	label[role='switch'] {
 		box-shadow: inset 4px 4px black;
 	}
 
 	.focus:focus-within {
-		label {
-		}
-
 		.background {
 			outline: 2px solid white;
 		}

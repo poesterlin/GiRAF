@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import Modal from '$lib/ui/Modal.svelte';
 	import type { Import } from '$lib/server/db/schema';
 	import { app } from '$lib/state/app.svelte.js';
@@ -22,6 +23,13 @@
 	let uploadProgress = $state(0);
 	let isDraggingFile = $state(false);
 	let fileInput: HTMLInputElement;
+	let importPollingIntervals: Record<number, ReturnType<typeof setInterval>> = {};
+
+	type ImportJobStatus = 'idle' | 'running' | 'success' | 'error' | 'cancelled';
+	type ImportJobState = {
+		status: ImportJobStatus;
+		message?: string;
+	};
 
 	// Advanced Selection State
 	let inSelectionMode = $state(false);
@@ -170,6 +178,51 @@
 		inSelectionMode = false;
 	}
 
+	function stopImportPolling(sessionId: number) {
+		const intervalId = importPollingIntervals[sessionId];
+		if (!intervalId) return;
+		clearInterval(intervalId);
+		delete importPollingIntervals[sessionId];
+	}
+
+	function startImportPolling(sessionId: number) {
+		stopImportPolling(sessionId);
+		importPollingIntervals[sessionId] = setInterval(async () => {
+			try {
+				const response = await fetch(`/api/sessions/${sessionId}/import`);
+				if (!response.ok) {
+					throw new Error('Failed to fetch import status');
+				}
+
+				const state = (await response.json()) as ImportJobState;
+				if (state.status === 'running') {
+					return;
+				}
+
+				stopImportPolling(sessionId);
+				await invalidateAll();
+
+				if (state.status === 'success') {
+					app.addToast('Import completed successfully.', 'success');
+				} else if (state.status === 'cancelled') {
+					app.addToast('Import was cancelled.', 'info');
+				} else if (state.status === 'error') {
+					app.addToast(state.message ? `Import failed: ${state.message}` : 'Import failed.', 'error');
+				}
+			} catch (error) {
+				console.error('Failed to poll import status', error);
+				stopImportPolling(sessionId);
+				app.addToast('Failed to check import status.', 'error');
+			}
+		}, 2000);
+	}
+
+	onDestroy(() => {
+		for (const sessionId of Object.keys(importPollingIntervals)) {
+			stopImportPolling(Number(sessionId));
+		}
+	});
+
 	async function importImages(e: Event) {
 		e.preventDefault();
 		isCreating = true;
@@ -187,12 +240,16 @@
 				body: JSON.stringify(body)
 			});
 			if (!response.ok) throw new Error('Failed to create session');
-			app.addToast('Session created successfully', 'success');
+			const result = (await response.json()) as { sessionId?: number };
+			app.addToast('Session created. Import started.', 'info');
 			data.items = data.items.filter((item) => !selectedIds.has(item.id));
 			clearSelection();
 			sessionName = '';
 			showModal = false;
 			invalidateAll();
+			if (typeof result.sessionId === 'number') {
+				startImportPolling(result.sessionId);
+			}
 		} catch (error) {
 			console.error('Creation failed', error);
 			app.addToast('Failed to create session', 'error');
@@ -291,6 +348,7 @@
 
 <div
 	class="relative h-full overflow-y-auto bg-black p-6 lg:p-12"
+	role="presentation"
 	ondragover={handleDragOver}
 	ondrop={(e) => {
 		handleDrop(e);
@@ -367,7 +425,7 @@
 			</div>
 		{/snippet}
 
-		<div class="pb-32" ontouchend={handleTouchEnd}>
+		<div class="pb-32" ontouchend={handleTouchEnd} role="presentation">
 			{#if !data.items?.length}
 				{@render empty()}
 			{:else}

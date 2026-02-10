@@ -180,8 +180,9 @@
 		if (edits.pp3) {
 			edits.pp3.Crop = base.Crop;
 			edits.pp3.Rotation = base.Rotation;
+			edits.pushHistory();
 		}
-		
+
 		await edits.snapshot();
 		resetSaved = true;
 		await invalidateAll();
@@ -292,6 +293,7 @@
 			sanitizeCrop(edits.pp3.Crop as unknown as { X: number; Y: number; W: number; H: number }, imageDimensions, imageDimensions);
 		}
 		edits.pp3 = structuredClone($state.snapshot(edits.pp3));
+		edits.pushHistory();
 
 		requestAnimationFrame(() => draw());
 	}
@@ -382,6 +384,7 @@
 						bind:value={edits.pp3.Rotation.Degree as number}
 						onchange={(v) => {
 							edits.pp3.Rotation.Degree = v;
+							edits.pushHistory();
 							requestAnimationFrame(() => draw());
 						}}
 					/>

@@ -28,6 +28,7 @@
 
 		enabled = value;
 		sectionState[enabledKey] = value;
+		edits.pushHistory();
 	}
 
 </script>
@@ -43,8 +44,10 @@
 		</div>
 	</details>
 	{#if showToggle}
-		<div class="absolute inset-y-0 right-4 flex items-start pt-2">
-			<Checkbox label="" checked={enabled} onchange={(e) => setEnabled(e)} small></Checkbox>
+		<div class="pointer-events-none absolute inset-y-0.5 right-4 flex items-start pt-2">
+			<div class="pointer-events-auto">
+				<Checkbox label="" checked={enabled} onchange={(e) => setEnabled(e)} small></Checkbox>
+			</div>
 		</div>
 	{/if}
 </div>

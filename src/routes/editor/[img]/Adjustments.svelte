@@ -62,6 +62,7 @@
 					edits.pp3.White_Balance.Temperature = img.whiteBalance;
 					edits.pp3.White_Balance.Green = img.tint;
 				}
+				edits.pushHistory();
 			}}
 			bind:value={edits.pp3.White_Balance.Setting as string}
 		/>
@@ -75,7 +76,7 @@
 				centered
 				resetValue={data.image.whiteBalance!}
 				ignored={edits.pp3.White_Balance.Setting !== 'Custom'}
-				onchange={() => (edits.pp3.White_Balance.Setting = 'Custom')}
+				onchange={() => { edits.pp3.White_Balance.Setting = 'Custom'; edits.pushHistory(); }}
 				overlay="bg-gradient-to-r from-[#0000FF] to-[#FFFF00]"
 				map={(x) => map(x, -3000, 3000, data.image.whiteBalance! - 3000, data.image.whiteBalance! + 3000)}
 				inverseMap={(y) => map(y, data.image.whiteBalance! - 3000, data.image.whiteBalance! + 3000, -3000, 3000)}
@@ -88,7 +89,7 @@
 				max={100}
 				resetValue={data.image.tint ?? 1}
 				ignored={edits.pp3.White_Balance.Setting !== 'Custom'}
-				onchange={() => (edits.pp3.White_Balance.Setting = 'Custom')}
+				onchange={() => { edits.pp3.White_Balance.Setting = 'Custom'; edits.pushHistory(); }}
 				step={0.001}
 				centered
 				precision={3}
@@ -98,7 +99,7 @@
 		{/if}
 	</Section>
 	<Section title="Exposure" section="Exposure">
-		<Checkbox label="Auto Exposure" bind:checked={edits.pp3.Exposure.Auto as boolean} />
+		<Checkbox label="Auto Exposure" bind:checked={edits.pp3.Exposure.Auto as boolean} onchange={() => edits.pushHistory()} />
 		<Slider
 			label="Exposure"
 			bind:value={edits.pp3.Exposure.Compensation as number}
@@ -107,26 +108,27 @@
 			step={0.1}
 			centered
 			ignored={edits.pp3.Exposure.Auto as boolean}
-			onchange={() => (edits.pp3.Exposure.Auto = false)}
+			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
 		/>
 		<Slider
 			label="Brightness"
 			bind:value={edits.pp3.Exposure.Brightness as number}
 			centered
 			ignored={edits.pp3.Exposure.Auto as boolean}
-			onchange={() => (edits.pp3.Exposure.Auto = false)}
+			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
 		/>
 		<Slider
 			label="Contrast"
 			bind:value={edits.pp3.Exposure.Contrast as number}
 			centered
 			ignored={edits.pp3.Exposure.Auto as boolean}
-			onchange={() => (edits.pp3.Exposure.Auto = false)}
+			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
 		/>
 		<Slider
 			label="Saturation"
 			bind:value={edits.pp3.Exposure.Saturation as number}
 			centered
+			onchange={() => edits.pushHistory()}
 		/>
 		<!-- <Slider
 			label="Black"
@@ -145,7 +147,7 @@
 			max={100}
 			step={1}
 			ignored={!shadowsHighlights.Enabled as boolean}
-			onchange={() => (shadowsHighlights.Enabled = true)}
+			onchange={() => { shadowsHighlights.Enabled = true; edits.pushHistory(); }}
 		/>
 		<Slider
 			label="Shadows"
@@ -154,12 +156,12 @@
 			max={100}
 			step={1}
 			ignored={!shadowsHighlights.Enabled as boolean}
-			onchange={() => (shadowsHighlights.Enabled = true)}
+			onchange={() => { shadowsHighlights.Enabled = true; edits.pushHistory(); }}
 		/>
 	</Section>
 	<Section title="Sharpening" section="Sharpening" enabledKey="Sharpen_Enabled">
-		<Slider label="Sharpen Amount" bind:value={edits.pp3.Sharpening.Amount as number} min={0} max={200} step={1} resetValue={50} />
-		<Slider label="Sharpen Radius" bind:value={edits.pp3.Sharpening.Radius as number} min={0.1} max={5} step={0.1} resetValue={1} />
+		<Slider label="Sharpen Amount" bind:value={edits.pp3.Sharpening.Amount as number} min={0} max={200} step={1} resetValue={50} onchange={() => edits.pushHistory()} />
+		<Slider label="Sharpen Radius" bind:value={edits.pp3.Sharpening.Radius as number} min={0.1} max={5} step={0.1} resetValue={1} onchange={() => edits.pushHistory()} />
 	</Section>
 	{#if edits.pp3?.Film_Simulation}
 		<Section title="Film Simulation" section="Film_Simulation">
@@ -173,7 +175,7 @@
 					Select Lut
 				{/if}
 			</Button>
-			<Slider label="Strength" bind:value={edits.pp3.Film_Simulation.Strength as number} min={0} max={100} step={1} ignored={!edits.pp3.Film_Simulation.Enabled as boolean} />
+			<Slider label="Strength" bind:value={edits.pp3.Film_Simulation.Strength as number} min={0} max={100} step={1} ignored={!edits.pp3.Film_Simulation.Enabled as boolean} onchange={() => edits.pushHistory()} />
 		</Section>
 	{/if}
 </section>

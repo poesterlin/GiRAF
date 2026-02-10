@@ -7,14 +7,13 @@ import { json } from "@sveltejs/kit";
 import { eq } from "drizzle-orm";
 
 export const GET: RequestHandler = async ({ params }) => {
-    const { id } = params;
-    const isRunnings = jobManager.getActiveJobs().includes(Number(id));
-
-    if (isRunnings) {
-        return json({ job: id, status: 'running' });
+    const sessionId = Number(params.id);
+    if (isNaN(sessionId)) {
+        return json({ message: 'Invalid session ID' }, { status: 400 });
     }
 
-    return json({ status: 'not found' }, { status: 404 });
+    const state = jobManager.getJobState(sessionId, JobType.IMPORT);
+    return json(state);
 };
 
 export const POST: RequestHandler = async ({ params }) => {
@@ -34,8 +33,12 @@ export const POST: RequestHandler = async ({ params }) => {
         return json({ message: 'No images found for this session' }, { status: 404 });
     }
 
-    jobManager.submit(JobType.IMPORT, { sessionId });
-    return json({ status: 'ok' });
+    const submitted = jobManager.submit(JobType.IMPORT, { sessionId });
+    if (!submitted) {
+        return json({ message: 'An import job is already running for this session' }, { status: 409 });
+    }
+
+    return json({ status: 'ok' }, { status: 202 });
 };
 
 export const DELETE: RequestHandler = async ({ params }) => {

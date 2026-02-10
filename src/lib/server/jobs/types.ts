@@ -24,4 +24,14 @@ export interface JobResult {
 	message?: string;
 }
 
+export type JobStatus = 'idle' | 'running' | 'success' | 'error' | 'cancelled';
+
+export interface JobState {
+	id: JobId;
+	type: JobType;
+	status: JobStatus;
+	message?: string;
+	updatedAt: string;
+}
+
 

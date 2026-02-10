@@ -32,6 +32,7 @@
 
 	function select(path: string) {
 		setLut(edits.pp3, path);
+		edits.pushHistory();
 		onClose();
 	}
 </script>

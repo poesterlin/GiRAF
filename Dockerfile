@@ -93,7 +93,7 @@ ENV PATH="/opt/rawtherapee/usr/bin:${PATH}"
 
 # STAGE 3: Final application image
 FROM rawtherapee-base
-LABEL org.opencontainers.image.source="https://github.com/poesterlin/raw-editor"
+LABEL org.opencontainers.image.source="https://github.com/poesterlin/giraf"
 
 # Copy Bun binary from the build stage (oven/bun places it here; compatible with Debian glibc)
 COPY --from=build /usr/local/bin/bun /usr/local/bin/bun

@@ -28,22 +28,52 @@
 	let albumCreateSession = $state<number>();
 	let albumDeleteId = $state<number>();
 
+	type ExportJobStatus = 'idle' | 'running' | 'success' | 'error' | 'cancelled';
+	type ExportJobState = {
+		status: ExportJobStatus;
+		message?: string;
+	};
+
+	function stopPolling(sessionId: number) {
+		const intervalId = pollingIntervals[sessionId];
+		if (!intervalId) return;
+		clearInterval(intervalId);
+		delete pollingIntervals[sessionId];
+	}
+
 	function pollJobStatus(sessionId: number) {
+		stopPolling(sessionId);
 		const intervalId = setInterval(async () => {
-			const response = await fetch(`/api/sessions/${sessionId}/export`);
+			try {
+				const response = await fetch(`/api/sessions/${sessionId}/export`);
+				if (!response.ok) {
+					throw new Error('Failed to check export status');
+				}
 
-			console.log(`[Polling] Session ${sessionId}: status check returned ${response.status}`);
+				const state = (await response.json()) as ExportJobState;
+				if (state.status === 'running') {
+					return;
+				}
 
-			if (response.status === 404) {
-				// Job is no longer active, so it's done.
-				clearInterval(intervalId);
-				delete pollingIntervals[sessionId];
+				stopPolling(sessionId);
 				delete jobStates[sessionId];
 
 				const session = sessions.find((s) => s.id === sessionId);
-				if (session) {
-					session.status = 'Exported';
+				if (state.status === 'success') {
+					if (session) {
+						session.status = 'Exported';
+					}
+					app.addToast('Export completed successfully.', 'success');
+				} else if (state.status === 'cancelled') {
+					app.addToast('Export was cancelled.', 'info');
+				} else if (state.status === 'error') {
+					app.addToast(state.message ? `Export failed: ${state.message}` : 'Export failed.', 'error');
 				}
+			} catch (error) {
+				console.error(`[Polling] Session ${sessionId} export status failed`, error);
+				stopPolling(sessionId);
+				delete jobStates[sessionId];
+				app.addToast('Failed to check export status.', 'error');
 			}
 		}, 2000);
 
@@ -52,24 +82,31 @@
 
 	async function exportSession(sessionId: number) {
 		jobStates[sessionId] = 'exporting';
-		await fetch(`/api/sessions/${sessionId}/export`, { method: 'POST' });
+		const response = await fetch(`/api/sessions/${sessionId}/export`, { method: 'POST' });
+		if (!response.ok && response.status !== 409) {
+			delete jobStates[sessionId];
+			app.addToast('Failed to start export.', 'error');
+			return;
+		}
+		app.addToast(response.status === 409 ? 'Export is already running.' : 'Export started.', 'info');
 		pollJobStatus(sessionId);
 	}
 
 	async function cancelExport(sessionId: number) {
 		jobStates[sessionId] = 'cancelling';
-		const intervalId = pollingIntervals[sessionId];
-		if (intervalId) {
-			clearInterval(intervalId);
-			delete pollingIntervals[sessionId];
-		}
-		await fetch(`/api/sessions/${sessionId}/export`, { method: 'DELETE' });
+		stopPolling(sessionId);
+		const response = await fetch(`/api/sessions/${sessionId}/export`, { method: 'DELETE' });
 		delete jobStates[sessionId];
+		if (!response.ok) {
+			app.addToast('Failed to cancel export.', 'error');
+			return;
+		}
+		app.addToast('Export cancellation requested.', 'info');
 	}
 
 	onDestroy(() => {
-		for (const intervalId of Object.values(pollingIntervals)) {
-			clearInterval(intervalId);
+		for (const sessionId of Object.keys(pollingIntervals)) {
+			stopPolling(Number(sessionId));
 		}
 	});
 
@@ -84,7 +121,7 @@
 </script>
 
 {#snippet item({ item }: { item: Session })}
-	<div class="group relative mb-6 overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-900/40 p-6 transition-all hover:border-neutral-700 hover:bg-neutral-900/60">
+	<div class="group relative mb-6 overflow-hidden rounded-3xl mr-2 border border-neutral-800 bg-neutral-900/40 p-6 transition-all hover:border-neutral-700 hover:bg-neutral-900/60">
 		<div class="flex flex-col gap-8 md:flex-row md:items-center">
 			<div class="flex flex-1 items-start gap-6">
 				{#if item.images.length > 0}

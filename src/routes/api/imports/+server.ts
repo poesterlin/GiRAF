@@ -90,10 +90,13 @@ export const POST: RequestHandler = async ({ request }) => {
 
     if (sessionId) {
         console.log(`[API] Submitting import job for session ${sessionId}.`);
-        jobManager.submit(JobType.IMPORT, { sessionId });
+        const submitted = jobManager.submit(JobType.IMPORT, { sessionId });
+        if (!submitted) {
+            return json({ message: 'An import job is already running for this session', sessionId }, { status: 409 });
+        }
     }
 
-    return new Response(null, { status: 202 });
+    return json({ status: 'ok', sessionId }, { status: 202 });
 };
 
 async function getImageDetails(imp: { filePath: string }, sessionId: number): Promise<typeof imageTable.$inferInsert> {

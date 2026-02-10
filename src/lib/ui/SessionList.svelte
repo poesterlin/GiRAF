@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import Scroller from '$lib/ui/Scroller.svelte';
 	import Tooltip from '$lib/ui/Tooltip.svelte';
@@ -15,48 +16,99 @@
 		triageEnabled?: boolean;
 	}
 
+	type ImportJobStatus = 'idle' | 'running' | 'success' | 'error' | 'cancelled';
+	type ImportJobState = {
+		status: ImportJobStatus;
+		message?: string;
+	};
+
 	let { sessions, next, onLoaded, basePath = 'editor', triageEnabled = true }: Props = $props();
 
 	let initialImports = $derived(sessions.filter((s) => s.isImporting).map((s) => s.id));
 
 	let scroller = $state<Scroller<Session>>();
 	let loading = $state(false);
-	let importJobStates = $derived<Set<number>>(new Set(initialImports));
+	let importJobStates = $state<Set<number>>(new Set());
+	let pollingIntervals: Record<number, ReturnType<typeof setInterval>> = {};
 
 	$effect(() => {
-		for (const session of initialImports) {
-			checkForCompletedJob(session);
+		for (const sessionId of initialImports) {
+			importJobStates.add(sessionId);
+			importJobStates = new Set(importJobStates);
+			startImportPolling(sessionId, false);
 		}
 	});
 
+	onDestroy(() => {
+		for (const sessionId of Object.keys(pollingIntervals)) {
+			stopImportPolling(Number(sessionId));
+		}
+	});
+
+	function stopImportPolling(sessionId: number) {
+		const intervalId = pollingIntervals[sessionId];
+		if (!intervalId) return;
+		clearInterval(intervalId);
+		delete pollingIntervals[sessionId];
+	}
+
+	function clearImportState(sessionId: number) {
+		importJobStates.delete(sessionId);
+		importJobStates = new Set(importJobStates);
+	}
+
+	function startImportPolling(sessionId: number, notifyOnCompletion: boolean) {
+		stopImportPolling(sessionId);
+		pollingIntervals[sessionId] = setInterval(async () => {
+			try {
+				const statusResponse = await fetch(`/api/sessions/${sessionId}/import`);
+				if (!statusResponse.ok) {
+					throw new Error('Failed to fetch import status');
+				}
+
+				const state = (await statusResponse.json()) as ImportJobState;
+				if (state.status === 'running') {
+					return;
+				}
+
+				stopImportPolling(sessionId);
+				clearImportState(sessionId);
+				await invalidateAll();
+
+				if (!notifyOnCompletion) {
+					return;
+				}
+
+				if (state.status === 'success') {
+					app.addToast('Import completed successfully.', 'success');
+				} else if (state.status === 'cancelled') {
+					app.addToast('Import was cancelled.', 'info');
+				} else if (state.status === 'error') {
+					app.addToast(state.message ? `Import failed: ${state.message}` : 'Import failed.', 'error');
+				}
+			} catch (error) {
+				console.error('Failed to fetch import job status', error);
+				stopImportPolling(sessionId);
+				clearImportState(sessionId);
+				app.addToast('Failed to check import status.', 'error');
+			}
+		}, 2000);
+	}
+
 	async function importSession(sessionId: number) {
 		importJobStates.add(sessionId);
+		importJobStates = new Set(importJobStates);
 		const response = await fetch(`/api/sessions/${sessionId}/import`, { method: 'POST' });
 
 		if (!response.ok && response.status !== 409) {
-			// Handle unexpected errors, maybe show a toast notification
 			console.error('Failed to start import job', await response.text());
-			// Reset state on failure
-			importJobStates.delete(sessionId);
-			app.addToast('Failed to start import job', 'error');
-			await invalidateAll();
+			clearImportState(sessionId);
+			app.addToast('Failed to start import job.', 'error');
+			return;
 		}
 
-		checkForCompletedJob(sessionId);
-	}
-
-	function checkForCompletedJob(sessionId: number) {
-		const interval = setInterval(async () => {
-			const statusResponse = await fetch(`/api/sessions/${sessionId}/import`);
-			if (!statusResponse.ok) {
-				console.error('Failed to fetch import job status', await statusResponse.text());
-				clearInterval(interval);
-				await invalidateAll();
-				app.addToast('Import job completed successfully', 'success');
-				importJobStates.delete(sessionId);
-				return;
-			}
-		}, 8000);
+		app.addToast(response.status === 409 ? 'Import is already running.' : 'Import started.', 'info');
+		startImportPolling(sessionId, true);
 	}
 
 	export function capture() {
@@ -238,8 +290,3 @@
 	}}
 ></Scroller>
 
-<style>
-	.grayscale {
-		filter: grayscale(100%);
-	}
-</style>

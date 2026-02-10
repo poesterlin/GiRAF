@@ -98,7 +98,7 @@
 		// fallback to localStorage
 		if (!pp3Text) {
 			try {
-				const stored = localStorage.getItem('raw-editor_pp3_clipboard');
+				const stored = localStorage.getItem('giraf_pp3_clipboard');
 				if (stored && stored.trim().length > 0) {
 					pp3Text = stored;
 				}
@@ -138,7 +138,7 @@
 
 		// save to localStorage as fallback/persistent copy
 		try {
-			localStorage.setItem('raw-editor_pp3_clipboard', pp3String);
+			localStorage.setItem('giraf_pp3_clipboard', pp3String);
 			success = true;
 		} catch {
 			// ignore localStorage errors
@@ -170,7 +170,7 @@
 		// fallback to localStorage
 		if (!pp3Text) {
 			try {
-				const stored = localStorage.getItem('raw-editor_pp3_clipboard');
+				const stored = localStorage.getItem('giraf_pp3_clipboard');
 				if (stored && stored.trim().length > 0) {
 					pp3Text = stored;
 				}
@@ -188,6 +188,7 @@
 		// try to parse PP3 text and apply
 		try {
 			edits.pp3 = parsePP3(pp3Text);
+			edits.pushHistory();
 			pastedConfig = true;
 			setTimeout(() => (pastedConfig = false), 2000);
 		} catch {
