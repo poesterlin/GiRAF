@@ -53,7 +53,8 @@ class EditingState {
 
 		this.pp3 = newPp3;
 		this.throttledPP3 = newPp3;
-		this.history = [newPp3];
+		// Store an immutable snapshot so undo can restore the initial state.
+		this.history = [structuredClone($state.snapshot(newPp3))];
 		this.historyIndex = 0;
 		this.currentImageId = id;
 		this.lastSavedPP3 = structuredClone($state.snapshot(newPp3));
