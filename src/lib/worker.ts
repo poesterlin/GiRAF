@@ -39,8 +39,13 @@ function getRtWasm() {
     return rtPromise;
 }
 
-function wasmTiffToJpegWithPp3(Module: any, tiffData: Uint8Array, pp3String: string, quality: number): Uint8Array {
-    console.log(`[worker] WASM processing: tiff=${tiffData.length} bytes, pp3=${pp3String.length} chars, quality=${quality}`);
+interface ClutOptions {
+    clutData: Uint16Array;
+    clutLevel: number;
+}
+
+function wasmTiffToJpegWithPp3(Module: any, tiffData: Uint8Array, pp3String: string, quality: number, clut?: ClutOptions): Uint8Array {
+    console.log(`[worker] WASM processing: tiff=${tiffData.length} bytes, pp3=${pp3String.length} chars, quality=${quality}, clut=${clut ? `level=${clut.clutLevel} entries=${clut.clutData.length}` : 'none'}`);
 
     const tiffPtr = Module._malloc(tiffData.length);
     Module.HEAPU8.set(tiffData, tiffPtr);
@@ -49,12 +54,25 @@ function wasmTiffToJpegWithPp3(Module: any, tiffData: Uint8Array, pp3String: str
     const pp3Ptr = Module._malloc(pp3Bytes.length);
     Module.HEAPU8.set(pp3Bytes, pp3Ptr);
 
+    let clutPtr = 0;
+    if (clut) {
+        const clutBytes = clut.clutData.byteLength;
+        clutPtr = Module._malloc(clutBytes);
+        Module.HEAPU8.set(new Uint8Array(clut.clutData.buffer, clut.clutData.byteOffset, clutBytes), clutPtr);
+    }
+
     try {
-        console.log('[worker] Calling _tiff_to_jpeg_with_pp3...');
-        const result = Module._tiff_to_jpeg_with_pp3(tiffPtr, tiffData.length, pp3Ptr, quality);
-        console.log(`[worker] _tiff_to_jpeg_with_pp3 returned: ${result}`);
+        let result: number;
+        if (clut && clutPtr) {
+            console.log('[worker] Calling _tiff_to_jpeg_with_pp3_and_clut...');
+            result = Module._tiff_to_jpeg_with_pp3_and_clut(tiffPtr, tiffData.length, pp3Ptr, quality, clutPtr, clut.clutData.length, clut.clutLevel);
+        } else {
+            console.log('[worker] Calling _tiff_to_jpeg_with_pp3...');
+            result = Module._tiff_to_jpeg_with_pp3(tiffPtr, tiffData.length, pp3Ptr, quality);
+        }
+        console.log(`[worker] WASM returned: ${result}`);
         if (result !== 0) {
-            throw new Error('WASM tiff_to_jpeg_with_pp3 failed with code ' + result);
+            throw new Error('WASM processing failed with code ' + result);
         }
 
         const outSize = Module._get_output_size();
@@ -66,6 +84,7 @@ function wasmTiffToJpegWithPp3(Module: any, tiffData: Uint8Array, pp3String: str
     } finally {
         Module._free(tiffPtr);
         Module._free(pp3Ptr);
+        if (clutPtr) Module._free(clutPtr);
     }
 }
 
@@ -96,14 +115,57 @@ async function getTiffData(imageId: string): Promise<Uint8Array> {
     return new Uint8Array(await file.arrayBuffer());
 }
 
+// Cache parsed CLUT data by path
+const clutCache = new Map<string, { clutData: Uint16Array; clutLevel: number }>();
+
+function parseClutFilenameFromPp3(pp3String: string): string | null {
+    const match = pp3String.match(/ClutFilename=(.+)/);
+    return match?.[1]?.trim() || null;
+}
+
+async function getClutData(clutPath: string): Promise<ClutOptions> {
+    const cached = clutCache.get(clutPath);
+    if (cached) {
+        console.log(`[worker] CLUT cache hit for ${clutPath}`);
+        return cached;
+    }
+
+    console.log(`[worker] Fetching CLUT data for ${clutPath}...`);
+    const res = await fetch(`/api/luts/clut?path=${encodeURIComponent(clutPath)}`);
+    if (!res.ok) {
+        throw new Error(`Failed to fetch CLUT: ${res.status} ${res.statusText}`);
+    }
+
+    const level = Number(res.headers.get('X-Clut-Level'));
+    const buffer = await res.arrayBuffer();
+    const clutData = new Uint16Array(buffer);
+    const result = { clutData, clutLevel: level };
+
+    console.log(`[worker] CLUT fetched: level=${level}, entries=${clutData.length}`);
+    clutCache.set(clutPath, result);
+    return result;
+}
+
 async function refreshImageWasm(imageId: string, config: string): Promise<{ url: string; error: boolean }> {
     console.log(`[worker] refreshImageWasm: imageId=${imageId}`);
     const Module = await getRtWasm();
     const tiffData = await getTiffData(imageId);
 
     const pp3String = atob(config);
+
+    // Check if PP3 has a Film Simulation CLUT
+    let clut: ClutOptions | undefined;
+    const clutPath = parseClutFilenameFromPp3(pp3String);
+    if (clutPath) {
+        try {
+            clut = await getClutData(clutPath);
+        } catch (err) {
+            console.warn('[worker] Failed to load CLUT, proceeding without:', err);
+        }
+    }
+
     const t0 = performance.now();
-    const jpegData = wasmTiffToJpegWithPp3(Module, tiffData, pp3String, 85);
+    const jpegData = wasmTiffToJpegWithPp3(Module, tiffData, pp3String, 85, clut);
     console.log(`[worker] WASM processing took ${(performance.now() - t0).toFixed(1)}ms`);
 
     const blob = new Blob([jpegData as BlobPart], { type: 'image/jpeg' });
