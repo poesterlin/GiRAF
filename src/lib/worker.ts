@@ -102,7 +102,9 @@ async function refreshImageWasm(imageId: string, config: string): Promise<{ url:
     const tiffData = await getTiffData(imageId);
 
     const pp3String = atob(config);
+    const t0 = performance.now();
     const jpegData = wasmTiffToJpegWithPp3(Module, tiffData, pp3String, 85);
+    console.log(`[worker] WASM processing took ${(performance.now() - t0).toFixed(1)}ms`);
 
     const blob = new Blob([jpegData as BlobPart], { type: 'image/jpeg' });
     const fileHandle = await getFileHandle('images', `${imageId}.jpg`);
