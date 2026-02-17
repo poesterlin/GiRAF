@@ -2,7 +2,6 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import { countPP3Properties, diffPP3, parsePP3, stringifyPP3 } from '$lib/pp3-utils';
-	import { edits } from '$lib/state/editing.svelte';
 	import {
 		IconAdjustmentsHorizontal,
 		IconGitBranch,
@@ -13,12 +12,12 @@
 		IconFilter,
 		IconFlag,
 		IconHistory,
-		IconRestore
 	} from '$lib/ui/icons';
 	import { IconFlagFilled } from '@tabler/icons-svelte';
 	import FilterModal from './FilterModal.svelte';
 	import FlagModal from './FlagModal.svelte';
 	import Tooltip from './Tooltip.svelte';
+	import { edits } from '$lib/state/editing.svelte';
 
 	interface Props {
 		img: string;

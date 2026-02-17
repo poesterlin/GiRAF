@@ -4,8 +4,8 @@
 	import Scroller from '$lib/ui/Scroller.svelte';
 	import Tooltip from '$lib/ui/Tooltip.svelte';
 	import { IconAdjustmentsFilled, IconArchive, IconLayoutGrid, IconTransferIn, IconDeviceFloppy } from '$lib/ui/icons';
-	import { app } from '$lib/state/app.svelte';
 	import type { SessionsResponse } from '../../routes/api/sessions/+server';
+	import { app } from '$lib/state/app.svelte';
 
 	type Session = SessionsResponse['sessions'][number];
 	interface Props {
