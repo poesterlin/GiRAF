@@ -1,8 +1,10 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { building } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import postgres from 'postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
+
+let _db: PostgresJsDatabase<any>;
 
 async function createDb() {
     if (!env.DATABASE_URL && !building) {
@@ -16,15 +18,17 @@ async function createDb() {
     }
 
     const client = postgres(env.DATABASE_URL!);
-    const db = drizzle({ client, logger: false, schema });
+    _db = drizzle({ client, logger: false, schema });
 
     if (!building) {
         console.log('Migrating database...');
-        await migrate(db, { migrationsFolder: 'drizzle' });
+        await migrate(_db, { migrationsFolder: 'drizzle' });
         console.log('Database migrated');
     }
 
-    return db;
+    return _db;
 }
 
-export const db = await createDb();
+await createDb();
+
+export { _db as db };
