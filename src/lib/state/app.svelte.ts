@@ -23,6 +23,7 @@ interface ServerNotificationItem {
 
 class AppState {
 	notificationVersion = 0;
+	notificationMutations = 0;
     toasts = $state<Toast[]>([]);
 	notifications = $state<NotificationItem[]>([]);
 
@@ -47,6 +48,7 @@ class AppState {
 
 	async markAllNotificationsRead() {
 		const version = ++this.notificationVersion;
+		this.notificationMutations += 1;
 		this.notifications = this.notifications.map((notification) => ({
 			...notification,
 			read: true
@@ -67,16 +69,23 @@ class AppState {
 			}));
 		} catch {
 			// Keep local state even if request fails.
+		} finally {
+			this.notificationMutations -= 1;
+			this.notificationVersion += 1;
 		}
 	}
 
 	async clearNotifications() {
 		this.notificationVersion += 1;
+		this.notificationMutations += 1;
 		this.notifications = [];
 		try {
 			await fetch('/api/notifications', { method: 'DELETE' });
 		} catch {
 			// Keep local state even if request fails.
+		} finally {
+			this.notificationMutations -= 1;
+			this.notificationVersion += 1;
 		}
 	}
 }

@@ -96,6 +96,7 @@
 	}
 
 	async function refreshNotifications() {
+		if (app.notificationMutations) return;
 		const version = app.notificationVersion;
 		try {
 			const response = await fetch('/api/notifications');
@@ -104,7 +105,7 @@
 			}
 
 			const payload = (await response.json()) as { notifications?: ServerNotification[] };
-			if (version !== app.notificationVersion) return;
+			if (version !== app.notificationVersion || app.notificationMutations) return;
 			if (!Array.isArray(payload.notifications)) {
 				return;
 			}
