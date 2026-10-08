@@ -12,18 +12,21 @@ type WorkerState = {
 };
 
 let state: WorkerState | undefined;
+let fingerprintState: WorkerState | undefined;
 let unavailable = false;
 
 function stopWorker(current: WorkerState, error: Error) {
 	if (state === current) state = undefined;
+	if (fingerprintState === current) fingerprintState = undefined;
 	current.dispose();
 	current.worker.terminate();
 	for (const reject of current.pending) reject(error);
 	current.pending.clear();
 }
 
-function getWorker(): WorkerState | undefined {
-	if (state) return state;
+function getWorker(fingerprint = false): WorkerState | undefined {
+	const existing = fingerprint ? fingerprintState : state;
+	if (existing) return existing;
 	if (unavailable || typeof Worker === 'undefined') return;
 	try {
 		const options: WorkerOptions = { type: 'module' };
@@ -43,7 +46,8 @@ function getWorker(): WorkerState | undefined {
 		};
 		worker.addEventListener('error', failed);
 		worker.addEventListener('messageerror', failed);
-		state = current;
+		if (fingerprint) fingerprintState = current;
+		else state = current;
 		return current;
 	} catch {
 		unavailable = true;
@@ -80,11 +84,11 @@ export async function getLocalPreview(file: File): Promise<{ url: string; captur
 			// Unsupported worker image APIs and worker failures use bounded extraction directly.
 		}
 	}
-	return extractLocalPhotoPreview(file);
+	return extractLocalPhotoPreview(file, { preferThumbnail: true });
 }
 
 export async function getLocalFingerprint(file: File): Promise<string> {
-	const current = getWorker();
+	const current = getWorker(true);
 	if (current) {
 		try {
 			return await request(current, () => current.api.getFingerprint(file), 30000);

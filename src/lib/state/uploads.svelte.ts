@@ -66,7 +66,7 @@ class UploadState {
 		this.transfers.push(...transfers);
 		const updateProgress = () => {
 			const totalBytes = this.transfers.reduce((sum, file) => sum + file.size, 0);
-			this.progress = totalBytes ? Math.round((this.transfers.reduce((sum, file) => sum + file.loaded, 0) / totalBytes) * 100) : Math.round((this.completed / this.total) * 100);
+			this.progress = totalBytes ? (this.transfers.reduce((sum, file) => sum + file.loaded, 0) / totalBytes) * 100 : (this.completed / this.total) * 100;
 		};
 		updateProgress();
 		try {

@@ -27,6 +27,8 @@
 	let localItems = $state<ImageItem[]>([]);
 	let nextLocalId = -1;
 	let alive = true;
+	let loadedPreviews = $state(new Set<number>());
+	let failedPreviews = $state(new Set<number>());
 	const previewLimit = pLimit(2);
 	let allItems = $derived<ImageItem[]>([...data.items.filter((item) => !localItems.some((local) => local.importId === item.id)), ...localItems]);
 
@@ -101,6 +103,10 @@
 	let selectedSessionId = $state<number | null>(null);
 	let isRefreshing = $state(false);
 	let isDraggingFile = $state(false);
+	let fileDragDepth = 0;
+	let mouseStart: { id: number; index: number; x: number; y: number } | undefined;
+	let mouseSelecting = false;
+	let suppressClick = false;
 	let fileInput: HTMLInputElement;
 	let importPollingIntervals: Record<number, ReturnType<typeof setInterval>> = {};
 
@@ -197,6 +203,10 @@
 	}
 
 	function handleClick(id: number, index: number, event: MouseEvent) {
+		if (suppressClick) {
+			suppressClick = false;
+			return;
+		}
 		if (assigningIds.has(id)) return;
 		if (!inSelectionMode) {
 			inSelectionMode = true;
@@ -385,18 +395,51 @@
 	}
 
 	function handleDragOver(e: DragEvent) {
+		if (!e.dataTransfer?.types.includes('Files') || mouseStart || isDragging) return;
 		e.preventDefault();
 		e.stopPropagation();
+		e.dataTransfer.dropEffect = 'copy';
 	}
 
 	function handleDrop(e: DragEvent) {
+		if (!e.dataTransfer?.types.includes('Files') || mouseStart || isDragging) return;
 		e.preventDefault();
 		e.stopPropagation();
 		if (e.dataTransfer?.files) {
 			stage(e.dataTransfer.files);
 		}
+		fileDragDepth = 0;
+	}
+
+	function handleMouseMove(e: MouseEvent) {
+		if (!mouseStart || !(e.buttons & 1)) return;
+		if (!mouseSelecting && Math.hypot(e.clientX - mouseStart.x, e.clientY - mouseStart.y) < 5) return;
+		const card = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLButtonElement>('[data-index]');
+		if (!card) return;
+		mouseSelecting = true;
+		suppressClick = true;
+		const index = Number(card.dataset.index);
+		for (let i = Math.min(mouseStart.index, index); i <= Math.max(mouseStart.index, index); i++) {
+			if (allItems[i] && !assigningIds.has(allItems[i].id)) selectedIds.add(allItems[i].id);
+		}
+		selectedIds = new Set(selectedIds);
+		inSelectionMode = selectedIds.size > 0;
 	}
 </script>
+
+<svelte:window
+	onmousemove={handleMouseMove}
+	onmouseup={() => {
+		mouseStart = undefined;
+		mouseSelecting = false;
+	}}
+	onblur={() => {
+		mouseStart = undefined;
+		mouseSelecting = false;
+		isDraggingFile = false;
+		fileDragDepth = 0;
+	}}
+/>
 
 <div
 	class="relative h-full overflow-y-auto bg-black p-6 lg:p-12"
@@ -407,11 +450,17 @@
 		isDraggingFile = false;
 	}}
 	ondragenter={(e) => {
+		if (!e.dataTransfer?.types.includes('Files') || mouseStart || isDragging) return;
 		e.preventDefault();
-		if (e.dataTransfer?.types.includes('Files')) isDraggingFile = true;
+		fileDragDepth += 1;
+		isDraggingFile = true;
 	}}
-	ondragleave={() => (isDraggingFile = false)}
+	ondragleave={() => {
+		fileDragDepth = Math.max(0, fileDragDepth - 1);
+		if (!fileDragDepth) isDraggingFile = false;
+	}}
 >
+	<div class="sticky top-0 z-40"><UploadProgress /></div>
 	{#if isDraggingFile}
 		<div class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
 			<div class="rounded-3xl border-2 border-dashed border-neutral-700 bg-neutral-900/80 p-16 shadow-2xl transition-all">
@@ -482,8 +531,6 @@
 			</div>
 		</div>
 
-		<div class="mb-6"><UploadProgress /></div>
-
 		{#snippet empty()}
 			<div class="flex h-[40vh] items-center justify-center rounded-3xl border border-neutral-800 bg-neutral-900/20">
 				<div class="text-center">
@@ -517,13 +564,21 @@
 						<button onclick={() => toggleDateSelection(group.images)} class="text-sm font-bold text-neutral-500 hover:text-neutral-100 transition-colors"> Select All </button>
 					</div>
 					<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-						{#each group.images as item}
+						{#each group.images as item (item.id)}
 							{@const itemIndex = allItems.indexOf(item)}
 							<button
 								data-id={item.id}
 								data-index={itemIndex}
 								disabled={assigningIds.has(item.id)}
-								class="group relative aspect-[3/2] overflow-hidden rounded-2xl bg-neutral-900 ring-offset-black transition-all"
+								class="group relative aspect-[3/2] select-none overflow-hidden rounded-2xl bg-neutral-900 ring-offset-black transition-all"
+								draggable={false}
+								ondragstart={(e) => e.preventDefault()}
+								onmousedown={(e) => {
+									if (e.button === 0) {
+										suppressClick = false;
+										mouseStart = { id: item.id, index: itemIndex, x: e.clientX, y: e.clientY };
+									}
+								}}
 								class:ring-4={selectedIds.has(item.id)}
 								class:ring-neutral-100={selectedIds.has(item.id)}
 								onclick={(e) => handleClick(item.id, itemIndex, e)}
@@ -537,10 +592,15 @@
 									<img
 										src={item.url ?? `/api/imports/${item.id}/preview`}
 										alt=""
+										draggable={false}
+										onload={() => {
+											loadedPreviews = new Set([...loadedPreviews, item.id]);
+										}}
 										loading="lazy"
 										class="h-full w-full object-cover transition-all duration-500 group-hover:scale-110"
 										class:opacity-50={selectedIds.has(item.id)}
 										onerror={() => {
+											failedPreviews = new Set([...failedPreviews, item.id]);
 											if (item.url) {
 												URL.revokeObjectURL(item.url);
 												item.url = undefined;
@@ -548,10 +608,11 @@
 											}
 										}}
 									/>
-								{:else}
+								{/if}
+								{#if !loadedPreviews.has(item.id)}
 									<span class="absolute inset-0 flex items-center justify-center" role="status" aria-label={item.previewError ?? 'Loading preview'}>
-										{#if item.previewError}
-											<span class="text-xs text-neutral-400">{item.previewError}</span>
+										{#if item.previewError || failedPreviews.has(item.id)}
+											<span class="text-xs text-neutral-400">{item.previewError ?? 'Preview unavailable'}</span>
 										{:else}
 											<span class="preview-shutter" aria-hidden="true"><span></span><span></span><span></span></span>
 										{/if}
@@ -564,21 +625,17 @@
 										title={item.uploading ? 'Uploading' : 'Local file — not uploaded'}
 										aria-label={item.uploading ? 'Uploading' : 'Local file — not uploaded'}
 									>
-										{#if item.uploading}
-											<span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true"></span>
-										{:else}
-											<svg
-												width="16"
-												height="16"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4M4 16v4h16v-4" /></svg
-											>
-										{/if}
+										<svg
+											width="16"
+											height="16"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4M4 16v4h16v-4" /></svg
+										>
 									</span>
 								{/if}
 
@@ -705,14 +762,31 @@
 		transform: scaleY(0.35);
 		animation: shutter-reveal 2.8s ease-in-out infinite;
 	}
-	.preview-shutter > span:nth-child(2) { animation-delay: 0.16s; }
-	.preview-shutter > span:nth-child(3) { animation-delay: 0.32s; }
+	.preview-shutter > span:nth-child(2) {
+		animation-delay: 0.16s;
+	}
+	.preview-shutter > span:nth-child(3) {
+		animation-delay: 0.32s;
+	}
 	@keyframes shutter-reveal {
-		0%, 65%, 100% { transform: scaleY(0.35); opacity: 0.3; }
-		25%, 40% { transform: scaleY(1); opacity: 0.75; }
+		0%,
+		65%,
+		100% {
+			transform: scaleY(0.35);
+			opacity: 0.3;
+		}
+		25%,
+		40% {
+			transform: scaleY(1);
+			opacity: 0.75;
+		}
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.preview-shutter > span { animation: none; transform: none; opacity: 0.5; }
+		.preview-shutter > span {
+			animation: none;
+			transform: none;
+			opacity: 0.5;
+		}
 	}
 	/* Elegant Scrollbar */
 	:global(::-webkit-scrollbar) {

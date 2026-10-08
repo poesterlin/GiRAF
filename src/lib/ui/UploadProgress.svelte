@@ -3,10 +3,37 @@
 </script>
 
 {#if uploads.isUploading}
-	<progress class="upload-progress h-1 w-full" value={uploads.progress} max="100" aria-label="Upload progress"></progress>
+	<div class="upload-track" class:preparing={uploads.progress === 0}>
+		<progress class="upload-progress h-1 w-full" value={uploads.progress} max="100" aria-label={uploads.progress === 0 ? 'Preparing uploads' : 'Upload progress'}></progress>
+	</div>
 {/if}
 
 <style>
+	.upload-track {
+		position: relative;
+		overflow: hidden;
+	}
+	.preparing::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 25%;
+		height: 100%;
+		background: #fff;
+		animation: preparing 2s ease-in-out infinite alternate;
+	}
+	@keyframes preparing {
+		to {
+			transform: translateX(300%);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.preparing::after {
+			animation: none;
+			opacity: 0.5;
+		}
+	}
 	.upload-progress {
 		appearance: none;
 		display: block;
