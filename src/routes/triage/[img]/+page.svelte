@@ -117,13 +117,16 @@
 	<!-- Main Preview Area -->
 	<main class="relative order-1 flex-1 overflow-hidden bg-neutral-900 lg:order-2">
 		<div class="flex h-full items-center justify-center p-4">
-			<img 
-				src={`/api/images/${data.image.id}/preview?size=2048`} 
-				alt={`Image ${data.image.id}`}
-				class="h-full w-full object-contain rounded-lg shadow-2xl transition-transform duration-500"
-				class:scale-95={isArchiving}
-				class:opacity-50={isArchiving}
-			/>
+			<picture class="flex h-full w-full items-center justify-center">
+				<source media="(min-width: 1024px)" srcset={`/api/images/${data.image.id}/preview?size=4096&quality=90&mode=inside`} />
+				<img
+					src={`/api/images/${data.image.id}/preview?size=2048`}
+					alt={`Image ${data.image.id}`}
+					class="h-full w-full object-contain rounded-lg shadow-2xl transition-transform duration-500"
+					class:scale-95={isArchiving}
+					class:opacity-50={isArchiving}
+				/>
+			</picture>
 		</div>
 
 		<!-- Left Side Controls -->

@@ -18,7 +18,10 @@ const rotations: Record<number, number> = {
 
 export const GET: RequestHandler = async ({ params, url }) => {
     const id = Number(params.id);
-    const size = Math.min(Number(url.searchParams.get("size") || 400), 2000);
+    const requestedSize = Number(url.searchParams.get("size") || 400);
+    const size = Number.isFinite(requestedSize) ? Math.max(1, Math.min(Math.round(requestedSize), 4096)) : 400;
+    const requestedQuality = Number(url.searchParams.get('quality') || 80);
+    const quality = Number.isFinite(requestedQuality) ? Math.max(1, Math.min(Math.round(requestedQuality), 95)) : 80;
     const mode: keyof FitEnum = url.searchParams.get("mode") || "contain" as any;
 
     const image = await db.query.imageTable.findFirst({
@@ -33,7 +36,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
         const buffer = await sharp(image.previewPath)
             .rotate()
             .resize({ width: size, height: size, fit: mode, withoutEnlargement: true })
-            .webp({ quality: 80 })
+            .webp({ quality })
             .toBuffer();
 
         return new Response(buffer as any, {
@@ -68,7 +71,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
     try {
         await sharp(tempFile)
-            .resize({ width: 2000, height: 2000, fit: 'contain', withoutEnlargement: true })
+            .resize({ width: 4096, height: 4096, fit: 'inside', withoutEnlargement: true })
             .rotate(rotations[rotation])
             .jpeg({ quality: 95 })
             .toFile(compressedFile);
@@ -81,8 +84,8 @@ export const GET: RequestHandler = async ({ params, url }) => {
         console.log(`Thumbnail extracted and compressed in ${endTime - startTime}ms`);
 
         const buffer = await sharp(compressedFile)
-            .resize({ width: size, height: size, fit: mode })
-            .webp({ quality: 85 })
+            .resize({ width: size, height: size, fit: mode, withoutEnlargement: true })
+            .webp({ quality })
             .toBuffer();
 
         return new Response(buffer as any, {
