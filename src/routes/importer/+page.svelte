@@ -553,7 +553,7 @@
 										{#if item.previewError}
 											<span class="text-xs text-neutral-400">{item.previewError}</span>
 										{:else}
-											<span class="h-3 w-3 animate-spin rounded-full border border-white border-t-black motion-reduce:animate-none" aria-hidden="true"></span>
+											<span class="preview-shutter" aria-hidden="true"><span></span><span></span><span></span></span>
 										{/if}
 									</span>
 								{/if}
@@ -690,6 +690,30 @@
 </div>
 
 <style>
+	.preview-shutter {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		width: 16px;
+		height: 12px;
+	}
+	.preview-shutter > span {
+		width: 4px;
+		height: 10px;
+		background: #fff;
+		opacity: 0.3;
+		transform: scaleY(0.35);
+		animation: shutter-reveal 2.8s ease-in-out infinite;
+	}
+	.preview-shutter > span:nth-child(2) { animation-delay: 0.16s; }
+	.preview-shutter > span:nth-child(3) { animation-delay: 0.32s; }
+	@keyframes shutter-reveal {
+		0%, 65%, 100% { transform: scaleY(0.35); opacity: 0.3; }
+		25%, 40% { transform: scaleY(1); opacity: 0.75; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.preview-shutter > span { animation: none; transform: none; opacity: 0.5; }
+	}
 	/* Elegant Scrollbar */
 	:global(::-webkit-scrollbar) {
 		width: 6px;
