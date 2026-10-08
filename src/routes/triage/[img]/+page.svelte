@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, invalidateAll, preloadData } from '$app/navigation';
+	import { beforeNavigate, goto, invalidateAll, preloadData } from '$app/navigation';
 	import { page } from '$app/state';
 	import { tagStore } from '$lib/state/tag.svelte';
 	import FlagModal from '$lib/ui/FlagModal.svelte';
@@ -12,35 +12,61 @@
 	let showTagModal = $state(false);
 	let isArchiving = $state(false);
 	let justRestored = $state(false);
+	let isRestoring = $state(false);
+	let navigationVersion = 0;
+	beforeNavigate(() => { navigationVersion += 1; });
 
 	async function archiveImage() {
+		if (isArchiving || isRestoring || data.image.isArchived) return;
+		const imageId = data.image.id;
+		const nextImage = data.nextImage;
+		const version = navigationVersion;
 		isArchiving = true;
-		await new Promise((r) => setTimeout(r, 300));
+		try {
+			await new Promise((r) => setTimeout(r, 300));
 
-		const res = await fetch(`/api/images/${page.params.img}/archive`, {
-			method: 'POST'
-		});
-		if (res.ok) {
-			await invalidateAll();
-			if (data.nextImage) {
-				goto(`/triage/${data.nextImage}`);
+			const res = await fetch(`/api/images/${imageId}/archive`, {
+				method: 'POST'
+			});
+			if (res.ok) {
+				await invalidateAll();
+				if (nextImage && navigationVersion === version && data.image.id === imageId) {
+					await goto(`/triage/${nextImage}`);
+				}
+			} else {
+				alert('Failed to archive image.');
 			}
-		} else {
+		} catch (error) {
+			console.error('Failed to archive image', error);
 			alert('Failed to archive image.');
+		} finally {
+			isArchiving = false;
 		}
-		isArchiving = false;
 	}
 
 	async function restoreImage() {
-		const res = await fetch(`/api/images/${page.params.img}/archive`, {
-			method: 'DELETE'
-		});
-		if (res.ok) {
-			await invalidateAll();
-			justRestored = true;
-			setTimeout(() => (justRestored = false), 1000);
-		} else {
+		if (isArchiving || isRestoring || !data.image.isArchived) return;
+		const imageId = data.image.id;
+		const version = navigationVersion;
+		isRestoring = true;
+		try {
+			const res = await fetch(`/api/images/${imageId}/archive`, {
+				method: 'DELETE'
+			});
+			if (res.ok) {
+				await invalidateAll();
+				if (navigationVersion === version && data.image.id === imageId) {
+					justRestored = true;
+					setTimeout(() => (justRestored = false), 1000);
+				}
+			} else {
+				alert('Failed to restore image.');
+			}
+		} catch (error) {
+			console.error('Failed to restore image', error);
 			alert('Failed to restore image.');
+		} finally {
+			isRestoring = false;
 		}
 	}
 	$effect(() => {
@@ -107,7 +133,7 @@
 					<button
 						onclick={restoreImage}
 						aria-label="Restore Image"
-						disabled={!data.image.isArchived}
+						disabled={!data.image.isArchived || isArchiving || isRestoring}
 						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-400 backdrop-blur-md transition-all active:scale-90 disabled:opacity-50 sm:h-16 sm:w-14 shadow-2xl"
 						class:text-neutral-100={data.image.isArchived}
 						class:bg-neutral-800={data.image.isArchived}
@@ -147,7 +173,7 @@
 					<button
 						onclick={archiveImage}
 						aria-label="Archive Image"
-						disabled={data.image.isArchived}
+						disabled={data.image.isArchived || isArchiving || isRestoring}
 						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-100 backdrop-blur-md transition-all active:scale-90 disabled:opacity-10 sm:h-16 sm:w-14 shadow-2xl"
 						class:hover:bg-neutral-500={!data.image.isArchived}
 						class:hover:text-white={!data.image.isArchived}
