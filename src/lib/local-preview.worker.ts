@@ -36,6 +36,6 @@ async function getPreview(file: File) {
 	}
 }
 
-const api = { getPreview, getFingerprint: fingerprintFile };
+const api = { ping: () => {}, getPreview, getFingerprint: fingerprintFile };
 export type LocalPreviewWorker = typeof api;
 expose(api);

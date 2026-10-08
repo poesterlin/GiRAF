@@ -10,11 +10,12 @@ type WorkerState = {
 	api: Remote<LocalPreviewWorker>;
 	pending: Set<(error: Error) => void>;
 	dispose: () => void;
+	ready: Promise<void>;
 };
 
 let state: WorkerState | undefined;
 let fingerprintState: WorkerState | undefined;
-let unavailable = false;
+const unavailable = new Set<boolean>();
 
 function stopWorker(current: WorkerState, error: Error) {
 	if (state === current) state = undefined;
@@ -28,19 +29,26 @@ function stopWorker(current: WorkerState, error: Error) {
 function getWorker(fingerprint = false): WorkerState | undefined {
 	const existing = fingerprint ? fingerprintState : state;
 	if (existing) return existing;
-	if (unavailable || typeof Worker === 'undefined') return;
+	if (unavailable.has(fingerprint) || typeof Worker === 'undefined') return;
 	try {
 		const options: WorkerOptions = { type: 'module' };
 		const worker = new PreviewWorker(options);
+		const timing = (event: MessageEvent) => {
+			const entry = event.data?.importTiming;
+			if (entry) importTiming(entry.stage, performance.now() - entry.ms, { ...entry, at: Math.round(performance.now()) });
+		};
+		worker.addEventListener('message', timing);
 		const failed = () => {
-			unavailable = true;
+			unavailable.add(fingerprint);
 			stopWorker(current, new Error('Local preview worker failed.'));
 		};
 		const current: WorkerState = {
 			worker,
 			api: wrap<LocalPreviewWorker>(worker),
 			pending: new Set(),
+			ready: Promise.resolve(),
 			dispose: () => {
+				worker.removeEventListener('message', timing);
 				worker.removeEventListener('error', failed);
 				worker.removeEventListener('messageerror', failed);
 			}
@@ -49,22 +57,32 @@ function getWorker(fingerprint = false): WorkerState | undefined {
 		worker.addEventListener('messageerror', failed);
 		if (fingerprint) fingerprintState = current;
 		else state = current;
+		const started = performance.now();
+		current.ready = request(current, () => current.api.ping(), 5000).then(
+			() => {
+				importTiming('worker.ready', started, { kind: fingerprint ? 'hash' : 'preview' });
+			},
+			(error) => {
+				unavailable.add(fingerprint);
+				throw error;
+			}
+		);
 		return current;
 	} catch {
-		unavailable = true;
+		unavailable.add(fingerprint);
 	}
 }
 
-async function request<T>(current: WorkerState, call: () => Promise<T>, timeout = 5000): Promise<T> {
+async function request<T>(current: WorkerState, call: () => Promise<T>, startupTimeout?: number): Promise<T> {
 	let rejectPending!: (error: Error) => void;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const failure = new Promise<never>((_, reject) => {
 		rejectPending = reject;
 		current.pending.add(reject);
-		timer = setTimeout(() => {
-			unavailable = true;
-			stopWorker(current, new Error('Local preview worker timed out.'));
-		}, timeout);
+		if (startupTimeout)
+			timer = setTimeout(() => {
+				stopWorker(current, new Error('Local worker startup timed out.'));
+			}, startupTimeout);
 	});
 	try {
 		return await Promise.race([call(), failure]);
@@ -80,6 +98,7 @@ export async function getLocalPreview(file: File): Promise<{ url: string; captur
 	const current = getWorker();
 	if (current) {
 		try {
+			await current.ready;
 			const { blob, capturedAt, timing } = await request(current, () => current.api.getPreview(file));
 			importTiming('preview.worker', started, { file: file.name, bytes: blob.size, ...timing });
 			return { url: URL.createObjectURL(blob), capturedAt };
@@ -98,7 +117,8 @@ export async function getLocalFingerprint(file: File): Promise<string> {
 	const current = getWorker(true);
 	if (current) {
 		try {
-			return await request(current, () => current.api.getFingerprint(file), 30000);
+			await current.ready;
+			return await request(current, () => current.api.getFingerprint(file));
 		} catch (error) {
 			importTiming('hash.fallback', started, { file: file.name, error: String(error) });
 			// Keep duplicate detection available when workers are unavailable.
@@ -110,5 +130,5 @@ export async function getLocalFingerprint(file: File): Promise<string> {
 /** Terminate pending work. Returned URLs remain caller-owned; a later call may start a fresh worker. */
 export function releaseLocalPreviewWorker(): void {
 	if (state) stopWorker(state, new Error('Local preview worker released.'));
-	unavailable = false;
+	unavailable.delete(false);
 }

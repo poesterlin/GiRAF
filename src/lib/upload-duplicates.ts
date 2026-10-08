@@ -1,4 +1,5 @@
 import { createSHA256 } from 'hash-wasm';
+import { importTiming } from './import-timing';
 
 export type DuplicateResult = { key: string; duplicate: boolean; imported: boolean; id?: number };
 const fingerprints = new WeakMap<File, Promise<string>>();
@@ -16,8 +17,25 @@ export function fingerprintFile(file: File): Promise<string> {
 		const hash = await createSHA256();
 		hash.init();
 		const chunkSize = 1024 * 1024;
+		let readMs = 0;
+		let hashMs = 0;
+		const started = performance.now();
 		for (let offset = 0; offset < file.size; offset += chunkSize) {
-			hash.update(new Uint8Array(await file.slice(offset, offset + chunkSize).arrayBuffer()));
+			const readStarted = performance.now();
+			const bytes = new Uint8Array(await file.slice(offset, offset + chunkSize).arrayBuffer());
+			readMs += performance.now() - readStarted;
+			const hashStarted = performance.now();
+			hash.update(bytes);
+			hashMs += performance.now() - hashStarted;
+			if (offset === 0 || offset + chunkSize >= file.size || performance.now() - readStarted > 1000) {
+				importTiming('hash.read-progress', started, {
+					file: file.name,
+					loaded: Math.min(offset + chunkSize, file.size),
+					bytes: file.size,
+					readMs: Math.round(readMs),
+					hashMs: Math.round(hashMs)
+				});
+			}
 		}
 		return hash.digest('hex');
 	})();

@@ -7,5 +7,6 @@ export function importTiming(stage: string, started: number, detail: Detail = {}
 	entries.push(entry);
 	if (entries.length > 3000) entries.shift();
 	if (typeof window !== 'undefined') Object.assign(window, { __importTimings: entries });
+	else if (typeof self !== 'undefined' && typeof self.postMessage === 'function') self.postMessage({ importTiming: entry });
 	console.info('[import-timing]', entry);
 }

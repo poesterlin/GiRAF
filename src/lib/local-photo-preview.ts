@@ -1,10 +1,13 @@
+import { importTiming } from './import-timing';
 const RAF_SIGNATURE = 'FUJIFILMCCD-RAW ';
 const METADATA_LIMIT = 256 * 1024;
 const MAX_PREVIEW_SIZE = 32 * 1024 * 1024;
 
 /** URLs returned here belong to the caller, which must revoke them when no longer used. */
 export async function extractLocalPhotoPreview(file: File, options: { preferThumbnail?: boolean } = {}): Promise<{ url: string; capturedAt?: Date }> {
+	const headerStarted = performance.now();
 	const header = new Uint8Array(await file.slice(0, 92).arrayBuffer());
+	importTiming('preview.header-read', headerStarted, { file: file.name, bytes: header.length });
 	const jpeg = header[0] === 0xff && header[1] === 0xd8;
 	const png = [137, 80, 78, 71, 13, 10, 26, 10].every((byte, i) => header[i] === byte);
 	let preview: Blob;
@@ -24,7 +27,9 @@ export async function extractLocalPhotoPreview(file: File, options: { preferThum
 	}
 	let capturedAt: Date | undefined;
 	if (preview.type === 'image/jpeg') {
+		const metadataStarted = performance.now();
 		const metadata = new Uint8Array(await preview.slice(0, METADATA_LIMIT).arrayBuffer());
+		importTiming('preview.metadata-read', metadataStarted, { file: file.name, bytes: metadata.length });
 		if (metadata[0] !== 0xff || metadata[1] !== 0xd8) {
 			throw new Error('RAF embedded preview is not a JPEG.');
 		}
