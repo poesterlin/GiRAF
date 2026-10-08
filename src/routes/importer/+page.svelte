@@ -10,23 +10,25 @@
 	import { uploads } from '$lib/state/uploads.svelte';
 	import UploadProgress from '$lib/ui/UploadProgress.svelte';
 	import pLimit from 'p-limit';
-	import { getLocalPreview, getLocalFingerprint, releaseLocalPreviewWorker } from '$lib/local-preview-client';
-	import { checkUploadDuplicates, cacheFileFingerprint } from '$lib/upload-duplicates';
+	import { getLocalPreview, releaseLocalPreviewWorker } from '$lib/local-preview-client';
+	import { assignPendingUploads } from '$lib/upload-assignment';
 
 	let { data } = $props();
 	type ImageItem = Pick<Import, 'id' | 'date'> & {
 		file?: File;
 		url?: string;
 		previewError?: string;
-		sha256?: string;
 		uploading?: boolean;
+		importId?: number;
+		uploadPromise?: Promise<number | undefined>;
+		resolveUpload?: (id: number | undefined) => void;
+		assigning?: boolean;
 	};
 	let localItems = $state<ImageItem[]>([]);
 	let nextLocalId = -1;
 	let alive = true;
 	const previewLimit = pLimit(2);
-	const duplicateLimit = pLimit(2);
-	let allItems = $derived<ImageItem[]>([...data.items, ...localItems]);
+	let allItems = $derived<ImageItem[]>([...data.items.filter((item) => !localItems.some((local) => local.importId === item.id)), ...localItems]);
 
 	function removeLocal(id: number) {
 		const item = localItems.find((item) => item.id === id);
@@ -37,10 +39,17 @@
 	}
 
 	function stage(files: FileList | File[]) {
+		const batch: ImageItem[] = [];
 		for (const file of Array.from(files)) {
 			if (localItems.some((item) => item.file?.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified)) continue;
 			const id = nextLocalId--;
-			localItems.push({ id, file, date: new Date(file.lastModified) });
+			let resolveUpload!: (id: number | undefined) => void;
+			const uploadPromise = new Promise<number | undefined>((resolve) => {
+				resolveUpload = resolve;
+			});
+			const entry = { id, file, date: new Date(file.lastModified), uploading: true, uploadPromise, resolveUpload };
+			localItems.push(entry);
+			batch.push(entry);
 			void previewLimit(async () => {
 				if (!alive || !localItems.some((item) => item.id === id)) return;
 				try {
@@ -58,26 +67,24 @@
 					if (alive && item) item.previewError = 'Preview unavailable';
 				}
 			});
-			void duplicateLimit(async () => {
-				if (!alive || !localItems.some((item) => item.id === id)) return;
-				try {
-					const sha256 = await getLocalFingerprint(file);
-					cacheFileFingerprint(file, sha256);
-					const item = localItems.find((item) => item.id === id);
-					if (!alive || !item) return;
-					const duplicate = localItems.some((other) => other.id !== id && other.sha256 === sha256);
-					item.sha256 = sha256;
-					const [check] = duplicate ? [] : await checkUploadDuplicates([file]);
-					if (!alive || !localItems.some((item) => item.id === id)) return;
-					if (duplicate || (check?.duplicate && check.imported)) {
-						removeLocal(id);
-						app.addToast(`Skipped ${file.name}: ${duplicate ? 'duplicate selected file' : 'already imported'}`, 'info');
-					}
-				} catch {
-					/* Upload retries the duplicate check before transferring files. */
-				}
-			});
 		}
+		void uploads.upload(batch.map((item) => item.file!), undefined, {
+			onFileUploaded(file, importId, imported) {
+				const entry = batch.find((item) => item.file === file)!;
+				const item = localItems.find((item) => item.id === entry.id);
+				if (item) {
+					item.uploading = false;
+					item.importId = importId;
+				}
+				entry.resolveUpload?.(imported ? undefined : importId);
+				if (imported && alive) removeLocal(entry.id);
+			},
+			onFileFailed(file) {
+				const entry = batch.find((item) => item.file === file)!;
+				entry.resolveUpload?.(undefined);
+				if (alive) removeLocal(entry.id);
+			}
+		});
 	}
 
 	function selectSource(id: number) {
@@ -192,6 +199,7 @@
 	}
 
 	function handleClick(id: number, index: number, event: MouseEvent) {
+		if (allItems[index]?.assigning) return;
 		selectSource(id);
 		if (!inSelectionMode) {
 			inSelectionMode = true;
@@ -303,7 +311,6 @@
 	onDestroy(() => {
 		alive = false;
 		previewLimit.clearQueue();
-		duplicateLimit.clearQueue();
 		releaseLocalPreviewWorker();
 		handleTouchEnd();
 		for (const item of localItems) if (item.url) URL.revokeObjectURL(item.url);
@@ -329,30 +336,16 @@
 
 		try {
 			if (body.importIds[0] < 0) {
-				const items = localItems.filter((item) => body.importIds.includes(item.id));
-				for (const item of items) item.uploading = true;
+				const items = localItems.filter((item) => body.importIds.includes(item.id) && !item.assigning);
+				const target = importMode === 'new' ? { name: sessionName.trim() } : { sessionId: selectedSessionId! };
 				showModal = false;
 				clearSelection();
-				let result;
-				try {
-					result = await uploads.upload(
-						items.map((item) => item.file!),
-						importMode === 'new' ? { name: sessionName.trim() } : { sessionId: selectedSessionId! }
-					);
-				} finally {
-					for (const item of items) item.uploading = false;
-				}
-				for (const item of items) if (!result.failedFiles.includes(item.file!)) removeLocal(item.id);
-				if (result.sessionId) {
-					importMode = 'existing';
-					selectedSessionId = result.sessionId;
-					if (alive) startImportPolling(result.sessionId);
-				}
-				if (alive) {
-					clearSelection();
-					showModal = false;
-					await invalidateAll();
-				}
+				for (const item of items) item.assigning = true;
+				void assignPendingUploads(items.map((item) => item.uploadPromise!), target, (index) => {
+					if (alive) removeLocal(items[index].id);
+					void invalidateAll();
+				}, (error) => app.addToast(error instanceof Error ? error.message : 'Session assignment failed', 'error'))
+					.finally(() => { for (const item of items) item.assigning = false; });
 				return;
 			}
 			const response = await fetch('/api/imports', {
@@ -578,7 +571,7 @@
 									<span class="px-2 text-center text-xs text-neutral-400">{item.previewError ?? 'Reading local preview…'}</span>
 								{/if}
 
-								{#if item.file}
+								{#if item.file && item.importId === undefined}
 									<span
 										class="absolute top-3 left-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white"
 										title={item.uploading ? 'Uploading' : 'Local file — not uploaded'}

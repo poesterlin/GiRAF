@@ -1,5 +1,22 @@
 export type UploadSessionTarget = { name?: string; sessionId?: number };
 
+/** Capture the target now, then assign each file as its existing transfer finishes. */
+export function assignPendingUploads(uploads: Promise<number | undefined>[], target: UploadSessionTarget, onAssigned: (index: number) => void, onError: (error: unknown) => void) {
+	const assign = createUploadAssignment({ ...target }, () => {});
+	return Promise.all(
+		uploads.map(async (upload, index) => {
+			try {
+				const id = await upload;
+				if (id === undefined) return;
+				await assign([id]);
+				onAssigned(index);
+			} catch (error) {
+				onError(error);
+			}
+		})
+	);
+}
+
 /** Serialize assignment (not transfer) so a new session is created only once. */
 export function createUploadAssignment(target: UploadSessionTarget, onSession: (id: number) => void) {
 	let sessionId = target.sessionId;

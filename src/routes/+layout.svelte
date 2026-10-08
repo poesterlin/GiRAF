@@ -86,7 +86,7 @@
 		const nextIds = new Set(mapped.map((notification) => notification.id));
 		if (emitToasts) {
 			for (const notification of mapped) {
-				if (!knownNotificationIds.has(notification.id)) {
+				if (!knownNotificationIds.has(notification.id) && !(notification.type !== 'error' && /^Import (started|completed) for /.test(notification.message))) {
 					app.addToast(notification.message, notification.type);
 				}
 			}
@@ -282,8 +282,8 @@
 					</div>
 
 					<div class="max-h-72 overflow-y-auto">
-						{#if uploads.visible}<div class="p-3"><UploadProgress /></div>{/if}
-						{#if app.notifications.length === 0 && !uploads.visible}
+						{#if uploads.isUploading}<div class="p-3"><UploadProgress /></div>{/if}
+						{#if app.notifications.length === 0 && !uploads.isUploading}
 							<p class="px-3 py-4 text-sm text-neutral-500">No notifications yet.</p>
 						{:else}
 							{#each app.notifications as notification (notification.id)}

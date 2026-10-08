@@ -6,6 +6,10 @@ import { app } from './app.svelte';
 
 export type { UploadSessionTarget } from '$lib/upload-assignment';
 export type UploadBatchResult = { failedFiles: File[]; assignmentFailed: boolean; sessionId?: number };
+export type UploadOptions = {
+	onFileUploaded?: (file: File, id?: number, imported?: boolean) => void;
+	onFileFailed?: (file: File, error: unknown) => void;
+};
 
 class UploadState {
 	isUploading = $state(false);
@@ -20,7 +24,7 @@ class UploadState {
 	private batches = 0;
 	private assignmentFailed = false;
 
-	async upload(files: FileList | File[], target?: UploadSessionTarget): Promise<UploadBatchResult> {
+	async upload(files: FileList | File[], target?: UploadSessionTarget, options: UploadOptions = {}): Promise<UploadBatchResult> {
 		const result: UploadBatchResult = { failedFiles: [], assignmentFailed: false };
 		if (files.length === 0) return result;
 		const capturedTarget = target ? { ...target } : undefined;
@@ -70,6 +74,7 @@ class UploadState {
 			try {
 				checks = await checkUploadDuplicates(fileArray);
 			} catch (error) {
+				for (const file of fileArray) options.onFileFailed?.(file, error);
 				this.failed += fileArray.length;
 				this.completed += fileArray.length;
 				for (const transfer of transfers) transfer.loaded = transfer.size;
@@ -86,7 +91,7 @@ class UploadState {
 						try {
 							if (check?.duplicate) {
 								if (!check.imported && check.id !== undefined) await assignFile(file, [check.id]);
-								app.addToast(`Skipped ${file.name}: already ${check.imported ? 'imported' : 'uploaded'}`, 'info');
+								options.onFileUploaded?.(file, check.id, check.imported);
 								return;
 							}
 							const importIds = await new Promise<number[]>((resolve, reject) => {
@@ -118,7 +123,9 @@ class UploadState {
 								request.send(body);
 							});
 							await assignFile(file, importIds);
+							options.onFileUploaded?.(file, importIds[0], !importIds.length);
 						} catch (error) {
+							options.onFileFailed?.(file, error);
 							result.failedFiles.push(file);
 							this.failed += 1;
 							console.error(`Upload failed: ${file.name}`, error);

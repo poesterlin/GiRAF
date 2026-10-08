@@ -1,7 +1,42 @@
 import { afterEach, expect, test } from 'bun:test';
-import { createUploadAssignment } from './upload-assignment';
+import { assignPendingUploads, createUploadAssignment } from './upload-assignment';
 
 const originalFetch = globalThis.fetch;
+test('captures pending grouping without transferring again and reuses the created session', async () => {
+	const requests: Record<string, unknown>[] = [];
+	globalThis.fetch = (async (input: Parameters<typeof fetch>[0], options?: RequestInit) => {
+		expect(input).toBe('/api/imports');
+		requests.push(JSON.parse(String(options?.body)));
+		return Response.json({ sessionId: 17 });
+	}) as typeof fetch;
+	let finishFirst!: (id: number) => void;
+	let finishSecond!: (id: number) => void;
+	const first = new Promise<number>((resolve) => {
+		finishFirst = resolve;
+	});
+	const second = new Promise<number>((resolve) => {
+		finishSecond = resolve;
+	});
+	const target = { name: 'Captured' };
+	const assigned: number[] = [];
+	const done = assignPendingUploads(
+		[first, second, Promise.resolve(undefined)],
+		target,
+		(index) => assigned.push(index),
+		(error) => {
+			throw error;
+		}
+	);
+	target.name = 'Changed after navigation';
+	expect(requests).toHaveLength(0);
+	finishSecond(2);
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	expect(requests).toEqual([{ name: 'Captured', importIds: [2], enqueue: true }]);
+	finishFirst(1);
+	await done;
+	expect(requests[1]).toEqual({ sessionId: 17, importIds: [1], enqueue: true });
+	expect(assigned).toEqual([1, 0]);
+});
 afterEach(() => {
 	globalThis.fetch = originalFetch;
 });
