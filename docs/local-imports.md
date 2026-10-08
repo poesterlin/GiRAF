@@ -16,7 +16,15 @@ JPEG and PNG selections also have local previews. Other formats can be selected
 and assigned using their filenames but currently show a preview placeholder.
 Capture timestamps are read from embedded JPEG EXIF when available; sorting
 otherwise uses file modification time. The browser resizes thumbnails to 480
-pixels where supported, with two preview operations active at a time.
+pixels where supported, with two preview operations active at a time. Extraction,
+thumbnail decoding/resizing, JPEG encoding and staging fingerprints run in a
+dedicated worker. Preview generation has its own queue, independent of duplicate
+network checks. Fingerprints are reused by the upload preflight. Worker failures
+fall back to bounded direct extraction.
+
+Local-only cards carry an upload icon which becomes a spinner during upload.
+The modal closes when uploading starts; the progress bar, notification indicator
+and start toast appear immediately, including during preflight checks.
 
 Staged selections are kept on the Import page, not persisted across navigation
 or reload. Uploads that have already started continue through the global upload

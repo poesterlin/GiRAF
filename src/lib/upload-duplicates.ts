@@ -3,6 +3,11 @@ import { createSHA256 } from 'hash-wasm';
 export type DuplicateResult = { key: string; duplicate: boolean; imported: boolean; id?: number };
 const fingerprints = new WeakMap<File, Promise<string>>();
 
+export function cacheFileFingerprint(file: File, sha256: string) {
+	if (!/^[a-f0-9]{64}$/.test(sha256)) throw new Error('Invalid file fingerprint');
+	fingerprints.set(file, Promise.resolve(sha256));
+}
+
 /** Hash in bounded chunks; never buffer a complete RAW file in browser memory. */
 export function fingerprintFile(file: File): Promise<string> {
 	const cached = fingerprints.get(file);

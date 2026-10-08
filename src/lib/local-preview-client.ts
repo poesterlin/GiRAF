@@ -1,0 +1,102 @@
+import { wrap, type Remote } from 'comlink';
+import PreviewWorker from './local-preview.worker?worker';
+import type { LocalPreviewWorker } from './local-preview.worker';
+import { extractLocalPhotoPreview } from './local-photo-preview';
+import { fingerprintFile } from './upload-duplicates';
+
+type WorkerState = {
+	worker: Worker;
+	api: Remote<LocalPreviewWorker>;
+	pending: Set<(error: Error) => void>;
+	dispose: () => void;
+};
+
+let state: WorkerState | undefined;
+let unavailable = false;
+
+function stopWorker(current: WorkerState, error: Error) {
+	if (state === current) state = undefined;
+	current.dispose();
+	current.worker.terminate();
+	for (const reject of current.pending) reject(error);
+	current.pending.clear();
+}
+
+function getWorker(): WorkerState | undefined {
+	if (state) return state;
+	if (unavailable || typeof Worker === 'undefined') return;
+	try {
+		const options: WorkerOptions = { type: 'module' };
+		const worker = new PreviewWorker(options);
+		const failed = () => {
+			unavailable = true;
+			stopWorker(current, new Error('Local preview worker failed.'));
+		};
+		const current: WorkerState = {
+			worker,
+			api: wrap<LocalPreviewWorker>(worker),
+			pending: new Set(),
+			dispose: () => {
+				worker.removeEventListener('error', failed);
+				worker.removeEventListener('messageerror', failed);
+			}
+		};
+		worker.addEventListener('error', failed);
+		worker.addEventListener('messageerror', failed);
+		state = current;
+		return current;
+	} catch {
+		unavailable = true;
+	}
+}
+
+async function request<T>(current: WorkerState, call: () => Promise<T>): Promise<T> {
+	let rejectPending!: (error: Error) => void;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const failure = new Promise<never>((_, reject) => {
+		rejectPending = reject;
+		current.pending.add(reject);
+		timer = setTimeout(() => {
+			unavailable = true;
+			stopWorker(current, new Error('Local preview worker timed out.'));
+		}, 5000);
+	});
+	try {
+		return await Promise.race([call(), failure]);
+	} finally {
+		clearTimeout(timer);
+		current.pending.delete(rejectPending);
+	}
+}
+
+/** The caller owns the returned URL and must revoke it when no longer needed. */
+export async function getLocalPreview(file: File): Promise<{ url: string; capturedAt?: Date }> {
+	const current = getWorker();
+	if (current) {
+		try {
+			const { blob, capturedAt } = await request(current, () => current.api.getPreview(file));
+			return { url: URL.createObjectURL(blob), capturedAt };
+		} catch {
+			// Unsupported worker image APIs and worker failures use bounded extraction directly.
+		}
+	}
+	return extractLocalPhotoPreview(file);
+}
+
+export async function getLocalFingerprint(file: File): Promise<string> {
+	const current = getWorker();
+	if (current) {
+		try {
+			return await request(current, () => current.api.getFingerprint(file));
+		} catch {
+			// Keep duplicate detection available when workers are unavailable.
+		}
+	}
+	return fingerprintFile(file);
+}
+
+/** Terminate pending work. Returned URLs remain caller-owned; a later call may start a fresh worker. */
+export function releaseLocalPreviewWorker(): void {
+	if (state) stopWorker(state, new Error('Local preview worker released.'));
+	unavailable = false;
+}

@@ -14,6 +14,7 @@ class UploadState {
 	failed = $state(0);
 	progress = $state(0);
 	visible = $state(false);
+	checking = $state(0);
 	private limit = pLimit(3);
 	private transfers: { size: number; loaded: number }[] = [];
 	private batches = 0;
@@ -43,13 +44,6 @@ class UploadState {
 				);
 			}
 		};
-		let checks;
-		try {
-			checks = await checkUploadDuplicates(Array.from(files));
-		} catch (error) {
-			app.addToast(error instanceof Error ? error.message : 'Duplicate check failed', 'error');
-			return { failedFiles: Array.from(files), assignmentFailed: false };
-		}
 		this.batches += 1;
 		const fileArray = Array.from(files);
 		if (!this.isUploading) {
@@ -62,6 +56,7 @@ class UploadState {
 		this.total += fileArray.length;
 		this.visible = true;
 		this.isUploading = true;
+		app.addToast(`Starting upload of ${fileArray.length} file${fileArray.length === 1 ? '' : 's'}…`, 'info');
 		const transfers = fileArray.map((file) => ({ size: file.size, loaded: 0 }));
 		this.transfers.push(...transfers);
 		const updateProgress = () => {
@@ -70,6 +65,20 @@ class UploadState {
 		};
 		updateProgress();
 		try {
+			this.checking += 1;
+			let checks;
+			try {
+				checks = await checkUploadDuplicates(fileArray);
+			} catch (error) {
+				this.failed += fileArray.length;
+				this.completed += fileArray.length;
+				for (const transfer of transfers) transfer.loaded = transfer.size;
+				updateProgress();
+				app.addToast(error instanceof Error ? error.message : 'Duplicate check failed', 'error');
+				return { failedFiles: fileArray, assignmentFailed: false };
+			} finally {
+				this.checking -= 1;
+			}
 			await Promise.all(
 				fileArray.map((file, index) => {
 					const check = checks.find((check) => check.key === String(index));

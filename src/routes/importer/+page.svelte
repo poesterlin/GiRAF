@@ -10,8 +10,8 @@
 	import { uploads } from '$lib/state/uploads.svelte';
 	import UploadProgress from '$lib/ui/UploadProgress.svelte';
 	import pLimit from 'p-limit';
-	import { extractLocalPhotoPreview } from '$lib/local-photo-preview';
-	import { checkUploadDuplicates, fingerprintFile } from '$lib/upload-duplicates';
+	import { getLocalPreview, getLocalFingerprint, releaseLocalPreviewWorker } from '$lib/local-preview-client';
+	import { checkUploadDuplicates, cacheFileFingerprint } from '$lib/upload-duplicates';
 
 	let { data } = $props();
 	type ImageItem = Pick<Import, 'id' | 'date'> & {
@@ -19,31 +19,14 @@
 		url?: string;
 		previewError?: string;
 		sha256?: string;
+		uploading?: boolean;
 	};
 	let localItems = $state<ImageItem[]>([]);
 	let nextLocalId = -1;
 	let alive = true;
 	const previewLimit = pLimit(2);
+	const duplicateLimit = pLimit(2);
 	let allItems = $derived<ImageItem[]>([...data.items, ...localItems]);
-
-	async function thumbnail(url: string): Promise<string> {
-		if (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') return url;
-		let bitmap: ImageBitmap | undefined;
-		try {
-			bitmap = await createImageBitmap(await (await fetch(url)).blob(), { resizeWidth: 480 });
-			const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-			const context = canvas.getContext('2d');
-			if (!context) return url;
-			context.drawImage(bitmap, 0, 0);
-			const result = URL.createObjectURL(await canvas.convertToBlob({ type: 'image/webp', quality: 0.8 }));
-			URL.revokeObjectURL(url);
-			return result;
-		} catch {
-			return url;
-		} finally {
-			bitmap?.close();
-		}
-	}
 
 	function removeLocal(id: number) {
 		const item = localItems.find((item) => item.id === id);
@@ -61,18 +44,25 @@
 			void previewLimit(async () => {
 				if (!alive || !localItems.some((item) => item.id === id)) return;
 				try {
-					const preview = await extractLocalPhotoPreview(file);
-					const url = await thumbnail(preview.url);
+					const preview = await getLocalPreview(file);
+					const url = preview.url;
 					const item = localItems.find((item) => item.id === id);
-					if (!alive || !item) { URL.revokeObjectURL(url); return; }
+					if (!alive || !item) {
+						URL.revokeObjectURL(url);
+						return;
+					}
 					item.url = url;
 					if (preview.capturedAt) item.date = preview.capturedAt;
 				} catch {
 					const item = localItems.find((item) => item.id === id);
 					if (alive && item) item.previewError = 'Preview unavailable';
 				}
+			});
+			void duplicateLimit(async () => {
+				if (!alive || !localItems.some((item) => item.id === id)) return;
 				try {
-					const sha256 = await fingerprintFile(file);
+					const sha256 = await getLocalFingerprint(file);
+					cacheFileFingerprint(file, sha256);
 					const item = localItems.find((item) => item.id === id);
 					if (!alive || !item) return;
 					const duplicate = localItems.some((other) => other.id !== id && other.sha256 === sha256);
@@ -83,13 +73,15 @@
 						removeLocal(id);
 						app.addToast(`Skipped ${file.name}: ${duplicate ? 'duplicate selected file' : 'already imported'}`, 'info');
 					}
-				} catch { /* Upload retries the duplicate check before transferring files. */ }
+				} catch {
+					/* Upload retries the duplicate check before transferring files. */
+				}
 			});
 		}
 	}
 
 	function selectSource(id: number) {
-		if (selectedIds.size && [...selectedIds].some((selected) => (selected < 0) !== (id < 0))) {
+		if (selectedIds.size && [...selectedIds].some((selected) => selected < 0 !== id < 0)) {
 			clearSelection();
 			app.addToast('Select local files and server images separately to assign a session.', 'info');
 		}
@@ -174,7 +166,7 @@
 			const rangeIds = new Set<number>();
 			for (let i = start; i <= end; i++) {
 				const item = allItems[i];
-				if (item && (item.id < 0) === (allItems[dragStartIndex]?.id < 0)) rangeIds.add(item.id);
+				if (item && item.id < 0 === allItems[dragStartIndex]?.id < 0) rangeIds.add(item.id);
 			}
 			selectedIds = new Set([...selectedIds, ...rangeIds]);
 		}
@@ -209,7 +201,7 @@
 			const start = Math.min(lastSelectedIndex, index);
 			const end = Math.max(lastSelectedIndex, index);
 			for (let i = start; i <= end; i++) {
-				if ((allItems[i].id < 0) === (id < 0)) selectedIds.add(allItems[i].id);
+				if (allItems[i].id < 0 === id < 0) selectedIds.add(allItems[i].id);
 			}
 		} else if (selectedIds.has(id)) {
 			selectedIds.delete(id);
@@ -241,17 +233,17 @@
 
 	function selectAll() {
 		const source = selectedIds.size ? [...selectedIds][0] : allItems[0]?.id;
-		selectedIds = new Set(allItems.filter((item) => (item.id < 0) === (source < 0)).map((item) => item.id));
+		selectedIds = new Set(allItems.filter((item) => item.id < 0 === source < 0).map((item) => item.id));
 		inSelectionMode = true;
 	}
 
 	function toggleDateSelection(images: ImageItem[]) {
 		let source = selectedIds.size ? [...selectedIds][0] : images[0]?.id;
-		if (!images.some((item) => (item.id < 0) === (source < 0))) {
+		if (!images.some((item) => item.id < 0 === source < 0)) {
 			source = images[0].id;
 			selectSource(source);
 		}
-		const allIdsInGroup = images.filter((item) => (item.id < 0) === (source < 0)).map((img) => img.id);
+		const allIdsInGroup = images.filter((item) => item.id < 0 === source < 0).map((img) => img.id);
 		const allAreSelected = allIdsInGroup.every((id) => selectedIds.has(id));
 
 		if (allAreSelected) {
@@ -311,6 +303,8 @@
 	onDestroy(() => {
 		alive = false;
 		previewLimit.clearQueue();
+		duplicateLimit.clearQueue();
+		releaseLocalPreviewWorker();
 		handleTouchEnd();
 		for (const item of localItems) if (item.url) URL.revokeObjectURL(item.url);
 		for (const sessionId of Object.keys(importPollingIntervals)) {
@@ -336,7 +330,18 @@
 		try {
 			if (body.importIds[0] < 0) {
 				const items = localItems.filter((item) => body.importIds.includes(item.id));
-				const result = await uploads.upload(items.map((item) => item.file!), importMode === 'new' ? { name: sessionName.trim() } : { sessionId: selectedSessionId! });
+				for (const item of items) item.uploading = true;
+				showModal = false;
+				clearSelection();
+				let result;
+				try {
+					result = await uploads.upload(
+						items.map((item) => item.file!),
+						importMode === 'new' ? { name: sessionName.trim() } : { sessionId: selectedSessionId! }
+					);
+				} finally {
+					for (const item of items) item.uploading = false;
+				}
 				for (const item of items) if (!result.failedFiles.includes(item.file!)) removeLocal(item.id);
 				if (result.sessionId) {
 					importMode = 'existing';
@@ -487,18 +492,18 @@
 					{#if uploads.isUploading}
 						Add More Files
 					{:else}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="14"
-						height="14"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2.5"
-						stroke-linecap="round"
-						stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg
-					>
-					Manual Upload
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.5"
+							stroke-linecap="round"
+							stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg
+						>
+						Manual Upload
 					{/if}
 				</button>
 			</div>
@@ -554,18 +559,48 @@
 									e.preventDefault();
 								}}
 							>
-									{#if item.id >= 0 || item.url}
+								{#if item.id >= 0 || item.url}
 									<img
-									src={item.url ?? `/api/imports/${item.id}/preview`}
-									alt=""
-									loading="lazy"
-									class="h-full w-full object-cover transition-all duration-500 group-hover:scale-110"
-									class:opacity-50={selectedIds.has(item.id)}
-									onerror={() => { if (item.url) { URL.revokeObjectURL(item.url); item.url = undefined; item.previewError = 'Preview unavailable'; } }}
-								/>
-									{:else}
-										<span class="px-2 text-center text-xs text-neutral-400">{item.previewError ?? 'Reading local preview…'}</span>
-									{/if}
+										src={item.url ?? `/api/imports/${item.id}/preview`}
+										alt=""
+										loading="lazy"
+										class="h-full w-full object-cover transition-all duration-500 group-hover:scale-110"
+										class:opacity-50={selectedIds.has(item.id)}
+										onerror={() => {
+											if (item.url) {
+												URL.revokeObjectURL(item.url);
+												item.url = undefined;
+												item.previewError = 'Preview unavailable';
+											}
+										}}
+									/>
+								{:else}
+									<span class="px-2 text-center text-xs text-neutral-400">{item.previewError ?? 'Reading local preview…'}</span>
+								{/if}
+
+								{#if item.file}
+									<span
+										class="absolute top-3 left-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white"
+										title={item.uploading ? 'Uploading' : 'Local file — not uploaded'}
+										aria-label={item.uploading ? 'Uploading' : 'Local file — not uploaded'}
+									>
+										{#if item.uploading}
+											<span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true"></span>
+										{:else}
+											<svg
+												width="16"
+												height="16"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4M4 16v4h16v-4" /></svg
+											>
+										{/if}
+									</span>
+								{/if}
 
 								{#if selectedIds.has(item.id)}
 									<div class="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-950 shadow-xl">
