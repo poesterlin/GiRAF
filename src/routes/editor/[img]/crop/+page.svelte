@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { assert } from '$lib';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
 	import { beforeNavigate, invalidateAll } from '$app/navigation';
@@ -39,7 +39,15 @@
 	let imageUrl = $derived(apiPath + `/edit?preview&config=${toBase64(excludePP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
 
 	// TODO: Configure autosave behavior in settings
+	let actionVersion = 0;
+	let confirmationVersion = 0;
+	let resetting = false;
+	onDestroy(() => { actionVersion += 1; });
 	beforeNavigate(() => {
+		actionVersion += 1;
+		confirmationVersion += 1;
+		snapshotSaved = false;
+		resetSaved = false;
 		if(edits.hasChanges) {
 			edits.snapshot();
 		}
@@ -166,35 +174,56 @@
 	}
 
 	async function snapshot() {
+		const imageId = edits.currentImageId;
+		const version = actionVersion;
 		await edits.snapshot()
+		if (version !== actionVersion || imageId !== edits.currentImageId) return;
 		snapshotSaved = true;
+		resetSaved = false;
+		const confirmation = ++confirmationVersion;
 
 		setTimeout(() => {
+			if (version !== actionVersion || confirmation !== confirmationVersion) return;
 			snapshotSaved = false;
 		}, 2000);
 	}
 
 	async function reset() {
-		if (edits.hasChanges) {
+		if (resetting) return;
+		resetting = true;
+		const imageId = edits.currentImageId;
+		const version = actionVersion;
+		try {
+			if (edits.hasChanges) {
+				await edits.snapshot();
+			}
+			if (version !== actionVersion || imageId !== edits.currentImageId) return;
+
+			const base = parsePP3(BasePP3);
+			if (edits.pp3) {
+				edits.pp3.Crop = base.Crop;
+				edits.pp3.Rotation = base.Rotation;
+				edits.pushHistory();
+			}
+
 			await edits.snapshot();
-		}
+			if (version !== actionVersion || imageId !== edits.currentImageId) return;
+			resetSaved = true;
+			snapshotSaved = false;
+			const confirmation = ++confirmationVersion;
+			await invalidateAll();
 
-		const base = parsePP3(BasePP3);
-		if (edits.pp3) {
-			edits.pp3.Crop = base.Crop;
-			edits.pp3.Rotation = base.Rotation;
-			edits.pushHistory();
-		}
-
-		await edits.snapshot();
-		resetSaved = true;
-		await invalidateAll();
-
-		setTimeout(() => {
-			resetSaved = false;
-		}, 2000);
+			setTimeout(() => {
+				if (version !== actionVersion || confirmation !== confirmationVersion) return;
+				resetSaved = false;
+			}, 2000);
 		
-		requestAnimationFrame(() => draw());
+			requestAnimationFrame(() => {
+				if (version === actionVersion && imageId === edits.currentImageId) draw();
+			});
+		} finally {
+			resetting = false;
+		}
 	}
 
 	function move(event: PointerEvent) {

@@ -26,6 +26,21 @@ class AppState {
 	notificationMutations = 0;
     toasts = $state<Toast[]>([]);
 	notifications = $state<NotificationItem[]>([]);
+	private notificationQueue: Promise<void> = Promise.resolve();
+
+	private enqueueNotificationMutation(operation: () => Promise<void>) {
+		this.notificationMutations += 1;
+		const task = this.notificationQueue.catch(() => {}).then(async () => {
+			try {
+				await operation();
+			} finally {
+				this.notificationMutations -= 1;
+				this.notificationVersion += 1;
+			}
+		});
+		this.notificationQueue = task;
+		return task;
+	}
 
 	private createId() {
 		// crypto.randomUUID() is not available in all contexts
@@ -48,45 +63,41 @@ class AppState {
 
 	async markAllNotificationsRead() {
 		const version = ++this.notificationVersion;
-		this.notificationMutations += 1;
 		this.notifications = this.notifications.map((notification) => ({
 			...notification,
 			read: true
 		}));
-		try {
-			const response = await fetch('/api/notifications', { method: 'PATCH' });
-			if (!response.ok) {
-				return;
+		return this.enqueueNotificationMutation(async () => {
+			try {
+				const response = await fetch('/api/notifications', { method: 'PATCH' });
+				if (!response.ok) {
+					return;
+				}
+				const payload = (await response.json()) as { notifications?: ServerNotificationItem[] };
+				if (version !== this.notificationVersion) return;
+				if (!Array.isArray(payload.notifications)) {
+					return;
+				}
+				this.notifications = payload.notifications.map((notification) => ({
+					...notification,
+					createdAt: new Date(notification.createdAt)
+				}));
+			} catch {
+				// Keep local state even if request fails.
 			}
-			const payload = (await response.json()) as { notifications?: ServerNotificationItem[] };
-			if (version !== this.notificationVersion) return;
-			if (!Array.isArray(payload.notifications)) {
-				return;
-			}
-			this.notifications = payload.notifications.map((notification) => ({
-				...notification,
-				createdAt: new Date(notification.createdAt)
-			}));
-		} catch {
-			// Keep local state even if request fails.
-		} finally {
-			this.notificationMutations -= 1;
-			this.notificationVersion += 1;
-		}
+		});
 	}
 
 	async clearNotifications() {
 		this.notificationVersion += 1;
-		this.notificationMutations += 1;
 		this.notifications = [];
-		try {
-			await fetch('/api/notifications', { method: 'DELETE' });
-		} catch {
-			// Keep local state even if request fails.
-		} finally {
-			this.notificationMutations -= 1;
-			this.notificationVersion += 1;
-		}
+		return this.enqueueNotificationMutation(async () => {
+			try {
+				await fetch('/api/notifications', { method: 'DELETE' });
+			} catch {
+				// Keep local state even if request fails.
+			}
+		});
 	}
 }
 

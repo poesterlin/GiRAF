@@ -29,12 +29,20 @@
 	let apiPath = $derived(`/api/images/${data.image.id}`);
 	let snapshotSaved = $state(false);
 	let resetSaved = $state(false);
+	let actionVersion = 0;
+	let confirmationVersion = 0;
+	let resetting = false;
+	onDestroy(() => { actionVersion += 1; });
 	let beforeImage = $derived(apiPath + `/edit?preview&config=${toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
 	let flashKey = $state<string | null>(null);
 	let flashTimer: number | null = null;
 
 	// TODO: Configure autosave behavior in settings
 	beforeNavigate(() => {
+		actionVersion += 1;
+		confirmationVersion += 1;
+		snapshotSaved = false;
+		resetSaved = false;
 		if(edits.hasChanges) {
 			edits.snapshot();
 		}
@@ -65,12 +73,18 @@
 	}
 
 	async function snapshot() {
+		const imageId = edits.currentImageId;
+		const version = actionVersion;
 		await edits.snapshot();
+		if (version !== actionVersion || imageId !== edits.currentImageId) return;
 
 		snapshotSaved = true;
+		resetSaved = false;
+		const confirmation = ++confirmationVersion;
 		await invalidateAll();
 
 		setTimeout(() => {
+			if (version !== actionVersion || confirmation !== confirmationVersion) return;
 			snapshotSaved = false;
 		}, 2000);
 	}
@@ -172,20 +186,33 @@
 	}
 
 	async function reset(){
-		if (edits.hasChanges) {
-			await snapshot();
+		if (resetting) return;
+		resetting = true;
+		const imageId = edits.currentImageId;
+		const version = actionVersion;
+		try {
+			if (edits.hasChanges) {
+				await snapshot();
+			}
+			if (version !== actionVersion || imageId !== edits.currentImageId) return;
+
+			edits.pp3 = parsePP3(BasePP3);
+			edits.pushHistory();
+			await edits.snapshot();
+			if (version !== actionVersion || imageId !== edits.currentImageId) return;
+
+			resetSaved = true;
+			snapshotSaved = false;
+			const confirmation = ++confirmationVersion;
+			await invalidateAll();
+
+			setTimeout(() => {
+				if (version !== actionVersion || confirmation !== confirmationVersion) return;
+				resetSaved = false;
+			}, 2000);
+		} finally {
+			resetting = false;
 		}
-
-		edits.pp3 = parsePP3(BasePP3);
-		edits.pushHistory();
-		await edits.snapshot();
-
-		resetSaved = true;
-		await invalidateAll();
-
-		setTimeout(() => {
-			resetSaved = false;
-		}, 2000);
 	}
 </script>
 
