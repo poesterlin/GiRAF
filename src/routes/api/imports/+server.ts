@@ -32,7 +32,13 @@ function minimumDate(dates: Array<Date | undefined>): Date | null {
 }
 
 export const POST: RequestHandler = async ({ request }) => {
-	const { name, importIds, sessionId: existingSessionId } = await request.json();
+	const { name, importIds, sessionId: existingSessionId, enqueue } = await request.json();
+	const assertAvailable = (id: number) => {
+		const activeType = jobManager.getActiveJobType(id);
+		if (activeType !== undefined && !(enqueue === true && activeType === JobType.IMPORT)) {
+			error(409, 'A job is already running for this session. Files remain in the import queue.');
+		}
+	};
 
 	if (
 		(!name && !existingSessionId) ||
@@ -58,7 +64,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			const [session] = await tx.select().from(sessionTable).where(eq(sessionTable.id, sessionId)).for('update');
 			if (!session) error(404, 'Session not found');
 			if (session.isArchived) error(400, 'Cannot import into an archived session');
-			if (jobManager.getActiveJobs().includes(sessionId)) error(409, 'A job is already running for this session. Files remain in the import queue.');
+			assertAvailable(sessionId);
 		}
 		if (!sessionId) {
 			const [session] = await tx.insert(sessionTable).values({ name: name.trim(), startedAt: new Date() }).returning();
@@ -73,7 +79,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		const newImages = await Promise.all(pending.map((i) => limit(() => getImageDetails(i, sessionId!))));
 
 		// Another workflow may have started a job while metadata was being read.
-		if (jobManager.getActiveJobs().includes(sessionId!)) error(409, 'A job is already running for this session. Files remain in the import queue.');
+		assertAvailable(sessionId!);
 
 		const minDate = minimumDate(newImages.map((ni) => ni.recordedAt));
 		if (minDate) {
@@ -101,6 +107,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	if (sessionId && assigned) {
 		console.log(`[API] Submitting import job for session ${sessionId}.`);
+		if (enqueue === true) {
+			jobManager.queueImport(sessionId);
+			return json({ status: 'ok', sessionId, assignmentCommitted: true, processingQueued: true }, { status: 202 });
+		}
 		const submitted = jobManager.submit(JobType.IMPORT, { sessionId });
 		if (!submitted) {
 			return json(

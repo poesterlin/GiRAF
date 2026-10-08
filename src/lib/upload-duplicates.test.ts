@@ -38,23 +38,28 @@ test('fingerprinting reads bounded slices and reuses the result for upload', asy
 test('preflight sends fingerprints only and recognizes renamed stored files', async () => {
 	const original = globalThis.fetch;
 	const file = new File(['sample RAW contents'], 'renamed.RAF');
-	let body: { files: { name: string; size: number; sha256: string }[] } | undefined;
-	globalThis.fetch = (async (input, options) => {
+	let body: { files: { key: string; name: string; size: number; sha256: string }[] } | undefined;
+	globalThis.fetch = (async (input: Parameters<typeof fetch>[0], options?: RequestInit) => {
 		expect(input).toBe('/api/imports/duplicates');
 		body = JSON.parse(String(options?.body));
 		return Response.json({ results: [{ key: '0', duplicate: true, imported: true }] });
-	}) as typeof fetch;
+	}) as unknown as typeof fetch;
 	try {
 		const results = await checkUploadDuplicates([file]);
 		expect(results[0].duplicate).toBe(true);
 		expect(body?.files[0]).toEqual({ key: '0', name: file.name, size: file.size, sha256: await fingerprintFile(file) });
 		expect(JSON.stringify(body)).not.toContain('sample RAW contents');
-	} finally { globalThis.fetch = original; }
+	} finally {
+		globalThis.fetch = original;
+	}
 });
 
 test('an unavailable duplicate service prevents a successful preflight', async () => {
 	const original = globalThis.fetch;
-	globalThis.fetch = (async () => new Response('Unavailable', { status: 503 })) as typeof fetch;
-	try { await expect(checkUploadDuplicates([new File(['raw'], 'photo.RAF')])).rejects.toThrow('no files have been uploaded'); }
-	finally { globalThis.fetch = original; }
+	globalThis.fetch = (async () => new Response('Unavailable', { status: 503 })) as unknown as typeof fetch;
+	try {
+		await expect(checkUploadDuplicates([new File(['raw'], 'photo.RAF')])).rejects.toThrow('no files have been uploaded');
+	} finally {
+		globalThis.fetch = original;
+	}
 });

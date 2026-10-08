@@ -9,10 +9,91 @@
 	import SessionPicker from '$lib/ui/SessionPicker.svelte';
 	import { uploads } from '$lib/state/uploads.svelte';
 	import UploadProgress from '$lib/ui/UploadProgress.svelte';
-	import LocalImportGallery from '$lib/ui/LocalImportGallery.svelte';
-	let localGallery: LocalImportGallery;
+	import pLimit from 'p-limit';
+	import { extractLocalPhotoPreview } from '$lib/local-photo-preview';
+	import { checkUploadDuplicates, fingerprintFile } from '$lib/upload-duplicates';
 
 	let { data } = $props();
+	type ImageItem = Pick<Import, 'id' | 'date'> & {
+		file?: File;
+		url?: string;
+		previewError?: string;
+		sha256?: string;
+	};
+	let localItems = $state<ImageItem[]>([]);
+	let nextLocalId = -1;
+	let alive = true;
+	const previewLimit = pLimit(2);
+	let allItems = $derived<ImageItem[]>([...data.items, ...localItems]);
+
+	async function thumbnail(url: string): Promise<string> {
+		if (typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') return url;
+		let bitmap: ImageBitmap | undefined;
+		try {
+			bitmap = await createImageBitmap(await (await fetch(url)).blob(), { resizeWidth: 480 });
+			const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+			const context = canvas.getContext('2d');
+			if (!context) return url;
+			context.drawImage(bitmap, 0, 0);
+			const result = URL.createObjectURL(await canvas.convertToBlob({ type: 'image/webp', quality: 0.8 }));
+			URL.revokeObjectURL(url);
+			return result;
+		} catch {
+			return url;
+		} finally {
+			bitmap?.close();
+		}
+	}
+
+	function removeLocal(id: number) {
+		const item = localItems.find((item) => item.id === id);
+		if (item?.url) URL.revokeObjectURL(item.url);
+		localItems = localItems.filter((item) => item.id !== id);
+		selectedIds = new Set([...selectedIds].filter((selected) => selected !== id));
+		if (!selectedIds.size) inSelectionMode = false;
+	}
+
+	function stage(files: FileList | File[]) {
+		for (const file of Array.from(files)) {
+			if (localItems.some((item) => item.file?.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified)) continue;
+			const id = nextLocalId--;
+			localItems.push({ id, file, date: new Date(file.lastModified) });
+			void previewLimit(async () => {
+				if (!alive || !localItems.some((item) => item.id === id)) return;
+				try {
+					const preview = await extractLocalPhotoPreview(file);
+					const url = await thumbnail(preview.url);
+					const item = localItems.find((item) => item.id === id);
+					if (!alive || !item) { URL.revokeObjectURL(url); return; }
+					item.url = url;
+					if (preview.capturedAt) item.date = preview.capturedAt;
+				} catch {
+					const item = localItems.find((item) => item.id === id);
+					if (alive && item) item.previewError = 'Preview unavailable';
+				}
+				try {
+					const sha256 = await fingerprintFile(file);
+					const item = localItems.find((item) => item.id === id);
+					if (!alive || !item) return;
+					const duplicate = localItems.some((other) => other.id !== id && other.sha256 === sha256);
+					item.sha256 = sha256;
+					const [check] = duplicate ? [] : await checkUploadDuplicates([file]);
+					if (!alive || !localItems.some((item) => item.id === id)) return;
+					if (duplicate || (check?.duplicate && check.imported)) {
+						removeLocal(id);
+						app.addToast(`Skipped ${file.name}: ${duplicate ? 'duplicate selected file' : 'already imported'}`, 'info');
+					}
+				} catch { /* Upload retries the duplicate check before transferring files. */ }
+			});
+		}
+	}
+
+	function selectSource(id: number) {
+		if (selectedIds.size && [...selectedIds].some((selected) => (selected < 0) !== (id < 0))) {
+			clearSelection();
+			app.addToast('Select local files and server images separately to assign a session.', 'info');
+		}
+	}
 
 	// Core State
 	let selectedIds = $state<Set<number>>(new Set());
@@ -43,8 +124,8 @@
 	let scrollInterval: number | null = null;
 
 	let groupedByDate = $derived.by(() => {
-		const groups = new Map<string, Import[]>();
-		data.items.forEach((item) => {
+		const groups = new Map<string, ImageItem[]>();
+		allItems.forEach((item) => {
 			const date = new Date(item.date).toLocaleDateString(undefined, {
 				year: 'numeric',
 				month: 'long',
@@ -63,6 +144,7 @@
 	function handleTouchStart(event: TouchEvent, id: number, index: number) {
 		longPressTimer = window.setTimeout(() => {
 			longPressTimer = null;
+			selectSource(id);
 			inSelectionMode = true;
 			isDragging = true;
 			dragStartIndex = index;
@@ -91,7 +173,8 @@
 
 			const rangeIds = new Set<number>();
 			for (let i = start; i <= end; i++) {
-				rangeIds.add(data.items[i].id);
+				const item = allItems[i];
+				if (item && (item.id < 0) === (allItems[dragStartIndex]?.id < 0)) rangeIds.add(item.id);
 			}
 			selectedIds = new Set([...selectedIds, ...rangeIds]);
 		}
@@ -117,6 +200,7 @@
 	}
 
 	function handleClick(id: number, index: number, event: MouseEvent) {
+		selectSource(id);
 		if (!inSelectionMode) {
 			inSelectionMode = true;
 		}
@@ -125,7 +209,7 @@
 			const start = Math.min(lastSelectedIndex, index);
 			const end = Math.max(lastSelectedIndex, index);
 			for (let i = start; i <= end; i++) {
-				selectedIds.add(data.items[i].id);
+				if ((allItems[i].id < 0) === (id < 0)) selectedIds.add(allItems[i].id);
 			}
 		} else if (selectedIds.has(id)) {
 			selectedIds.delete(id);
@@ -156,12 +240,18 @@
 	}
 
 	function selectAll() {
-		selectedIds = new Set(data.items.map((item) => item.id));
+		const source = selectedIds.size ? [...selectedIds][0] : allItems[0]?.id;
+		selectedIds = new Set(allItems.filter((item) => (item.id < 0) === (source < 0)).map((item) => item.id));
 		inSelectionMode = true;
 	}
 
-	function toggleDateSelection(images: Import[]) {
-		const allIdsInGroup = images.map((img) => img.id);
+	function toggleDateSelection(images: ImageItem[]) {
+		let source = selectedIds.size ? [...selectedIds][0] : images[0]?.id;
+		if (!images.some((item) => (item.id < 0) === (source < 0))) {
+			source = images[0].id;
+			selectSource(source);
+		}
+		const allIdsInGroup = images.filter((item) => (item.id < 0) === (source < 0)).map((img) => img.id);
 		const allAreSelected = allIdsInGroup.every((id) => selectedIds.has(id));
 
 		if (allAreSelected) {
@@ -219,6 +309,10 @@
 	}
 
 	onDestroy(() => {
+		alive = false;
+		previewLimit.clearQueue();
+		handleTouchEnd();
+		for (const item of localItems) if (item.url) URL.revokeObjectURL(item.url);
 		for (const sessionId of Object.keys(importPollingIntervals)) {
 			stopImportPolling(Number(sessionId));
 		}
@@ -226,6 +320,11 @@
 
 	async function importImages(e: Event) {
 		e.preventDefault();
+		if (isCreating || !selectedIds.size) return;
+		if (importMode === 'existing' && !selectedSessionId) {
+			app.addToast('Choose a session.', 'info');
+			return;
+		}
 		isCreating = true;
 
 		const body = {
@@ -235,6 +334,22 @@
 		};
 
 		try {
+			if (body.importIds[0] < 0) {
+				const items = localItems.filter((item) => body.importIds.includes(item.id));
+				const result = await uploads.upload(items.map((item) => item.file!), importMode === 'new' ? { name: sessionName.trim() } : { sessionId: selectedSessionId! });
+				for (const item of items) if (!result.failedFiles.includes(item.file!)) removeLocal(item.id);
+				if (result.sessionId) {
+					importMode = 'existing';
+					selectedSessionId = result.sessionId;
+					if (alive) startImportPolling(result.sessionId);
+				}
+				if (alive) {
+					clearSelection();
+					showModal = false;
+					await invalidateAll();
+				}
+				return;
+			}
 			const response = await fetch('/api/imports', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -286,7 +401,7 @@
 	function handleFileSelect(e: Event) {
 		const target = e.target as HTMLInputElement;
 		if (target.files) {
-			localGallery.stage(target.files);
+			stage(target.files);
 			target.value = '';
 		}
 	}
@@ -300,7 +415,7 @@
 		e.preventDefault();
 		e.stopPropagation();
 		if (e.dataTransfer?.files) {
-			localGallery.stage(e.dataTransfer.files);
+			stage(e.dataTransfer.files);
 		}
 	}
 </script>
@@ -369,6 +484,9 @@
 					onclick={() => fileInput.click()}
 					class="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/40 px-5 py-3 text-xs font-bold text-neutral-500 transition-all hover:bg-neutral-900 hover:text-neutral-100 disabled:opacity-50"
 				>
+					{#if uploads.isUploading}
+						Add More Files
+					{:else}
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						width="14"
@@ -381,12 +499,12 @@
 						stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg
 					>
 					Manual Upload
+					{/if}
 				</button>
 			</div>
 		</div>
 
 		<div class="mb-6"><UploadProgress /></div>
-		<LocalImportGallery bind:this={localGallery} sessions={data.sessions} />
 
 		{#snippet empty()}
 			<div class="flex h-[40vh] items-center justify-center rounded-3xl border border-neutral-800 bg-neutral-900/20">
@@ -412,7 +530,7 @@
 		{/snippet}
 
 		<div class="pb-32" ontouchend={handleTouchEnd} role="presentation">
-			{#if !data.items?.length}
+			{#if !allItems.length}
 				{@render empty()}
 			{:else}
 				{#each groupedByDate as group}
@@ -422,7 +540,7 @@
 					</div>
 					<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
 						{#each group.images as item}
-							{@const itemIndex = data.items.indexOf(item)}
+							{@const itemIndex = allItems.indexOf(item)}
 							<button
 								data-id={item.id}
 								data-index={itemIndex}
@@ -436,13 +554,18 @@
 									e.preventDefault();
 								}}
 							>
-								<img
-									src={`/api/imports/${item.id}/preview`}
+									{#if item.id >= 0 || item.url}
+									<img
+									src={item.url ?? `/api/imports/${item.id}/preview`}
 									alt=""
 									loading="lazy"
 									class="h-full w-full object-cover transition-all duration-500 group-hover:scale-110"
 									class:opacity-50={selectedIds.has(item.id)}
+									onerror={() => { if (item.url) { URL.revokeObjectURL(item.url); item.url = undefined; item.previewError = 'Preview unavailable'; } }}
 								/>
+									{:else}
+										<span class="px-2 text-center text-xs text-neutral-400">{item.previewError ?? 'Reading local preview…'}</span>
+									{/if}
 
 								{#if selectedIds.has(item.id)}
 									<div class="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-950 shadow-xl">

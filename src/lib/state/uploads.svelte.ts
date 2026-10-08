@@ -1,10 +1,10 @@
 import { invalidateAll } from '$app/navigation';
 import pLimit from 'p-limit';
-import { SvelteSet } from 'svelte/reactivity';
 import { checkUploadDuplicates } from '$lib/upload-duplicates';
+import { createUploadAssignment, type UploadSessionTarget } from '$lib/upload-assignment';
 import { app } from './app.svelte';
 
-export type UploadSessionTarget = { name?: string; sessionId?: number };
+export type { UploadSessionTarget } from '$lib/upload-assignment';
 export type UploadBatchResult = { failedFiles: File[]; assignmentFailed: boolean; sessionId?: number };
 
 class UploadState {
@@ -23,7 +23,26 @@ class UploadState {
 		const result: UploadBatchResult = { failedFiles: [], assignmentFailed: false };
 		if (files.length === 0) return result;
 		const capturedTarget = target ? { ...target } : undefined;
-		const importIds = new SvelteSet<number>();
+		const assign = capturedTarget
+			? createUploadAssignment(capturedTarget, (id) => {
+					result.sessionId = id;
+				})
+			: undefined;
+		const assignFile = async (file: File, ids: number[]) => {
+			if (!assign || !ids.length) return;
+			try {
+				await assign(ids);
+			} catch (error) {
+				result.assignmentFailed = true;
+				this.assignmentFailed = true;
+				result.failedFiles.push(file);
+				this.failed += 1;
+				app.addToast(
+					`Uploaded ${file.name}, but session assignment failed. The file remains in the import queue: ${error instanceof Error ? error.message : String(error)}`,
+					'error'
+				);
+			}
+		};
 		let checks;
 		try {
 			checks = await checkUploadDuplicates(Array.from(files));
@@ -31,7 +50,6 @@ class UploadState {
 			app.addToast(error instanceof Error ? error.message : 'Duplicate check failed', 'error');
 			return { failedFiles: Array.from(files), assignmentFailed: false };
 		}
-		for (const check of checks) if (check.duplicate && check.id !== undefined && !check.imported) importIds.add(check.id);
 		this.batches += 1;
 		const fileArray = Array.from(files);
 		if (!this.isUploading) {
@@ -53,15 +71,16 @@ class UploadState {
 		updateProgress();
 		try {
 			await Promise.all(
-				fileArray.map((file, index) =>
-					this.limit(async () => {
+				fileArray.map((file, index) => {
+					const check = checks.find((check) => check.key === String(index));
+					const processFile = async () => {
 						try {
-							const check = checks.find((check) => check.key === String(index));
 							if (check?.duplicate) {
+								if (!check.imported && check.id !== undefined) await assignFile(file, [check.id]);
 								app.addToast(`Skipped ${file.name}: already ${check.imported ? 'imported' : 'uploaded'}`, 'info');
 								return;
 							}
-							await new Promise<void>((resolve, reject) => {
+							const importIds = await new Promise<number[]>((resolve, reject) => {
 								const request = new XMLHttpRequest();
 								request.open('POST', '/api/imports/upload');
 								request.upload.onprogress = (event) => {
@@ -77,8 +96,7 @@ class UploadState {
 										if (!payload.results?.length || payload.results.some((result) => result.status === 'error')) {
 											throw new Error(payload.results?.find((result) => result.status === 'error')?.message || 'File processing failed');
 										}
-										for (const result of payload.results) if (result.id !== undefined) importIds.add(result.id);
-										resolve();
+										resolve(payload.results.flatMap((result) => (result.id === undefined ? [] : [result.id])));
 									} catch (error) {
 										reject(error);
 									}
@@ -90,6 +108,7 @@ class UploadState {
 								if (capturedTarget) body.append('sessionAssigned', 'true');
 								request.send(body);
 							});
+							await assignFile(file, importIds);
 						} catch (error) {
 							result.failedFiles.push(file);
 							this.failed += 1;
@@ -100,29 +119,10 @@ class UploadState {
 							transfers[index].loaded = file.size;
 							updateProgress();
 						}
-					})
-				)
+					};
+					return check?.duplicate ? processFile() : this.limit(processFile);
+				})
 			);
-			if (capturedTarget && importIds.size) {
-				try {
-					const response = await fetch('/api/imports', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ ...capturedTarget, importIds: [...importIds] })
-					});
-					const payload = await response.json();
-					if ((response.ok || payload.assignmentCommitted) && Number.isSafeInteger(payload.sessionId)) result.sessionId = payload.sessionId;
-					if (!response.ok) {
-						if (response.status === 409 && payload.assignmentCommitted) {
-							app.addToast(payload.message || 'Files assigned; processing is already running.', 'info');
-						} else throw new Error(payload.message || `Session assignment failed (${response.status})`);
-					}
-				} catch (error) {
-					result.assignmentFailed = true;
-					this.assignmentFailed = true;
-					app.addToast(`Files uploaded, but session assignment failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
-				}
-			}
 		} finally {
 			this.batches -= 1;
 			if (this.isUploading && this.batches === 0) {

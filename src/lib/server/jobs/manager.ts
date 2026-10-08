@@ -5,8 +5,9 @@ import { db } from '$lib/server/db';
 import { sessionTable } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 
-class JobManager {
+export class JobManager {
 	private activeJobs = new Map<JobId, { type: JobType; controller: AbortController }>();
+	private pendingImports = new Set<JobId>();
 	private jobStates = new Map<string, JobState>();
 
 	private getKey(type: JobType, id: JobId) {
@@ -38,12 +39,7 @@ class JobManager {
 		return 'this session';
 	}
 
-	private notifyJobEvent(
-		type: JobType,
-		sessionId: JobId,
-		status: 'started' | 'completed' | 'failed' | 'cancelled',
-		errorMessage?: string
-	) {
+	private notifyJobEvent(type: JobType, sessionId: JobId, status: 'started' | 'completed' | 'failed' | 'cancelled', errorMessage?: string) {
 		void this.getSessionName(sessionId)
 			.then((sessionName) => {
 				const jobLabel = this.getJobLabel(type);
@@ -58,18 +54,26 @@ class JobManager {
 						this.notify(`${jobLabel} cancelled for "${sessionName}".`, 'info');
 						break;
 					case 'failed':
-						this.notify(
-							errorMessage
-								? `${jobLabel} failed for "${sessionName}": ${errorMessage}`
-								: `${jobLabel} failed for "${sessionName}".`,
-							'error'
-						);
+						this.notify(errorMessage ? `${jobLabel} failed for "${sessionName}": ${errorMessage}` : `${jobLabel} failed for "${sessionName}".`, 'error');
 						break;
 				}
 			})
 			.catch((err) => {
 				console.error('[JobManager] Failed to prepare job notification', err);
 			});
+	}
+
+	public getActiveJobType(id: JobId): JobType | undefined {
+		return this.activeJobs.get(id)?.type;
+	}
+
+	/** Called after assignment commits; also handles an export starting during commit. */
+	public queueImport(sessionId: JobId): void {
+		if (this.activeJobs.has(sessionId)) {
+			this.pendingImports.add(sessionId);
+		} else {
+			this.submit(JobType.IMPORT, { sessionId });
+		}
 	}
 
 	public submit<T extends { sessionId: JobId }>(type: JobType, payload: T): { job: Job<T> } | null {
@@ -136,6 +140,8 @@ class JobManager {
 				const activeJob = this.activeJobs.get(id);
 				if (activeJob?.controller === controller) {
 					this.activeJobs.delete(id);
+					const pending = this.pendingImports.delete(id);
+					if (pending && !controller.signal.aborted) this.submit(JobType.IMPORT, { sessionId: id });
 				}
 			}
 		})();
@@ -144,6 +150,7 @@ class JobManager {
 	}
 
 	public cancel(id: JobId): void {
+		this.pendingImports.delete(id);
 		const activeJob = this.activeJobs.get(id);
 		if (activeJob) {
 			console.log(`[JobManager] Requesting cancellation for job ${id}`);
@@ -187,6 +194,7 @@ class JobManager {
 	}
 
 	public terminate() {
+		this.pendingImports.clear();
 		console.log('[JobManager] Terminating all active jobs.');
 		for (const [id, activeJob] of this.activeJobs.entries()) {
 			activeJob.controller.abort();
