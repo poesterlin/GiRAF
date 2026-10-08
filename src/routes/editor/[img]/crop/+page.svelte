@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { assert } from '$lib';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
 	import { beforeNavigate, invalidateAll } from '$app/navigation';
@@ -46,11 +47,9 @@
 
 	$effect(() => {
 		const latestSnapshot = data.snapshots[0];
-		if (latestSnapshot) {
-			edits.initialize(latestSnapshot.pp3, data.image);
-		} else {
-			edits.initialize(parsePP3(BasePP3), data.image);
-		}
+		const image = data.image;
+		const pp3 = latestSnapshot?.pp3 ?? BasePP3;
+		untrack(() => edits.initialize(pp3, image));
 	});
 
 	$effect(() => {

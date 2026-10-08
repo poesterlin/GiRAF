@@ -37,6 +37,8 @@
 
 	let triageEnabled = $derived(data.triageEnabled);
 	let showNotifications = $state(false);
+	let notificationsButton: HTMLButtonElement;
+	let notificationsPanel: HTMLDivElement;
 	let runningTaskCount = $state(0);
 	let runningTasksPollingInterval: ReturnType<typeof setInterval> | undefined;
 	let notificationsPollingInterval: ReturnType<typeof setInterval> | undefined;
@@ -53,6 +55,12 @@
 		if (showNotifications) {
 			void app.markAllNotificationsRead();
 		}
+	}
+
+	function closeNotificationsOutside(event: PointerEvent) {
+		if (!showNotifications || !(event.target instanceof Node)) return;
+		if (notificationsButton?.contains(event.target) || notificationsPanel?.contains(event.target)) return;
+		showNotifications = false;
 	}
 
 	$effect(() => {
@@ -154,6 +162,8 @@
 	});
 </script>
 
+<svelte:window onpointerdown={closeNotificationsOutside} />
+
 <svelte:head>
 	<link rel="icon" href={logo} />
 </svelte:head>
@@ -235,8 +245,10 @@
 		<div class="relative flex items-center gap-2">
 			<button
 				type="button"
+				bind:this={notificationsButton}
 				class="relative flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-900 hover:text-neutral-100 sm:h-9 sm:w-9"
 				aria-label={notificationsAriaLabel}
+				aria-expanded={showNotifications}
 				onclick={toggleNotifications}
 			>
 				<IconBell size={20} />
@@ -250,6 +262,7 @@
 
 			{#if showNotifications}
 				<div
+					bind:this={notificationsPanel}
 					class="absolute top-11 right-10 z-80 w-80 overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/95 shadow-2xl backdrop-blur-md"
 				>
 					<div class="flex items-center justify-between border-b border-neutral-800 px-3 py-2">

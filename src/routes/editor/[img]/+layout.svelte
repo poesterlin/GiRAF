@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { edits } from '$lib/state/editing.svelte';
+	import { untrack } from 'svelte';
 
 	let { children } = $props();
 
 	$effect(() => {
 		const newPP3 = $state.snapshot(edits.pp3);
-		edits.updateThrottledPP3(newPP3);
+		untrack(() => edits.updateThrottledPP3(newPP3));
 	});
 
 	$effect(() => {

@@ -13,7 +13,7 @@
 	import LutPicker from '$lib/ui/LutPicker.svelte';
 	import { IconArchive, IconArrowBackUp, IconArrowForwardUp, IconCheck, IconChevronLeft, IconChevronRight, IconDeviceFloppy, IconFidgetSpinner, IconRestore, IconFilter } from '$lib/ui/icons';
 	import { fade } from 'svelte/transition';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import Adjustments from './Adjustments.svelte';
 	import Snapshots from './Snapshots.svelte';
 	import FilterModal from '$lib/ui/FilterModal.svelte';
@@ -77,11 +77,9 @@
 
 	$effect(() => {
 		const latestSnapshot = data.snapshots[0];
-		if (latestSnapshot) {
-			edits.initialize(latestSnapshot.pp3, data.image);
-		} else {
-			edits.initialize(parsePP3(BasePP3), data.image);
-		}
+		const image = data.image;
+		const pp3 = latestSnapshot?.pp3 ?? BasePP3;
+		untrack(() => edits.initialize(pp3, image));
 	});
 
 	$effect(() => {

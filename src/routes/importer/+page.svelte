@@ -238,10 +238,13 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(body)
 			});
-			if (!response.ok) throw new Error('Failed to create session');
-			const result = (await response.json()) as { sessionId?: number };
-			app.addToast('Session created. Import started.', 'info');
-			data.items = data.items.filter((item) => !selectedIds.has(item.id));
+			const result = (await response.json()) as { sessionId?: number; assignmentCommitted?: boolean; message?: string };
+			if (!response.ok && !result.assignmentCommitted) throw new Error(result.message || 'Failed to assign images');
+			app.addToast(
+				!response.ok ? result.message || 'Images assigned to session.' : importMode === 'existing' ? 'Images added to session. Import started.' : 'Session created. Import started.',
+				'info'
+			);
+			data.items = data.items.filter((item) => !body.importIds.includes(item.id));
 			clearSelection();
 			sessionName = '';
 			showModal = false;
@@ -250,8 +253,8 @@
 				startImportPolling(result.sessionId);
 			}
 		} catch (error) {
-			console.error('Creation failed', error);
-			app.addToast('Failed to create session', 'error');
+			console.error('Import assignment failed', error);
+			app.addToast(error instanceof Error ? error.message : 'Failed to assign images', 'error');
 		} finally {
 			isCreating = false;
 		}
@@ -356,23 +359,41 @@
 					onclick={() => fileInput.click()}
 					class="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/40 px-5 py-3 text-xs font-bold text-neutral-500 transition-all hover:bg-neutral-900 hover:text-neutral-100 disabled:opacity-50"
 				>
-					{#if uploads.isUploading}
-						Add More Files
-					{:else}
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.5"
+							stroke-linecap="round"
+							stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg
+						>
 						Manual Upload
-					{/if}
 				</button>
 			</div>
 		</div>
 
 		<div class="mb-6"><UploadProgress /></div>
+		<LocalImportGallery bind:this={localGallery} sessions={data.sessions} />
 
 		{#snippet empty()}
 			<div class="flex h-[40vh] items-center justify-center rounded-3xl border border-neutral-800 bg-neutral-900/20">
 				<div class="text-center">
 					<div class="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-neutral-800 text-neutral-500">
-						<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="40"
+							height="40"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.5"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></svg
+						>
 					</div>
 					<h3 class="text-xl font-bold text-neutral-100">No images found</h3>
 					<p class="mt-2 text-neutral-500">Drop files or click upload to begin.</p>
