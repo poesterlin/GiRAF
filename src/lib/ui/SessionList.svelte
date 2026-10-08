@@ -176,7 +176,7 @@
 						<button 
 							onclick={() => archiveSession(item.id)} 
 							aria-label="Archive Session" 
-							class="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-red-400"
+							class="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-100"
 						>
 							<IconArchive size={18}></IconArchive>
 						</button>

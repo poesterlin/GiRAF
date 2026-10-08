@@ -250,7 +250,7 @@
 		<Tooltip text={isFlagged ? "Remove Flag" : "Flag as Favorite"} position={tooltipPosition}>
 			<button 
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full transition-all hover:bg-neutral-800 active:scale-90" 
-				class:text-yellow-500={isFlagged}
+				class:text-neutral-100={isFlagged}
 				class:text-neutral-400={!isFlagged}
 				onclick={() => (showFlagModal = true)} 
 				aria-label="Flagged"
@@ -314,7 +314,7 @@
 				onclick={copyConfig} 
 				aria-label="Copy edit config"
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full transition-all hover:bg-neutral-800 active:scale-90"
-				class:text-green-500={copiedConfig}
+				class:text-neutral-100={copiedConfig}
 				class:text-neutral-400={!copiedConfig}
 			>
 				{#if copiedConfig}
@@ -330,7 +330,7 @@
 					onclick={pasteConfig} 
 					aria-label="Paste edit config"
 					class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full transition-all hover:bg-neutral-800 active:scale-90"
-					class:text-blue-500={pastedConfig}
+					class:text-neutral-100={pastedConfig}
 					class:text-neutral-400={!pastedConfig}
 				>
 					{#if pastedConfig}

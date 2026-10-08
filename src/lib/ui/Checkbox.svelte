@@ -32,7 +32,7 @@
 		aria-disabled={disabled}
 		class="relative z-10 h-5 w-12 cursor-pointer rounded-full pointer-events-auto
 		transition-colors outline-none select-none focus-visible:ring-2
-		focus-visible:ring-sky-500/60
+		focus-visible:ring-neutral-100/60
 		{checked ? 'bg-neutral-200 ring-neutral-300' : 'bg-neutral-950 ring-neutral-500'}"
 		class:opacity-60={disabled}
 	>

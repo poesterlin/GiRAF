@@ -95,7 +95,7 @@
 						{#if showSaveAsProfile === snapshot.id}
 							<form onsubmit={preventDefault(() => saveAsProfile(snapshot))} class="save-form">
 								<input type="text" bind:value={profileName} placeholder="Profile Name" class="input" />
-								<button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700">Save</button>
+								<button type="submit" class="rounded-md bg-neutral-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-neutral-700">Save</button>
 							</form>
 						{/if}
 					</div>

@@ -58,13 +58,13 @@
 				resetValue={data.image.whiteBalance!}
 				ignored={edits.pp3.White_Balance.Setting !== 'Custom'}
 				onchange={() => { edits.pp3.White_Balance.Setting = 'Custom'; edits.pushHistory(); }}
-				overlay="bg-gradient-to-r from-[#0000FF] to-[#FFFF00]"
+				overlay="bg-gradient-to-r from-neutral-700 to-neutral-100"
 				map={(x) => map(x, -3000, 3000, data.image.whiteBalance! - 3000, data.image.whiteBalance! + 3000)}
 				inverseMap={(y) => map(y, data.image.whiteBalance! - 3000, data.image.whiteBalance! + 3000, -3000, 3000)}
 			/>
 			<Slider
 				label="Tint"
-				overlay="bg-gradient-to-r from-[#FF00FF] to-[#00FF00]"
+				overlay="bg-gradient-to-r from-neutral-700 to-neutral-100"
 				bind:value={edits.pp3.White_Balance.Green as number}
 				min={-100}
 				max={100}

@@ -272,14 +272,15 @@
 						{:else}
 							{#each app.notifications as notification (notification.id)}
 								{@const typeColor = {
-									success: 'bg-green-500',
-									error: 'bg-red-500',
-									info: 'bg-blue-500'
+									success: 'bg-neutral-500',
+									error: 'bg-neutral-500',
+									info: 'bg-neutral-500'
 								}[notification.type]}
 								<div class="border-b border-neutral-800/70 px-3 py-2 last:border-b-0">
 									<div class="flex items-start gap-2">
 										<span class={`mt-1 h-2 w-2 shrink-0 rounded-full ${typeColor}`}></span>
 										<div class="min-w-0 flex-1">
+											<p class="text-xs font-semibold uppercase tracking-wide text-neutral-100">{notification.type}</p>
 											<p class="text-sm text-neutral-200">{notification.message}</p>
 											<p class="mt-1 text-[11px] text-neutral-500">
 												{new Date(notification.createdAt).toLocaleTimeString()}
@@ -310,11 +311,12 @@
 <div class="fixed right-4 bottom-4 z-80 flex flex-col items-end gap-2">
 	{#each app.toasts as toast (toast.id)}
 		{@const bg = {
-			success: 'bg-green-600/90',
-			error: 'bg-red-600/90',
+			success: 'bg-neutral-700/90',
+			error: 'bg-neutral-700/90',
 			info: 'bg-neutral-800/90'
 		}[toast.type]}
-		<div class="rounded-lg {bg} z-80 px-4 py-2 text-sm font-medium text-neutral-50 shadow-lg backdrop-blur-sm">
+		<div class="rounded-lg {bg} z-80 border border-neutral-400 px-4 py-2 text-sm font-medium text-neutral-50 shadow-lg backdrop-blur-sm">
+			<span class="mr-2 text-xs font-bold uppercase">{toast.type}</span>
 			{toast.message}
 		</div>
 	{/each}

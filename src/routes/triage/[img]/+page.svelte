@@ -148,8 +148,8 @@
 						onclick={archiveImage}
 						aria-label="Archive Image"
 						disabled={data.image.isArchived}
-						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-red-400 backdrop-blur-md transition-all active:scale-90 disabled:opacity-10 sm:h-16 sm:w-14 shadow-2xl"
-						class:hover:bg-red-500={!data.image.isArchived}
+						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-100 backdrop-blur-md transition-all active:scale-90 disabled:opacity-10 sm:h-16 sm:w-14 shadow-2xl"
+						class:hover:bg-neutral-500={!data.image.isArchived}
 						class:hover:text-white={!data.image.isArchived}
 					>
 						<IconArchive size={28} />
