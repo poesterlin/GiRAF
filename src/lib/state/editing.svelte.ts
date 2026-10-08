@@ -178,7 +178,8 @@ class EditingState {
 		const snapshot = structuredClone($state.snapshot(this.pp3));
 		const prev = this.history[this.historyIndex];
 
-		const diff = diffPP3(prev, snapshot);
+		let diff = diffPP3(prev, snapshot);
+		if (countPP3Properties(diff) === 0) diff = diffPP3(snapshot, prev);
 		const changedCount = countPP3Properties(diff);
 
 		if (changedCount === 0) return;
@@ -224,7 +225,7 @@ class EditingState {
 	hasChangesFor(imageId: string) {
 		const baseline = this.baselineByImageId[imageId];
 		if (!baseline) return false;
-		return countPP3Properties(diffPP3(baseline, this.pp3)) > 0;
+		return countPP3Properties(diffPP3(baseline, this.pp3)) > 0 || countPP3Properties(diffPP3(this.pp3, baseline)) > 0;
 	}
 
 	private setBaseline(imageId: string, pp3: PP3) {

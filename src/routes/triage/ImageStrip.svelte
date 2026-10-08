@@ -1,5 +1,6 @@
  <script lang="ts">
 	import type { Image } from '$lib/server/db/schema';
+	import { untrack } from 'svelte';
     import { IconArchive } from '$lib/ui/icons';
     import { fade } from 'svelte/transition';
 
@@ -9,14 +10,16 @@
     $effect(() => {
         const currentIndex = images.findIndex(img => img.id === currentImageId);
         if (currentIndex !== -1) {
-            const element = imageElements[currentIndex];
-            element?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            untrack(() => {
+                const element = imageElements[currentIndex];
+                element?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            });
         }
     });
 </script>
 
 <div class="flex flex-row lg:flex-col gap-3 p-4 overflow-x-auto lg:overflow-y-auto lg:overflow-x-hidden h-full scroll-smooth custom-scrollbar bg-neutral-950">
-	{#each images as image, i}
+	{#each images as image, i (image.id)}
 		<a
             bind:this={imageElements[i]}
 			href={`/triage/${image.id}`}

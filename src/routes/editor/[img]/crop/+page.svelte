@@ -32,6 +32,7 @@
 	let displayScale = 1;
 	const padding = 24;
 	let isMoving = false;
+	let activePointerId: number | null = null;
 	let handle: string | undefined = undefined;
 	let lastX = 0;
 	let lastY = 0;
@@ -81,6 +82,33 @@
 	let flashKey = $state<string>();
 	let flashTimer: number | null = null;
 	let imageInfo = $state<{ resolutionX: number; resolutionY: number }>();
+	let hasCrop = $derived(!!edits.pp3?.Crop);
+
+	$effect(() => {
+		const container = canvasEl?.parentElement;
+		if (!container) return;
+		let frame = 0;
+		const observer = new ResizeObserver(() => {
+			cancelAnimationFrame(frame);
+			frame = requestAnimationFrame(draw);
+		});
+		observer.observe(container);
+		return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+	});
+
+	function startCrop() {
+		updateDimensions();
+		if (!imageDimensions.width || !imageDimensions.height || !edits.pp3) return;
+		const x = Math.round(imageDimensions.width * 0.1);
+		const y = Math.round(imageDimensions.height * 0.1);
+		edits.pp3.Crop = {
+			...createInitialCrop(x, y, imageDimensions),
+			W: Math.round(imageDimensions.width * 0.8),
+			H: Math.round(imageDimensions.height * 0.8)
+		};
+		edits.pushHistory();
+		requestAnimationFrame(draw);
+	}
 
 	let ctx = $derived.by(() => {
 		if (!canvasEl) {
@@ -201,7 +229,7 @@
 
 			const base = parsePP3(BasePP3);
 			if (edits.pp3) {
-				edits.pp3.Crop = base.Crop;
+				delete edits.pp3.Crop;
 				edits.pp3.Rotation = base.Rotation;
 				edits.pushHistory();
 			}
@@ -227,6 +255,7 @@
 	}
 
 	function move(event: PointerEvent) {
+		if (activePointerId !== null && event.pointerId !== activePointerId) return;
 		if (!canvasEl || !ctx) {
 			return;
 		}
@@ -252,7 +281,7 @@
 			return;
 		}
 
-		moveCursor = !!checkHandleCollision(scaledPP3, cropPoint.x * displayScale, cropPoint.y * displayScale, 48);
+		moveCursor = !!checkHandleCollision(scaledPP3, cropPoint.x * displayScale, cropPoint.y * displayScale, event.pointerType === 'touch' ? 24 : 10);
 
 		if (!isMoving || !handle) {
 			return;
@@ -264,6 +293,8 @@
 	}
 
 	function startMove(event: PointerEvent) {
+		if (activePointerId !== null || (event.pointerType === 'mouse' && event.button !== 0)) return;
+		event.preventDefault();
 		const pp3 = edits.pp3;
 		if (!pp3) {
 			return;
@@ -292,6 +323,7 @@
 
 			handle = 'se';
 			isMoving = true;
+			activePointerId = event.pointerId;
 			moveCursor = true;
 			canvasEl?.setPointerCapture(event.pointerId);
 			return;
@@ -299,10 +331,11 @@
 
 		const scaledPP3 = getScaledPP3();
 		handle = scaledPP3
-			? checkHandleCollision(scaledPP3, cropPoint.x * displayScale, cropPoint.y * displayScale, 48)
+			? checkHandleCollision(scaledPP3, cropPoint.x * displayScale, cropPoint.y * displayScale, event.pointerType === 'touch' ? 24 : 10)
 			: undefined;
 		if (handle && canvasEl) {
 			isMoving = true;
+			activePointerId = event.pointerId;
 			moveCursor = true;
 			canvasEl.setPointerCapture(event.pointerId);
 		} else {
@@ -311,14 +344,15 @@
 	}
 
 	function endMove(event: PointerEvent) {
-		if (!canvasEl) {
+		if (!canvasEl || activePointerId !== event.pointerId) {
 			return;
 		}
 		
+		activePointerId = null;
 		isMoving = false;
 		handle = undefined;
 
-		canvasEl.releasePointerCapture(event.pointerId);
+		if (canvasEl.hasPointerCapture(event.pointerId)) canvasEl.releasePointerCapture(event.pointerId);
 		moveCursor = false;
 
 		if (edits.pp3?.Crop) {
@@ -360,7 +394,7 @@
 
 </script>
 
-<svelte:window onkeydown={handleKeyDown} onpointerup={endMove} />
+<svelte:window onkeydown={handleKeyDown} />
 
 <img src={imageUrl} alt="" class="hidden" bind:this={imgEl} onload={draw} />
 
@@ -368,7 +402,7 @@
 	<!-- Image Preview Section -->
 	<div class="relative min-h-0 flex-1 overflow-hidden bg-neutral-900 shadow-inner">
 		<div class="flex h-full items-center justify-center p-2 sm:p-2">
-			<canvas bind:this={canvasEl} onpointerdown={startMove} onpointermove={move} class:cursor-move={moveCursor} class="m-auto"></canvas>
+			<canvas bind:this={canvasEl} onpointerdown={startMove} onpointermove={move} onpointerup={endMove} onpointercancel={endMove} onlostpointercapture={endMove} aria-label="Crop image: drag corners to resize or drag inside to move" class:cursor-move={moveCursor} class="m-auto touch-none select-none"></canvas>
 		</div>
 		
 		<!-- Desktop Left Nav -->
@@ -380,32 +414,30 @@
 			</div>
 		</div>
 
-		<!-- Mobile Bottom Nav -->
-		<div class="absolute bottom-4 left-0 right-0 flex justify-center lg:hidden pointer-events-none">
-			<div class="pointer-events-auto">
-				{#if edits.currentImageId}
-					<EditModeNav showEdit img={edits.currentImageId} />
-				{/if}
-			</div>
-		</div>
 	</div>
 
 	<!-- Controls Panel Section -->
 	<aside
-		class="flex w-full flex-col border-t border-neutral-800 bg-neutral-950 lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l h-[35vh] lg:h-auto"
+		class="flex max-h-[45dvh] w-full shrink-0 flex-col border-t border-neutral-800 bg-neutral-950 lg:max-h-none lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l"
 	>
 		<!-- Panel Header -->
-		<div class="flex items-center justify-between border-b border-neutral-800 px-6 py-3 lg:py-4">
+		<div class="flex shrink-0 items-center justify-between border-b border-neutral-800 px-4 py-2 lg:px-6 lg:py-4">
 			<div class="flex items-center gap-3">
 				<div class="h-2 w-2 rounded-full bg-neutral-500"></div>
 				<h2 class="text-xs font-bold tracking-widest uppercase text-neutral-400">Crop & Rotate</h2>
 			</div>
+			<div class="lg:hidden">
+				{#if edits.currentImageId}<EditModeNav showEdit img={edits.currentImageId} />{/if}
+			</div>
 		</div>
 
 		<!-- Scrollable Controls -->
-		<div class="flex-1 overflow-y-auto px-4 py-6 lg:px-6 custom-scrollbar">
+		<div class="min-h-0 flex-1 overflow-y-auto px-4 py-3 lg:px-6 lg:py-6 custom-scrollbar">
+			{#if !hasCrop}
+				<button type="button" onclick={startCrop} class="mb-3 w-full rounded-xl border border-neutral-500 bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-100 hover:bg-neutral-800">Start crop</button>
+			{/if}
 			{#if edits.pp3?.Rotation}
-				<div class="space-y-8">
+				<div class="space-y-3 lg:space-y-8">
 					<Slider
 						label="Rotate"
 						min={-45}
@@ -422,7 +454,7 @@
 					/>
 
 					{#if imageInfo}
-						<div class="rounded-xl border border-neutral-800 bg-neutral-900/30 p-4">
+						<div class="hidden rounded-xl border border-neutral-800 bg-neutral-900/30 p-4 lg:block">
 							<div class="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mb-2">Original Resolution</div>
 							<div class="text-sm font-medium text-neutral-300 tabular-nums">
 								{imageInfo.resolutionX} × {imageInfo.resolutionY}
@@ -434,7 +466,7 @@
 		</div>
 
 		<!-- Actions Footer -->
-		<div class="border-t border-neutral-800 bg-neutral-900/50 p-4 lg:p-6 backdrop-blur-sm">
+		<div class="shrink-0 border-t border-neutral-800 bg-neutral-900/50 p-3 lg:p-6 backdrop-blur-sm">
 			<div class="grid grid-cols-2 gap-3">
 				<Button onclick={reset} flash={flashKey === 'r'} class="justify-center">
 					<span>Reset</span>

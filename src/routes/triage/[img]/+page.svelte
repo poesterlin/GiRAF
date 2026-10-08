@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { beforeNavigate, goto, invalidateAll, preloadData } from '$app/navigation';
 	import { page } from '$app/state';
 	import { tagStore } from '$lib/state/tag.svelte';
@@ -6,6 +7,7 @@
 	import Tooltip from '$lib/ui/Tooltip.svelte';
 	import { IconArchive, IconChevronLeft, IconChevronRight, IconFlag, IconRestore, IconAdjustmentsFilled } from '$lib/ui/icons';
 	import ImageStrip from '../ImageStrip.svelte';
+	import TriagePreview from '$lib/ui/TriagePreview.svelte';
 
 	let { data } = $props();
 	const photoInfo = $derived.by(() => {
@@ -89,12 +91,12 @@
 	});
 
 	$effect(() => {
-		if (data.nextImage) {
-			preloadData(`/triage/${data.nextImage}`);
-		}
-		if (data.previousImage) {
-			preloadData(`/triage/${data.previousImage}`);
-		}
+		const next = data.nextImage;
+		const previous = data.previousImage;
+		untrack(() => {
+			if (next) void preloadData(`/triage/${next}`).catch(() => {});
+			if (previous) void preloadData(`/triage/${previous}`).catch(() => {});
+		});
 	});
 
 	const keyMap = $derived(
@@ -130,23 +132,14 @@
 
 	<!-- Main Preview Area -->
 	<main class="relative order-1 flex min-h-0 flex-1 flex-col overflow-hidden bg-neutral-900 lg:order-2">
-		<div class="flex min-h-0 flex-1 items-center justify-center p-4">
-			<picture class="flex h-full w-full items-center justify-center">
-				<source media="(min-width: 1024px)" srcset={`/api/images/${data.image.id}/preview?size=4096&quality=90&mode=inside`} />
-				<img
-					src={`/api/images/${data.image.id}/preview?size=2048`}
-					alt={`Image ${data.image.id}`}
-					class="h-full w-full object-contain rounded-lg shadow-2xl transition-transform duration-500"
-					class:scale-95={isArchiving}
-					class:opacity-50={isArchiving}
-				/>
-			</picture>
+		<div class="flex min-h-0 flex-1 items-center justify-center p-4" class:lg:pr-44={photoInfo.length > 0 || !!data.image.camera || !!data.image.lens}>
+			<TriagePreview imageId={data.image.id} archiving={isArchiving} />
 		</div>
 
 		{#if photoInfo.length || data.image.camera || data.image.lens}
-			<section aria-label="Photo information" class="z-10 mx-4 mb-3 shrink-0 rounded-2xl border border-neutral-600 bg-neutral-950/90 px-4 py-3 shadow-lg backdrop-blur-md lg:absolute lg:right-6 lg:bottom-6 lg:m-0 lg:max-w-sm">
+			<section aria-label="Photo information" class="z-10 mx-4 mb-3 shrink-0 rounded-2xl border border-neutral-600 bg-neutral-950/90 px-4 py-3 shadow-lg backdrop-blur-md lg:absolute lg:right-4 lg:bottom-4 lg:m-0 lg:w-36 lg:px-3">
 				{#if photoInfo.length}
-					<dl class="flex flex-wrap gap-x-5 gap-y-2">
+					<dl class="flex flex-wrap gap-x-5 gap-y-2 lg:flex-col lg:gap-y-3">
 						{#each photoInfo as item (item.label)}
 							<div>
 								<dt class="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">{item.label}</dt>
@@ -156,7 +149,7 @@
 					</dl>
 				{/if}
 				{#if data.image.camera || data.image.lens}
-					<div class="mt-2 border-t border-neutral-700 pt-2 text-xs leading-relaxed text-neutral-300">
+					<div class="mt-2 border-t border-neutral-700 pt-2 text-xs leading-relaxed text-neutral-300 break-words">
 						{#if data.image.camera}<p>{data.image.camera}</p>{/if}
 						{#if data.image.lens}<p class="text-neutral-400">{data.image.lens}</p>{/if}
 					</div>
