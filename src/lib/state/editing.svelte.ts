@@ -35,6 +35,8 @@ class EditingState {
 	private previewTimeout: ReturnType<typeof setTimeout> | null = null;
 	private pendingPreviewPP3: PP3 | null = null;
 	private lastPreviewUpdate = 0;
+	private saveQueue: Promise<void> = Promise.resolve();
+	private pendingSaves = new Map<string, number>();
 
 	private cancelPreviewUpdate() {
 		if (this.previewTimeout !== null) clearTimeout(this.previewTimeout);
@@ -58,6 +60,7 @@ class EditingState {
 
 	initialize(pp3: string | PP3, image: Image) {
 		assert(image, 'Image must be provided to initialize editing state');
+		if (this.currentImageId === String(image.id) && (this.hasChangesFor(String(image.id)) || this.pendingSaves.has(String(image.id)))) return;
 
 		const newPp3 = typeof pp3 === 'string' ? parsePP3(pp3) : pp3;
 		ensureSectionDefaults(newPp3, 'Exposure', {
@@ -137,23 +140,38 @@ class EditingState {
 			return;
 		}
 
-		edits.lastSavedPP3 = structuredClone($state.snapshot(edits.pp3));
-		edits.setBaseline(id, edits.lastSavedPP3);
-		this.hasChanges = false;
-
+		const saved = structuredClone($state.snapshot(this.pp3));
+		this.pendingSaves.set(id, (this.pendingSaves.get(id) ?? 0) + 1);
+		const task = this.saveQueue.catch(() => {}).then(async () => {
+		try {
 		const res = await fetch(`/api/images/${id}/snapshots`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			keepalive: true,
-			body: JSON.stringify({ pp3: stringifyPP3(edits.lastSavedPP3) })
+			body: JSON.stringify({ pp3: stringifyPP3(saved) })
 		});
 
 		if (!res.ok) {
-			edits.isFaulty = true;
 			throw new Error('Failed to save snapshot');
 		}
 
-		edits.isFaulty = false;
+		this.setBaseline(id, saved);
+		if (this.currentImageId === id) {
+			this.lastSavedPP3 = saved;
+			this.hasChanges = this.hasChangesFor(id);
+			this.isFaulty = false;
+		}
+		} catch (error) {
+			if (this.currentImageId === id) this.isFaulty = true;
+			throw error;
+		} finally {
+			const remaining = (this.pendingSaves.get(id) ?? 1) - 1;
+			if (remaining) this.pendingSaves.set(id, remaining);
+			else this.pendingSaves.delete(id);
+		}
+		});
+		this.saveQueue = task;
+		await task;
 	}
 
 	pushHistory() {

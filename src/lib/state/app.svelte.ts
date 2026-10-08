@@ -2,6 +2,7 @@ interface Toast {
     id: string;
     message: string;
     type: 'success' | 'error' | 'info';
+	action?: { label: string; run: () => void };
 }
 
 interface NotificationItem {
@@ -21,6 +22,7 @@ interface ServerNotificationItem {
 }
 
 class AppState {
+	notificationVersion = 0;
     toasts = $state<Toast[]>([]);
 	notifications = $state<NotificationItem[]>([]);
 
@@ -33,17 +35,18 @@ class AppState {
 		this.notifications = notifications;
 	}
 
-    addToast(message: string, type: 'success' | 'error' | 'info') {
+    addToast(message: string, type: 'success' | 'error' | 'info', action?: Toast['action']) {
         const id = this.createId();
-        const toast = { id, message, type };
+        const toast = { id, message, type, action };
 		this.toasts.push(toast);
 
         setTimeout(() => {
 			this.toasts = this.toasts.filter((item) => item.id !== id);
-        }, 3000);
+        }, action ? 10000 : 3000);
     }
 
 	async markAllNotificationsRead() {
+		const version = ++this.notificationVersion;
 		this.notifications = this.notifications.map((notification) => ({
 			...notification,
 			read: true
@@ -54,6 +57,7 @@ class AppState {
 				return;
 			}
 			const payload = (await response.json()) as { notifications?: ServerNotificationItem[] };
+			if (version !== this.notificationVersion) return;
 			if (!Array.isArray(payload.notifications)) {
 				return;
 			}
@@ -67,6 +71,7 @@ class AppState {
 	}
 
 	async clearNotifications() {
+		this.notificationVersion += 1;
 		this.notifications = [];
 		try {
 			await fetch('/api/notifications', { method: 'DELETE' });

@@ -96,6 +96,7 @@
 	}
 
 	async function refreshNotifications() {
+		const version = app.notificationVersion;
 		try {
 			const response = await fetch('/api/notifications');
 			if (!response.ok) {
@@ -103,6 +104,7 @@
 			}
 
 			const payload = (await response.json()) as { notifications?: ServerNotification[] };
+			if (version !== app.notificationVersion) return;
 			if (!Array.isArray(payload.notifications)) {
 				return;
 			}
@@ -331,6 +333,9 @@
 		<div class="rounded-lg {bg} z-80 border border-neutral-400 px-4 py-2 text-sm font-medium text-neutral-50 shadow-lg backdrop-blur-sm">
 			<span class="mr-2 text-xs font-bold uppercase">{toast.type}</span>
 			{toast.message}
+			{#if toast.action}
+				<button class="ml-3 underline underline-offset-4 text-white" onclick={toast.action.run}>{toast.action.label}</button>
+			{/if}
 		</div>
 	{/each}
 </div>

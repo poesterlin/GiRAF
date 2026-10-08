@@ -16,6 +16,11 @@
 	import FlagModal from './FlagModal.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import { edits } from '$lib/state/editing.svelte';
+	import { beforeNavigate } from '$app/navigation';
+	import { onDestroy } from 'svelte';
+	import { app } from '$lib/state/app.svelte';
+	import Modal from './Modal.svelte';
+	import type { PP3 } from '$lib/pp3-utils';
 
 	interface Props {
 		img: string;
@@ -36,6 +41,41 @@
 	let showFlagModal = $state(false);
 	let copiedConfig = $state(false);
 	let pastedConfig = $state(false);
+	let pasteVersion = 0;
+	let showCropChoice = $state(false);
+	let rememberCropChoice = $state(false);
+	let pendingPaste: { pp3: PP3; imageId: string; version: number } | undefined;
+	const cropPreferenceKey = 'giraf_paste_crop';
+	function cancelPaste() {
+		pasteVersion += 1;
+		pendingPaste = undefined;
+		showCropChoice = false;
+	}
+	beforeNavigate(cancelPaste);
+	onDestroy(cancelPaste);
+
+	function applyPaste(pp3: PP3, includeCrop: boolean) {
+		if (!includeCrop) {
+			if (edits.pp3.Crop) pp3.Crop = structuredClone($state.snapshot(edits.pp3.Crop));
+			else delete pp3.Crop;
+		}
+		edits.pp3 = pp3;
+		edits.pushHistory();
+		pastedConfig = true;
+		setTimeout(() => (pastedConfig = false), 2000);
+	}
+
+	function chooseCrop(includeCrop: boolean) {
+		try {
+			if (rememberCropChoice) localStorage.setItem(cropPreferenceKey, includeCrop ? 'include' : 'exclude');
+			else localStorage.removeItem(cropPreferenceKey);
+		} catch { /* Device storage may be unavailable. */ }
+		if (pendingPaste && pendingPaste.version === pasteVersion && pendingPaste.imageId === edits.currentImageId) {
+			applyPaste(pendingPaste.pp3, includeCrop);
+		}
+		pendingPaste = undefined;
+		showCropChoice = false;
+	}
 	let hasClipboardContent = $state(false);
 	let isDesktop = $state(false);
 
@@ -153,6 +193,10 @@
 
 	// Paste PP3 from clipboard or localStorage and apply to current edits
 	async function pasteConfig() {
+		const imageId = edits.currentImageId;
+		const version = ++pasteVersion;
+		pendingPaste = undefined;
+		showCropChoice = false;
 		let pp3Text: string | null = null;
 
 		// try clipboard readText
@@ -187,10 +231,27 @@
 
 		// try to parse PP3 text and apply
 		try {
-			edits.pp3 = parsePP3(pp3Text);
-			edits.pushHistory();
-			pastedConfig = true;
-			setTimeout(() => (pastedConfig = false), 2000);
+			if (!imageId || imageId !== edits.currentImageId || version !== pasteVersion) return;
+			const pp3 = parsePP3(pp3Text);
+			if (pp3.Crop && pp3.Crop.Enabled !== false && Number(pp3.Crop.W) > 0 && Number(pp3.Crop.H) > 0) {
+				let preference: string | null = null;
+				try { preference = localStorage.getItem(cropPreferenceKey); } catch { /* Ask each time. */ }
+				if (preference === 'include' || preference === 'exclude') {
+					applyPaste(pp3, preference === 'include');
+					app.addToast(preference === 'include' ? 'Settings pasted including crop.' : 'Settings pasted keeping the current crop.', 'info', {
+						label: 'Edit crop preference',
+						run: () => {
+							if (version !== pasteVersion) return;
+							rememberCropChoice = true;
+							showCropChoice = true;
+						}
+					});
+				} else {
+					pendingPaste = { pp3, imageId, version };
+					rememberCropChoice = false;
+					showCropChoice = true;
+				}
+			} else applyPaste(pp3, true);
 		} catch {
 			pastedConfig = false;
 		}
@@ -207,6 +268,22 @@
 		}
 	}
 </script>
+
+{#if showCropChoice}
+	<Modal onClose={cancelPaste}>
+		<div class="p-6 text-neutral-100">
+			<h2 class="text-lg font-semibold">Crop when pasting settings</h2>
+			<p class="mt-2 text-sm text-neutral-300">Apply the crop from the copied settings, or keep this image’s current crop?</p>
+			<label class="mt-4 flex items-center gap-2 text-sm">
+				<input type="checkbox" bind:checked={rememberCropChoice} class="accent-white" /> Remember this choice on this device
+			</label>
+			<div class="mt-6 flex flex-wrap gap-3">
+				<button class="rounded-lg border border-neutral-400 px-4 py-2" onclick={() => chooseCrop(false)}>Keep current crop</button>
+				<button class="rounded-lg bg-white px-4 py-2 text-black" onclick={() => chooseCrop(true)}>Apply copied crop</button>
+			</div>
+		</div>
+	</Modal>
+{/if}
 
 <svelte:window onfocus={() => checkClipboard()} onkeyup={handleKeyUp} />
 

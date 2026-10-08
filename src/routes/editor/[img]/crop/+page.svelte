@@ -53,14 +53,18 @@
 	});
 
 	$effect(() => {
-		fetch(apiPath + '/details')
+		const controller = new AbortController();
+		fetch(apiPath + '/details', { signal: controller.signal })
 			.then((res) => (res.ok ? res.json() : null))
 			.then((data) => {
+				if (controller.signal.aborted) return;
 				imageInfo = data ? { resolutionX: data.resolutionX, resolutionY: data.resolutionY } : undefined;
 			})
 			.catch(() => {
+				if (controller.signal.aborted) return;
 				imageInfo = undefined;
 			});
+		return () => controller.abort();
 	});
 
 	let moveCursor = $state(false);
