@@ -3,6 +3,9 @@
 console.log('[worker] Worker script loaded');
 
 import { expose } from 'comlink';
+import { fromBase64 } from './pp3-utils';
+import { getRequiredClutPath, WASM_PREVIEW_PARITY_VERIFIED } from './preview-parity-policy';
+import { renderNativePp3 } from './wasm-pp3-api';
 
 /** If this is set to true, the worker will use the most compatible code paths possible */
 export const compatMode = import.meta.env.VITE_COMPAT_MODE === 'true';
@@ -49,6 +52,24 @@ interface ClutOptions {
 // into the WASM heap on every slider update.
 let wasmInput: { module: any; data: Uint8Array; pointer: number } | null = null;
 let wasmClut: { module: any; data: Uint16Array; pointer: number } | null = null;
+let decodedImage: { module: any; data: Uint8Array; handle: number } | null = null;
+
+function getDecodedImage(Module: any, data: Uint8Array): number {
+    if (decodedImage && decodedImage.module === Module && decodedImage.data === data) return decodedImage.handle;
+    if (decodedImage) {
+        decodedImage.module._release_tiff_image(decodedImage.handle);
+        decodedImage = null;
+    }
+    if (typeof Module._load_tiff_image !== 'function' || typeof Module._render_tiff_image !== 'function' || typeof Module._release_tiff_image !== 'function') return 0;
+    const pointer = getWasmInput(Module, data);
+    const handle = Module._load_tiff_image(pointer, data.length);
+    if (!handle) throw new Error('Unable to decode WASM image');
+    decodedImage = { module: Module, data, handle };
+    // Decoding owns its pixels; no need to retain a second encoded TIFF in WASM.
+    Module._free(pointer);
+    wasmInput = null;
+    return handle;
+}
 
 function getWasmClut(Module: any, data: Uint16Array): number {
     if (wasmClut && wasmClut.module === Module && wasmClut.data === data) return wasmClut.pointer;
@@ -89,7 +110,8 @@ function getWasmInput(Module: any, data: Uint8Array): number {
 function wasmTiffToJpegWithPp3(Module: any, tiffData: Uint8Array, pp3String: string, quality: number, clut?: ClutOptions): Uint8Array {
     console.log(`[worker] WASM processing: tiff=${tiffData.length} bytes, pp3=${pp3String.length} chars, quality=${quality}, clut=${clut ? `level=${clut.clutLevel} entries=${clut.clutData.length}` : 'none'}`);
 
-    const tiffPtr = getWasmInput(Module, tiffData);
+    const imageHandle = getDecodedImage(Module, tiffData);
+    const tiffPtr = imageHandle ? 0 : getWasmInput(Module, tiffData);
 
     const pp3Bytes = new TextEncoder().encode(pp3String + '\0');
     const pp3Ptr = Module._malloc(pp3Bytes.length);
@@ -98,12 +120,14 @@ function wasmTiffToJpegWithPp3(Module: any, tiffData: Uint8Array, pp3String: str
     try {
         const clutPtr = clut ? getWasmClut(Module, clut.clutData) : 0;
         let result: number;
-        if (clut && clutPtr) {
+        if (imageHandle) {
+            result = Module._render_tiff_image(imageHandle, pp3Ptr, clutPtr, clut?.clutData.length ?? 0, clut?.clutLevel ?? 0, quality);
+        } else if (clut && clutPtr) {
             console.log('[worker] Calling _tiff_to_jpeg_with_pp3_and_clut...');
-            result = Module._tiff_to_jpeg_with_pp3_and_clut(tiffPtr, tiffData.length, pp3Ptr, quality, clutPtr, clut.clutData.length, clut.clutLevel);
+            result = renderNativePp3(Module, tiffPtr, tiffData.length, pp3Ptr, quality, { pointer: clutPtr, count: clut.clutData.length, level: clut.clutLevel });
         } else {
             console.log('[worker] Calling _tiff_to_jpeg_with_pp3...');
-            result = Module._tiff_to_jpeg_with_pp3(tiffPtr, tiffData.length, pp3Ptr, quality);
+            result = renderNativePp3(Module, tiffPtr, tiffData.length, pp3Ptr, quality);
         }
         console.log(`[worker] WASM returned: ${result}`);
         if (result !== 0) {
@@ -167,11 +191,6 @@ async function loadTiffData(imageId: string): Promise<Uint8Array> {
 // Cache parsed CLUT data by path
 const clutCache = new Map<string, { clutData: Uint16Array; clutLevel: number }>();
 
-function parseClutFilenameFromPp3(pp3String: string): string | null {
-    const match = pp3String.match(/ClutFilename=(.+)/);
-    return match?.[1]?.trim() || null;
-}
-
 async function getClutData(clutPath: string): Promise<ClutOptions> {
     const cached = clutCache.get(clutPath);
     if (cached) {
@@ -190,6 +209,9 @@ async function getClutData(clutPath: string): Promise<ClutOptions> {
     const level = Number(res.headers.get('X-Clut-Level'));
     const buffer = await res.arrayBuffer();
     const clutData = new Uint16Array(buffer);
+    if (!Number.isInteger(level) || level < 2 || clutData.length !== level ** 3 * 4) {
+        throw new Error('Invalid LUT data received');
+    }
     const result = { clutData, clutLevel: level };
 
     console.log(`[worker] CLUT fetched: level=${level}, entries=${clutData.length}`);
@@ -205,17 +227,14 @@ async function refreshImageWasm(imageId: string, config: string): Promise<{ url:
     const Module = await getRtWasm();
     const tiffData = await getTiffData(imageId);
 
-    const pp3String = atob(config);
+    const pp3String = fromBase64(config);
 
     // Check if PP3 has a Film Simulation CLUT
     let clut: ClutOptions | undefined;
-    const clutPath = parseClutFilenameFromPp3(pp3String);
+    const clutPath = getRequiredClutPath(pp3String);
     if (clutPath) {
-        try {
-            clut = await getClutData(clutPath);
-        } catch (err) {
-            console.warn('[worker] Failed to load CLUT, proceeding without:', err);
-        }
+        // A missing LUT must use the reference renderer, never a LUT-free image.
+        clut = await getClutData(clutPath);
     }
 
     const t0 = performance.now();
@@ -230,17 +249,9 @@ async function refreshImageWasm(imageId: string, config: string): Promise<{ url:
 
 async function refreshImageServer(imageId: string, config: string, version: number): Promise<{ url: string; error: boolean }> {
     console.log(`[worker] refreshImageServer: imageId=${imageId}, version=${version}`);
-    const res = await fetch(`/api/images/${imageId}/edit?config=${config}&v=${version}`);
-
-    let fileHandle: FileSystemFileHandle;
-    if (res.ok && res.body) {
-        fileHandle = await storeFile(res.body, 'images', `${imageId}.jpg`);
-    } else {
-        fileHandle = await getFileHandle('images', `${imageId}.jpg`);
-    }
-
-    const file = await fileHandle.getFile();
-    return { url: URL.createObjectURL(file), error: !res.ok };
+    const res = await fetch(`/api/images/${imageId}/edit?config=${encodeURIComponent(config)}&v=${version}`);
+    if (!res.ok) throw new Error(`Reference preview failed: ${res.status} ${res.statusText}`);
+    return { url: URL.createObjectURL(await res.blob()), error: false };
 }
 
 async function refreshImage(imageId: string, config: string, version = 0) {
@@ -258,6 +269,7 @@ async function refreshImage(imageId: string, config: string, version = 0) {
     writelocks.add(imageId);
 
     try {
+        if (!WASM_PREVIEW_PARITY_VERIFIED) return await refreshImageServer(imageId, config, version);
         // Try WASM-first, fall back to server
         try {
             const result = await refreshImageWasm(imageId, config);
@@ -271,7 +283,7 @@ async function refreshImage(imageId: string, config: string, version = 0) {
         }
     } catch (error) {
         console.error("[worker] Error in refreshImage:", error);
-       return { url: `/api/images/${imageId}/edit?config=${config}`, error: true };
+       return { url: `/api/images/${imageId}/edit?config=${encodeURIComponent(config)}`, error: true };
     } finally {
         writelocks.delete(imageId);
         if (latestRequests.get(imageId) === request) latestRequests.delete(imageId);

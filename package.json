@@ -13,6 +13,8 @@
     "format": "prettier --write .",
     "lint": "prettier --check . && eslint .",
     "test": "bun test",
+    "preview:parity": "bun scripts/preview-parity/index.ts",
+    "wasm:build": "bun scripts/build-wasm.ts",
     "licenses:generate": "bunx --bun license-checker --production --excludePrivatePackages --out src/lib/assets/THIRD_PARTY_LICENSES.txt",
     "db:start": "docker compose up",
     "db:push": "drizzle-kit push",
