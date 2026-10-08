@@ -17,6 +17,7 @@
 		inverseMap?: (n: number) => number;
 		precision?: number;
 		resetValue?: number;
+		displayValue?: (value: number) => number;
 	}
 
 	let {
@@ -34,6 +35,7 @@
 		precision = 3,
 		map = (n) => n,
 		inverseMap = (n) => n,
+		displayValue = (n) => n,
 	}: Props = $props();
 
 	let wrapperRef: HTMLDivElement;
@@ -313,7 +315,7 @@
       "
 		>
 			<span class="font-medium">{label}</span>
-			<span class="tabular-nums">{formatNumber(value)}{unit}</span>
+			<span class="tabular-nums">{formatNumber(displayValue(value))}{unit}</span>
 		</div>
 
 		<input

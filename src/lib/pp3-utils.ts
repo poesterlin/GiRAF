@@ -39,7 +39,7 @@ export function parsePP3(pp3: string) {
         }
 
         // try to parse values as numbers or booleans
-        const float = parseFloat(cleanValue);
+        const float = cleanValue.includes(';') ? NaN : Number(cleanValue);
         if (!isNaN(float)) {
             // If the value is a number, convert it to a number
             chapterObject[cleanKey] = float;
@@ -64,7 +64,7 @@ export function stringifyPP3(pp3Object: PP3) {
             if (typeof value === 'boolean') {
                 result += `${key}=${value ? 'true' : 'false'}\n`;
             } else if (typeof value === 'number') {
-                result += `${key}=${value.toFixed(3).replace(/\.0+$/, '')}\n`;
+                result += `${key}=${Number(value.toFixed(6))}\n`;
             } else {
                 result += `${key}=${value}\n`;
             }

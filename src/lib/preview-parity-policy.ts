@@ -37,7 +37,7 @@ const supportedFields: Record<string, readonly string[]> = {
 export function supportsWasmPreview(pp3String: string): boolean {
 	const pp3 = parsePP3(pp3String);
 	for (const [chapter, fields] of Object.entries(pp3)) {
-		if (chapter === 'Vibrance' || chapter === 'Local_Contrast') {
+		if (chapter === 'Vibrance' || chapter === 'Local_Contrast' || chapter === 'HSV_Equalizer' || chapter === 'ColorToning' || chapter === 'Channel_Mixer') {
 			if (fields.Enabled !== false) return false;
 			continue;
 		}

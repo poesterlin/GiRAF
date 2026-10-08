@@ -105,6 +105,8 @@ class EditingState {
 			Darkness: 1,
 			Lightness: 1
 		});
+		ensureSectionDefaults(newPp3, 'HSV_Equalizer', { Enabled: false, HCurve: '0;', SCurve: '0;', VCurve: '0;' });
+		ensureSectionDefaults(newPp3, 'Channel_Mixer', { Enabled: false, Red: '1000;0;0;', Green: '0;1000;0;', Blue: '0;0;1000;' });
 		setDefault(newPp3.White_Balance, 'Temperature', image.whiteBalance);
 		setDefault(newPp3.White_Balance, 'Green', image.tint);
 
