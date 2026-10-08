@@ -37,6 +37,8 @@ FROM debian:12 AS rawtherapee-base
 
 # Pin RawTherapee for compliance (optional build arg; defaults to latest).
 ARG RAWTHERAPEE_VERSION=latest
+# Set automatically by BuildKit (amd64, arm64, ...)
+ARG TARGETARCH
 
 # Set environment variables to avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
@@ -58,6 +60,12 @@ RUN apt-get update && \
 
 # Install rawtherapee from appimage
 RUN set -eu; \
+  ARCH="${TARGETARCH:-$(dpkg --print-architecture)}"; \
+  case "$ARCH" in \
+    amd64) RT_ARCH=x86_64 ;; \
+    arm64) RT_ARCH=arm64 ;; \
+    *) echo "Unsupported arch: $ARCH" >&2; exit 1 ;; \
+  esac; \
   if [ "$RAWTHERAPEE_VERSION" = "latest" ]; then \
     RAWTHERAPEE_VERSION="$(curl -fsSL "https://api.github.com/repos/rawtherapee/rawtherapee/releases/latest" \
       | jq -r '.tag_name // empty')"; \
@@ -69,21 +77,21 @@ RUN set -eu; \
   echo "$RAWTHERAPEE_VERSION" > /tmp/rawtherapee-version.txt; \
   cd /tmp; \
   RAWTHERAPEE_URL="$(curl -fsSL "https://api.github.com/repos/rawtherapee/rawtherapee/releases/tags/${RAWTHERAPEE_VERSION}" \
-    | jq -r --arg name "RawTherapee_${RAWTHERAPEE_VERSION}_release.AppImage" \
+    | jq -r --arg name "RawTherapee_${RAWTHERAPEE_VERSION}_${RT_ARCH}_release.AppImage" \
       '.assets[] | select(.name == $name) | .browser_download_url' | head -n1)"; \
   if [ -z "$RAWTHERAPEE_URL" ]; then \
-    echo "Failed to locate AppImage asset for ${RAWTHERAPEE_VERSION}." >&2; \
+    echo "Failed to locate AppImage asset for ${RAWTHERAPEE_VERSION} (${RT_ARCH})." >&2; \
     exit 1; \
   fi; \
   curl -fSL -o /tmp/rawtherapee.app "$RAWTHERAPEE_URL"; \
-  chmod +x /tmp/rawtherapee.app && \
-  ./rawtherapee.app --appimage-extract && \
-  mv squashfs-root /opt/rawtherapee && \
-  mkdir -p /opt/rawtherapee/metadata && \
-  cp /tmp/rawtherapee-version.txt /opt/rawtherapee/metadata/VERSION && \
-  echo "https://github.com/RawTherapee/RawTherapee/tree/${RAWTHERAPEE_VERSION}" > /opt/rawtherapee/metadata/SOURCE_URL && \
+  chmod +x /tmp/rawtherapee.app; \
+  ./rawtherapee.app --appimage-extract; \
+  mv squashfs-root /opt/rawtherapee; \
+  mkdir -p /opt/rawtherapee/metadata; \
+  cp /tmp/rawtherapee-version.txt /opt/rawtherapee/metadata/VERSION; \
+  echo "https://github.com/RawTherapee/RawTherapee/tree/${RAWTHERAPEE_VERSION}" > /opt/rawtherapee/metadata/SOURCE_URL; \
   (cp /opt/rawtherapee/usr/share/doc/rawtherapee/About/GPLtxt /opt/rawtherapee/metadata/LICENSE.txt || \
-   curl -L https://www.gnu.org/licenses/gpl-3.0.txt -o /opt/rawtherapee/metadata/LICENSE.txt) && \
+   curl -L https://www.gnu.org/licenses/gpl-3.0.txt -o /opt/rawtherapee/metadata/LICENSE.txt); \
   rm -rf /tmp/*
 
 # Add rawtherapee to the path

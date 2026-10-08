@@ -1,5 +1,6 @@
 services:
   editor:
+    build: .
     ports: !reset []
     expose:
       - "3000"
