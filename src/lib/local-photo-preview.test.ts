@@ -35,7 +35,7 @@ describe('local photo previews', () => {
 			expect(metadata.width).toBe(160);
 			expect(metadata.height).toBe(120);
 			expect(preview.capturedAt).toBeInstanceOf(Date);
-			expect(reads).toEqual([92, 256 * 1024]);
+			expect(reads).toEqual([256 * 1024 + 4096]);
 		} finally {
 			URL.revokeObjectURL(preview.url);
 		}
@@ -117,7 +117,16 @@ describe('local photo previews', () => {
 			expect(blob.type).toBe('image/jpeg');
 			expect(blob.size).toBe(300_000);
 			expect(new Uint8Array(await blob.slice(0, 4).arrayBuffer())).toEqual(new Uint8Array([255, 216, 255, 217]));
-			expect(reads).toEqual([92, 256 * 1024]);
+			expect(reads).toEqual([256 * 1024 + 4096]);
+		} finally {
+			URL.revokeObjectURL(result.url);
+		}
+	});
+
+	test('falls back to a metadata read when the JPEG is outside the cached prefix', async () => {
+		const result = await extractLocalPhotoPreview(raf(600_000, 4, 700_000), { preferThumbnail: true });
+		try {
+			expect(new Uint8Array(await (await fetch(result.url)).arrayBuffer())).toEqual(new Uint8Array([255, 216, 255, 217]));
 		} finally {
 			URL.revokeObjectURL(result.url);
 		}

@@ -9,14 +9,16 @@ export function cacheFileFingerprint(file: File, sha256: string) {
 	fingerprints.set(file, Promise.resolve(sha256));
 }
 
-/** Hash in bounded chunks; never buffer a complete RAW file in browser memory. */
+/** Hash in bounded chunks: at most 16 MiB per active file read. */
 export function fingerprintFile(file: File): Promise<string> {
 	const cached = fingerprints.get(file);
 	if (cached) return cached;
 	const result = (async () => {
 		const hash = await createSHA256();
 		hash.init();
-		const chunkSize = 1024 * 1024;
+		// File providers can impose seconds of latency on every slice read.
+		// Keep memory bounded while avoiding dozens of reads per typical RAW.
+		const chunkSize = 16 * 1024 * 1024;
 		let readMs = 0;
 		let hashMs = 0;
 		const started = performance.now();
@@ -25,7 +27,10 @@ export function fingerprintFile(file: File): Promise<string> {
 			const bytes = new Uint8Array(await file.slice(offset, offset + chunkSize).arrayBuffer());
 			readMs += performance.now() - readStarted;
 			const hashStarted = performance.now();
-			hash.update(bytes);
+			for (let start = 0; start < bytes.length; start += 1024 * 1024) {
+				hash.update(bytes.subarray(start, start + 1024 * 1024));
+				if (typeof window !== 'undefined') await new Promise<void>((resolve) => setTimeout(resolve, 0));
+			}
 			hashMs += performance.now() - hashStarted;
 			if (offset === 0 || offset + chunkSize >= file.size || performance.now() - readStarted > 1000) {
 				importTiming('hash.read-progress', started, {

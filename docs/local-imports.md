@@ -59,7 +59,7 @@ user navigates away. The first ready photo creates the session; later photos
 reuse it automatically.
 
 Duplicate detection sends only the filename, byte count and SHA-256 fingerprint
-before upload. Hashing reads local files in 1 MiB chunks and reuses the result
+before upload. Hashing reads local files in bounded 16 MiB chunks and reuses the result
 for the transfer preflight. Renamed exact duplicates are detected; different photos
 sharing a filename are not rejected. Copies within a local selection are also
 flagged. Already-imported files are excluded, while pending uploaded files can

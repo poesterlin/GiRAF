@@ -1,16 +1,19 @@
 import { importTiming } from './import-timing';
 const RAF_SIGNATURE = 'FUJIFILMCCD-RAW ';
 const METADATA_LIMIT = 256 * 1024;
+const PREFIX_LIMIT = METADATA_LIMIT + 4096;
 const MAX_PREVIEW_SIZE = 32 * 1024 * 1024;
 
 /** URLs returned here belong to the caller, which must revoke them when no longer used. */
 export async function extractLocalPhotoPreview(file: File, options: { preferThumbnail?: boolean } = {}): Promise<{ url: string; capturedAt?: Date }> {
 	const headerStarted = performance.now();
-	const header = new Uint8Array(await file.slice(0, 92).arrayBuffer());
-	importTiming('preview.header-read', headerStarted, { file: file.name, bytes: header.length });
+	// One read usually includes both the RAF header and embedded JPEG metadata.
+	const header = new Uint8Array(await file.slice(0, PREFIX_LIMIT).arrayBuffer());
+	importTiming('preview.prefix-read', headerStarted, { file: file.name, bytes: header.length });
 	const jpeg = header[0] === 0xff && header[1] === 0xd8;
 	const png = [137, 80, 78, 71, 13, 10, 26, 10].every((byte, i) => header[i] === byte);
 	let preview: Blob;
+	let previewOffset = 0;
 	if (jpeg || png) {
 		preview = file.slice(0, file.size, jpeg ? 'image/jpeg' : 'image/png');
 	} else if (new TextDecoder().decode(header.subarray(0, 16)) === RAF_SIGNATURE) {
@@ -22,14 +25,17 @@ export async function extractLocalPhotoPreview(file: File, options: { preferThum
 			throw new Error('RAF embedded JPEG has invalid offsets or size.');
 		}
 		preview = file.slice(offset, offset + length, 'image/jpeg');
+		previewOffset = offset;
 	} else {
 		throw new Error('No supported local preview: expected a Fujifilm RAF, JPEG, or PNG.');
 	}
 	let capturedAt: Date | undefined;
 	if (preview.type === 'image/jpeg') {
 		const metadataStarted = performance.now();
-		const metadata = new Uint8Array(await preview.slice(0, METADATA_LIMIT).arrayBuffer());
-		importTiming('preview.metadata-read', metadataStarted, { file: file.name, bytes: metadata.length });
+		const metadataSize = Math.min(preview.size, METADATA_LIMIT);
+		const cached = previewOffset + metadataSize <= header.length;
+		const metadata = cached ? header.subarray(previewOffset, previewOffset + metadataSize) : new Uint8Array(await preview.slice(0, metadataSize).arrayBuffer());
+		importTiming('preview.metadata-read', metadataStarted, { file: file.name, bytes: metadata.length, cached });
 		if (metadata[0] !== 0xff || metadata[1] !== 0xd8) {
 			throw new Error('RAF embedded preview is not a JPEG.');
 		}

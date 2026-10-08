@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { fingerprintFile, checkUploadDuplicates } from './upload-duplicates';
 
 test('streamed fingerprint identifies renamed duplicates across chunk boundaries', async () => {
-	const bytes = new Uint8Array(2 * 1024 * 1024 + 97);
+	const bytes = new Uint8Array(17 * 1024 * 1024 + 97);
 	for (let i = 0; i < bytes.length; i++) bytes[i] = i % 251;
 	const first = new File([bytes], 'original.RAF');
 	const renamed = new File([bytes], 'renamed.RAF');
@@ -15,7 +15,7 @@ test('streamed fingerprint identifies renamed duplicates across chunk boundaries
 });
 
 test('fingerprinting reads bounded slices and reuses the result for upload', async () => {
-	const file = new File([new Uint8Array(3 * 1024 * 1024 + 12)], 'large.RAF');
+	const file = new File([new Uint8Array(27 * 1024 * 1024 + 12)], 'large.RAF');
 	const slice = file.slice.bind(file);
 	let largestRead = 0;
 	let reads = 0;
@@ -29,10 +29,10 @@ test('fingerprinting reads bounded slices and reuses the result for upload', asy
 		return chunk;
 	};
 	const first = await fingerprintFile(file);
-	expect(largestRead).toBeLessThanOrEqual(1024 * 1024);
-	expect(reads).toBe(4);
+	expect(largestRead).toBeLessThanOrEqual(16 * 1024 * 1024);
+	expect(reads).toBe(2);
 	expect(await fingerprintFile(file)).toBe(first);
-	expect(reads).toBe(4);
+	expect(reads).toBe(2);
 });
 
 test('preflight sends fingerprints only and recognizes renamed stored files', async () => {
