@@ -21,6 +21,6 @@
 	});
 </script>
 
-<div class="h-[calc(100dvh-4rem)]">
+<div class="h-full min-h-0 overflow-hidden">
 	{@render children?.()}
 </div>

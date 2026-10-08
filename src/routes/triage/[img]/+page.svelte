@@ -8,6 +8,20 @@
 	import ImageStrip from '../ImageStrip.svelte';
 
 	let { data } = $props();
+	const photoInfo = $derived.by(() => {
+		const image = data.image;
+		const exposure = image.exposure?.trim();
+		const seconds = exposure ? Number(exposure) : NaN;
+		const shutter = Number.isFinite(seconds) && seconds > 0
+			? seconds < 1 ? `1/${Math.round(1 / seconds)} s` : `${seconds} s`
+			: exposure ? /\bs\b|sec/i.test(exposure) ? exposure : `${exposure} s` : null;
+		return [
+			{ label: 'ISO', value: image.iso ? String(image.iso) : null },
+			{ label: 'Aperture', value: image.aperture ? `f/${image.aperture}` : null },
+			{ label: 'Shutter', value: shutter },
+			{ label: 'Focal length', value: image.focalLength ? /mm/i.test(image.focalLength) ? image.focalLength : `${image.focalLength} mm` : null }
+		].filter((item) => item.value);
+	});
 
 	let showTagModal = $state(false);
 	let isArchiving = $state(false);
@@ -115,8 +129,8 @@
 	</aside>
 
 	<!-- Main Preview Area -->
-	<main class="relative order-1 flex-1 overflow-hidden bg-neutral-900 lg:order-2">
-		<div class="flex h-full items-center justify-center p-4">
+	<main class="relative order-1 flex min-h-0 flex-1 flex-col overflow-hidden bg-neutral-900 lg:order-2">
+		<div class="flex min-h-0 flex-1 items-center justify-center p-4">
 			<picture class="flex h-full w-full items-center justify-center">
 				<source media="(min-width: 1024px)" srcset={`/api/images/${data.image.id}/preview?size=4096&quality=90&mode=inside`} />
 				<img
@@ -128,6 +142,27 @@
 				/>
 			</picture>
 		</div>
+
+		{#if photoInfo.length || data.image.camera || data.image.lens}
+			<section aria-label="Photo information" class="z-10 mx-4 mb-3 shrink-0 rounded-2xl border border-neutral-600 bg-neutral-950/90 px-4 py-3 shadow-lg backdrop-blur-md lg:absolute lg:right-6 lg:bottom-6 lg:m-0 lg:max-w-sm">
+				{#if photoInfo.length}
+					<dl class="flex flex-wrap gap-x-5 gap-y-2">
+						{#each photoInfo as item (item.label)}
+							<div>
+								<dt class="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">{item.label}</dt>
+								<dd class="mt-0.5 text-sm font-semibold text-neutral-100 tabular-nums">{item.value}</dd>
+							</div>
+						{/each}
+					</dl>
+				{/if}
+				{#if data.image.camera || data.image.lens}
+					<div class="mt-2 border-t border-neutral-700 pt-2 text-xs leading-relaxed text-neutral-300">
+						{#if data.image.camera}<p>{data.image.camera}</p>{/if}
+						{#if data.image.lens}<p class="text-neutral-400">{data.image.lens}</p>{/if}
+					</div>
+				{/if}
+			</section>
+		{/if}
 
 		<!-- Left Side Controls -->
 		<div class="absolute inset-y-0 left-4 flex flex-col justify-center gap-8 pointer-events-none sm:left-8">

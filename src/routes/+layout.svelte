@@ -171,7 +171,7 @@
 	<link rel="icon" href={logo} />
 </svelte:head>
 
-<div class="grid h-screen grid-rows-[auto_1fr] bg-neutral-950 text-neutral-200 font-sans">
+<div class="grid h-dvh grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-neutral-950 text-neutral-200 font-sans">
 	<header
 		class="z-50 flex items-center justify-between border-b border-neutral-800/50 bg-neutral-950/80 px-3 py-3 backdrop-blur-md sm:px-6"
 	>
@@ -318,7 +318,7 @@
 		</a>
 		</div>
 	</header>
-	<main>
+	<main class="min-h-0">
 		{@render children?.()}
 	</main>
 </div>
