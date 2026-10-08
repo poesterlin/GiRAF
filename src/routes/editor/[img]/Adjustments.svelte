@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/state';
-	import { getWorkerInstance, map } from '$lib';
+	import { map } from '$lib';
 	import { filterPP3, setLut, toBase64 } from '$lib/pp3-utils';
 	import type { Image, Snapshot } from '$lib/server/db/schema';
 	import { edits } from '$lib/state/editing.svelte';
@@ -18,24 +17,6 @@
 	let { data, showLutPicker = $bindable() }: Props = $props();
 
 	let apiPath = $derived(`/api/images/${data.image?.id}`);
-
-	$effect(() => {
-		const worker = getWorkerInstance();
-		edits.isLoading = true;
-		worker
-			.refreshImage(page.params.img!, toBase64(edits.throttledPP3))
-			.then((result) => {
-				if (result) {
-					edits.isFaulty = result.error;
-					edits.isLoading = false;
-				}
-			})
-			.catch((error) => {
-				console.error('Error refreshing image:', error);
-				edits.isFaulty = true;
-				edits.isLoading = false;
-			});
-	});
 
 	function lutPathToName(path: string) {
 		// Convert the LUT path to a user-friendly name

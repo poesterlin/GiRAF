@@ -13,6 +13,7 @@
 	import LutPicker from '$lib/ui/LutPicker.svelte';
 	import { IconArchive, IconArrowBackUp, IconArrowForwardUp, IconCheck, IconChevronLeft, IconChevronRight, IconDeviceFloppy, IconFidgetSpinner, IconRestore, IconFilter } from '$lib/ui/icons';
 	import { fade } from 'svelte/transition';
+	import { onDestroy } from 'svelte';
 	import Adjustments from './Adjustments.svelte';
 	import Snapshots from './Snapshots.svelte';
 	import FilterModal from '$lib/ui/FilterModal.svelte';
@@ -22,6 +23,9 @@
 	let showFilterModal = $state(false);
 
 	let sampleImage = $state('');
+	onDestroy(() => {
+		if (sampleImage.startsWith('blob:')) URL.revokeObjectURL(sampleImage);
+	});
 	let apiPath = $derived(`/api/images/${data.image.id}`);
 	let snapshotSaved = $state(false);
 	let resetSaved = $state(false);
@@ -82,21 +86,29 @@
 
 	$effect(() => {
 		const worker = getWorkerInstance();
+		let active = true;
 		edits.isLoading = true;
 		worker
 			.refreshImage(page.params.img!, toBase64(edits.throttledPP3))
 			.then((result) => {
+				if (!active) {
+					if (result?.url.startsWith('blob:')) URL.revokeObjectURL(result.url);
+					return;
+				}
 				if (result) {
+					if (sampleImage.startsWith('blob:')) URL.revokeObjectURL(sampleImage);
 					sampleImage = result.url;
 					edits.isFaulty = result.error;
 					edits.isLoading = false;
 				}
 			})
 			.catch((error) => {
+				if (!active) return;
 				console.error('Error refreshing image:', error);
 				edits.isFaulty = true;
 				edits.isLoading = false;
 			});
+		return () => { active = false; };
 	});
 
 	$effect(() => {

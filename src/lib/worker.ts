@@ -8,6 +8,7 @@ import { expose } from 'comlink';
 export const compatMode = import.meta.env.VITE_COMPAT_MODE === 'true';
 
 const writelocks = new Set<string>();
+const latestRequests = new Map<string, symbol>();
 
 // WASM singleton — initialized once
 let rtPromise: Promise<any> | null = null;
@@ -44,24 +45,58 @@ interface ClutOptions {
     clutLevel: number;
 }
 
+// Reuse the active input allocation across edits instead of copying the TIFF
+// into the WASM heap on every slider update.
+let wasmInput: { module: any; data: Uint8Array; pointer: number } | null = null;
+let wasmClut: { module: any; data: Uint16Array; pointer: number } | null = null;
+
+function getWasmClut(Module: any, data: Uint16Array): number {
+    if (wasmClut && wasmClut.module === Module && wasmClut.data === data) return wasmClut.pointer;
+    if (wasmClut) {
+        wasmClut.module._free(wasmClut.pointer);
+        wasmClut = null;
+    }
+    const pointer = Module._malloc(data.byteLength);
+    if (!pointer) throw new Error('Unable to allocate WASM LUT input');
+    try {
+        Module.HEAPU8.set(new Uint8Array(data.buffer, data.byteOffset, data.byteLength), pointer);
+        wasmClut = { module: Module, data, pointer };
+        return pointer;
+    } catch (error) {
+        Module._free(pointer);
+        throw error;
+    }
+}
+
+function getWasmInput(Module: any, data: Uint8Array): number {
+    if (wasmInput && wasmInput.module === Module && wasmInput.data === data) return wasmInput.pointer;
+    if (wasmInput) {
+        wasmInput.module._free(wasmInput.pointer);
+        wasmInput = null;
+    }
+    const pointer = Module._malloc(data.length);
+    if (!pointer) throw new Error('Unable to allocate WASM image input');
+    try {
+        Module.HEAPU8.set(data, pointer);
+        wasmInput = { module: Module, data, pointer };
+        return pointer;
+    } catch (error) {
+        Module._free(pointer);
+        throw error;
+    }
+}
+
 function wasmTiffToJpegWithPp3(Module: any, tiffData: Uint8Array, pp3String: string, quality: number, clut?: ClutOptions): Uint8Array {
     console.log(`[worker] WASM processing: tiff=${tiffData.length} bytes, pp3=${pp3String.length} chars, quality=${quality}, clut=${clut ? `level=${clut.clutLevel} entries=${clut.clutData.length}` : 'none'}`);
 
-    const tiffPtr = Module._malloc(tiffData.length);
-    Module.HEAPU8.set(tiffData, tiffPtr);
+    const tiffPtr = getWasmInput(Module, tiffData);
 
     const pp3Bytes = new TextEncoder().encode(pp3String + '\0');
     const pp3Ptr = Module._malloc(pp3Bytes.length);
     Module.HEAPU8.set(pp3Bytes, pp3Ptr);
 
-    let clutPtr = 0;
-    if (clut) {
-        const clutBytes = clut.clutData.byteLength;
-        clutPtr = Module._malloc(clutBytes);
-        Module.HEAPU8.set(new Uint8Array(clut.clutData.buffer, clut.clutData.byteOffset, clutBytes), clutPtr);
-    }
-
     try {
+        const clutPtr = clut ? getWasmClut(Module, clut.clutData) : 0;
         let result: number;
         if (clut && clutPtr) {
             console.log('[worker] Calling _tiff_to_jpeg_with_pp3_and_clut...');
@@ -82,13 +117,24 @@ function wasmTiffToJpegWithPp3(Module: any, tiffData: Uint8Array, pp3String: str
         Module._free_output();
         return jpegData;
     } finally {
-        Module._free(tiffPtr);
         Module._free(pp3Ptr);
-        if (clutPtr) Module._free(clutPtr);
     }
 }
 
-async function getTiffData(imageId: string): Promise<Uint8Array> {
+// Keep only the active TIFF in memory: slider updates must not reread OPFS.
+let activeTiff: { imageId: string; data: Promise<Uint8Array> } | null = null;
+
+function getTiffData(imageId: string): Promise<Uint8Array> {
+    if (activeTiff?.imageId === imageId) return activeTiff.data;
+    const data = loadTiffData(imageId);
+    activeTiff = { imageId, data };
+    void data.catch(() => {
+        if (activeTiff?.data === data) activeTiff = null;
+    });
+    return data;
+}
+
+async function loadTiffData(imageId: string): Promise<Uint8Array> {
     // Check OPFS cache first
     const fileName = `${imageId}.tif`;
     try {
@@ -109,10 +155,13 @@ async function getTiffData(imageId: string): Promise<Uint8Array> {
         throw new Error(`Failed to fetch TIFF for ${imageId}: ${res.status} ${res.statusText}`);
     }
 
-    const fileHandle = await storeFile(res.body, 'tiffs', fileName);
-    const file = await fileHandle.getFile();
-    console.log(`[worker] TIFF fetched and cached for ${imageId} (${file.size} bytes)`);
-    return new Uint8Array(await file.arrayBuffer());
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    try {
+        await storeFile(new Blob([bytes]).stream(), 'tiffs', fileName);
+    } catch (error) {
+        console.warn('[worker] Unable to cache TIFF; using memory:', error);
+    }
+    return bytes;
 }
 
 // Cache parsed CLUT data by path
@@ -126,6 +175,8 @@ function parseClutFilenameFromPp3(pp3String: string): string | null {
 async function getClutData(clutPath: string): Promise<ClutOptions> {
     const cached = clutCache.get(clutPath);
     if (cached) {
+        clutCache.delete(clutPath);
+        clutCache.set(clutPath, cached);
         console.log(`[worker] CLUT cache hit for ${clutPath}`);
         return cached;
     }
@@ -143,6 +194,9 @@ async function getClutData(clutPath: string): Promise<ClutOptions> {
 
     console.log(`[worker] CLUT fetched: level=${level}, entries=${clutData.length}`);
     clutCache.set(clutPath, result);
+    while (clutCache.size > 4) {
+        clutCache.delete(clutCache.keys().next().value!);
+    }
     return result;
 }
 
@@ -169,20 +223,7 @@ async function refreshImageWasm(imageId: string, config: string): Promise<{ url:
     console.log(`[worker] WASM processing took ${(performance.now() - t0).toFixed(1)}ms`);
 
     const blob = new Blob([jpegData as BlobPart], { type: 'image/jpeg' });
-    const fileHandle = await getFileHandle('images', `${imageId}.jpg`);
-    if ('createWritable' in fileHandle) {
-        const writable = await fileHandle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-    } else {
-        const writable = await (fileHandle as any).createSyncAccessHandle();
-        writable.truncate(0);
-        writable.write(await blob.arrayBuffer());
-        writable.close();
-    }
-
-    const file = await fileHandle.getFile();
-    const url = URL.createObjectURL(file);
+    const url = URL.createObjectURL(blob);
     console.log(`[worker] WASM preview done for ${imageId}, jpeg=${jpegData.length} bytes`);
     return { url, error: false };
 }
@@ -203,11 +244,16 @@ async function refreshImageServer(imageId: string, config: string, version: numb
 }
 
 async function refreshImage(imageId: string, config: string, version = 0) {
+    const request = Symbol();
+    latestRequests.set(imageId, request);
     console.log(`[worker] refreshImage: imageId=${imageId}, version=${version}`);
     while (writelocks.has(imageId)) {
         console.log(`[worker] Waiting for writelock on ${imageId}...`);
         await new Promise(res => setTimeout(res, 10));
     }
+
+    // Requests superseded while another render was active need no processing.
+    if (latestRequests.get(imageId) !== request) return { url: '', error: false };
 
     writelocks.add(imageId);
 
@@ -228,6 +274,7 @@ async function refreshImage(imageId: string, config: string, version = 0) {
        return { url: `/api/images/${imageId}/edit?config=${config}`, error: true };
     } finally {
         writelocks.delete(imageId);
+        if (latestRequests.get(imageId) === request) latestRequests.delete(imageId);
     }
 
 }

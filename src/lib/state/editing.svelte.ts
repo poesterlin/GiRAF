@@ -1,11 +1,28 @@
-import { assert, throttle } from '$lib';
+import { assert } from '$lib';
 import { countPP3Properties, diffPP3, parsePP3, stringifyPP3, type PP3 } from '$lib/pp3-utils';
 import type { Image } from '$lib/server/db/schema';
 
 class EditingState {
 	public pp3 = $state<PP3>() as PP3;
 	public throttledPP3 = $state<PP3>({});
-	public updateThrottledPP3 = throttle((pp3) => (this.throttledPP3 = pp3), 300);
+	public updateThrottledPP3 = (pp3: PP3) => {
+		if (!pp3) return;
+		if (
+			countPP3Properties(diffPP3(this.throttledPP3, pp3)) === 0 &&
+			countPP3Properties(diffPP3(pp3, this.throttledPP3)) === 0
+		) {
+			this.cancelPreviewUpdate();
+			return;
+		}
+		// Keep only the latest immutable edit, even while a trailing update is queued.
+		this.pendingPreviewPP3 = structuredClone($state.snapshot(pp3));
+		const remaining = 300 - (Date.now() - this.lastPreviewUpdate);
+		if (remaining <= 0) {
+			this.flushPreviewPP3();
+		} else if (this.previewTimeout === null) {
+			this.previewTimeout = setTimeout(() => this.flushPreviewPP3(), remaining);
+		}
+	};
 	public lastSavedPP3 = $state<PP3>() as PP3;
 	public currentImageId = $state<string | null>(null);
 	public isLoading = $state(false);
@@ -16,7 +33,29 @@ class EditingState {
 	private historyIndex = $state(0);
 	private lastChangeKey: string | null = null;
 	private baselineByImageId = {} as Record<string, PP3>;
+	private previewTimeout: ReturnType<typeof setTimeout> | null = null;
+	private pendingPreviewPP3: PP3 | null = null;
+	private lastPreviewUpdate = 0;
 
+	private cancelPreviewUpdate() {
+		if (this.previewTimeout !== null) clearTimeout(this.previewTimeout);
+		this.previewTimeout = null;
+		this.pendingPreviewPP3 = null;
+	}
+
+	private flushPreviewPP3() {
+		const latest = this.pendingPreviewPP3;
+		this.cancelPreviewUpdate();
+		if (!latest) return;
+		this.lastPreviewUpdate = Date.now();
+		this.throttledPP3 = latest;
+	}
+
+	private resetPreviewPP3(pp3: PP3) {
+		this.cancelPreviewUpdate();
+		this.lastPreviewUpdate = Date.now();
+		this.throttledPP3 = structuredClone($state.snapshot(pp3));
+	}
 
 	initialize(pp3: string | PP3, image: Image) {
 		assert(image, 'Image must be provided to initialize editing state');
@@ -52,7 +91,7 @@ class EditingState {
 		const id = image.id.toString();
 
 		this.pp3 = newPp3;
-		this.throttledPP3 = newPp3;
+		this.resetPreviewPP3(newPp3);
 		// Store an immutable snapshot so undo can restore the initial state.
 		this.history = [structuredClone($state.snapshot(newPp3))];
 		this.historyIndex = 0;
@@ -134,7 +173,7 @@ class EditingState {
 		this.historyIndex--;
 		this.lastChangeKey = null;
 		this.applyHistorySnapshot(this.history[this.historyIndex]);
-		this.throttledPP3 = this.pp3;
+		this.resetPreviewPP3(this.pp3);
 		this.hasChanges = this.hasChangesFor(this.currentImageId!);
 	}
 
@@ -143,7 +182,7 @@ class EditingState {
 		this.historyIndex++;
 		this.lastChangeKey = null;
 		this.applyHistorySnapshot(this.history[this.historyIndex]);
-		this.throttledPP3 = this.pp3;
+		this.resetPreviewPP3(this.pp3);
 		this.hasChanges = this.hasChangesFor(this.currentImageId!);
 	}
 
