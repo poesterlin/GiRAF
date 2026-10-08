@@ -3,6 +3,7 @@ import PreviewWorker from './local-preview.worker?worker';
 import type { LocalPreviewWorker } from './local-preview.worker';
 import { extractLocalPhotoPreview } from './local-photo-preview';
 import { fingerprintFile } from './upload-duplicates';
+import { importTiming } from './import-timing';
 
 type WorkerState = {
 	worker: Worker;
@@ -75,24 +76,31 @@ async function request<T>(current: WorkerState, call: () => Promise<T>, timeout 
 
 /** The caller owns the returned URL and must revoke it when no longer needed. */
 export async function getLocalPreview(file: File): Promise<{ url: string; capturedAt?: Date }> {
+	const started = performance.now();
 	const current = getWorker();
 	if (current) {
 		try {
-			const { blob, capturedAt } = await request(current, () => current.api.getPreview(file));
+			const { blob, capturedAt, timing } = await request(current, () => current.api.getPreview(file));
+			importTiming('preview.worker', started, { file: file.name, bytes: blob.size, ...timing });
 			return { url: URL.createObjectURL(blob), capturedAt };
-		} catch {
+		} catch (error) {
+			importTiming('preview.fallback', started, { file: file.name, error: String(error) });
 			// Unsupported worker image APIs and worker failures use bounded extraction directly.
 		}
 	}
-	return extractLocalPhotoPreview(file, { preferThumbnail: true });
+	const preview = await extractLocalPhotoPreview(file, { preferThumbnail: true });
+	importTiming('preview.direct', started, { file: file.name });
+	return preview;
 }
 
 export async function getLocalFingerprint(file: File): Promise<string> {
+	const started = performance.now();
 	const current = getWorker(true);
 	if (current) {
 		try {
 			return await request(current, () => current.api.getFingerprint(file), 30000);
-		} catch {
+		} catch (error) {
+			importTiming('hash.fallback', started, { file: file.name, error: String(error) });
 			// Keep duplicate detection available when workers are unavailable.
 		}
 	}

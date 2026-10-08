@@ -4,6 +4,7 @@ import { checkUploadDuplicates, cacheFileFingerprint } from '$lib/upload-duplica
 import { getLocalFingerprint } from '$lib/local-preview-client';
 import { createUploadAssignment, type UploadSessionTarget } from '$lib/upload-assignment';
 import { app } from './app.svelte';
+import { importTiming } from '$lib/import-timing';
 
 export type { UploadSessionTarget } from '$lib/upload-assignment';
 export type UploadBatchResult = { failedFiles: File[]; assignmentFailed: boolean; sessionId?: number };
@@ -51,6 +52,7 @@ class UploadState {
 		};
 		this.batches += 1;
 		const fileArray = Array.from(files);
+		const batchStarted = performance.now();
 		if (!this.isUploading) {
 			this.assignmentFailed = false;
 			this.total = 0;
@@ -73,12 +75,17 @@ class UploadState {
 			await Promise.all(
 				fileArray.map((file, index) => {
 					const processFile = async () => {
+						importTiming('upload.queue', batchStarted, { file: file.name });
 						try {
 							this.checking += 1;
 							let check;
 							try {
+								const hashStarted = performance.now();
 								cacheFileFingerprint(file, await getLocalFingerprint(file));
+								importTiming('upload.hash', hashStarted, { file: file.name, bytes: file.size });
+								const checkStarted = performance.now();
 								[check] = await checkUploadDuplicates([file]);
+								importTiming('upload.duplicate-check', checkStarted, { file: file.name, duplicate: check?.duplicate });
 							} finally {
 								this.checking -= 1;
 							}
@@ -88,6 +95,7 @@ class UploadState {
 								return;
 							}
 							const importIds = await new Promise<number[]>((resolve, reject) => {
+								const transferStarted = performance.now();
 								const request = new XMLHttpRequest();
 								request.open('POST', '/api/imports/upload');
 								request.upload.onprogress = (event) => {
@@ -96,7 +104,9 @@ class UploadState {
 										updateProgress();
 									}
 								};
+								request.upload.onload = () => importTiming('upload.bytes-sent', transferStarted, { file: file.name, bytes: file.size });
 								request.onload = () => {
+									importTiming('upload.response', transferStarted, { file: file.name, status: request.status });
 									try {
 										const payload = JSON.parse(request.responseText) as { message?: string; results?: { status: string; id?: number; message?: string }[] };
 										if (request.status < 200 || request.status >= 300) throw new Error(payload.message || `Upload failed (${request.status})`);
@@ -114,10 +124,12 @@ class UploadState {
 								body.append('files', file);
 								if (capturedTarget) body.append('sessionAssigned', 'true');
 								request.send(body);
+								importTiming('upload.started', batchStarted, { file: file.name });
 							});
 							await assignFile(file, importIds);
 							options.onFileUploaded?.(file, importIds[0], !importIds.length);
 						} catch (error) {
+							importTiming('upload.error', batchStarted, { file: file.name, error: String(error) });
 							options.onFileFailed?.(file, error);
 							result.failedFiles.push(file);
 							this.failed += 1;

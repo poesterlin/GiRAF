@@ -31,7 +31,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		error(400, 'Expected at most 100 files with key, name, size and SHA256');
 	}
 	const files: Fingerprint[] = body.files;
+	const started = performance.now();
 	await backfillImportFingerprints(files.map((file) => file.size));
+	const indexed = performance.now();
 	const results = await Promise.all(
 		files.map(async (file) => {
 			const existing = await findImportDuplicate(file.sha256, file.size);
@@ -43,5 +45,12 @@ export const POST: RequestHandler = async ({ request }) => {
 			};
 		})
 	);
+	console.info('[import-timing:server]', {
+		stage: 'duplicates',
+		files: files.length,
+		indexMs: Math.round(indexed - started),
+		lookupMs: Math.round(performance.now() - indexed),
+		duplicates: results.filter((result) => result.duplicate).length
+	});
 	return json({ results });
 };

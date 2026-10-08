@@ -12,6 +12,7 @@
 	import pLimit from 'p-limit';
 	import { getLocalPreview, releaseLocalPreviewWorker } from '$lib/local-preview-client';
 	import { assignPendingUploads } from '$lib/upload-assignment';
+	import { importTiming } from '$lib/import-timing';
 
 	let { data } = $props();
 	type ImageItem = Pick<Import, 'id' | 'date'> & {
@@ -41,6 +42,8 @@
 	}
 
 	function stage(files: FileList | File[]) {
+		const staged = performance.now();
+		importTiming('batch.selected', staged, { files: files.length, bytes: Array.from(files).reduce((sum, file) => sum + file.size, 0) });
 		const batch: ImageItem[] = [];
 		for (const file of Array.from(files)) {
 			if (localItems.some((item) => item.file?.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified)) continue;
@@ -53,6 +56,7 @@
 			localItems.push(entry);
 			batch.push(entry);
 			void previewLimit(async () => {
+				importTiming('preview.queue', staged, { file: file.name, pending: previewLimit.pendingCount });
 				if (!alive || !localItems.some((item) => item.id === id)) return;
 				try {
 					const preview = await getLocalPreview(file);
@@ -63,6 +67,7 @@
 						return;
 					}
 					item.url = url;
+					importTiming('preview.ready', staged, { file: file.name });
 					if (preview.capturedAt) item.date = preview.capturedAt;
 				} catch {
 					const item = localItems.find((item) => item.id === id);

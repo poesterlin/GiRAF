@@ -1,5 +1,24 @@
 # Organizing files before upload
 
+## Timing diagnostics
+
+Browser console messages prefixed `[import-timing]` record batch size, preview
+queue wait, extraction/read/decode times, worker fallback errors, hash duration,
+duplicate-check duration, transfer start, bytes sent, and server response.
+`ms` is the duration of the named stage; queue/ready/started timings are measured
+from batch selection. `at` is relative to page navigation. The latest 3,000
+entries are retained in memory as `window.__importTimings` (including filenames,
+but no photo contents). Copy them from the browser console with:
+
+```js
+copy(JSON.stringify(window.__importTimings, null, 2))
+```
+
+Server logs prefixed `[import-timing:server]` separate duplicate-indexing time
+from database lookup time. Diagnostics are session-local and reset on reload.
+
+## Workflow
+
 Selecting or dropping files shows local previews and immediately starts background
 uploads after each file's duplicate check. Session grouping is independent of
 transfer progress.
