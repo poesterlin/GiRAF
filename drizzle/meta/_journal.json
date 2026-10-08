@@ -15,6 +15,13 @@
       "when": 1770668185624,
       "tag": "0001_yellow_omega_flight",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791476353454,
+      "tag": "0002_abandoned_preak",
+      "breakpoints": true
     }
   ]
 }

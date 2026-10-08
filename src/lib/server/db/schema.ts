@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm';
-import { boolean, foreignKey, index, integer, pgTable, primaryKey, real, serial, text, timestamp, uniqueIndex, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { bigint, boolean, foreignKey, index, integer, pgTable, primaryKey, real, serial, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const sessionTable = pgTable('session', {
 	id: serial('id').primaryKey(),
@@ -74,6 +74,8 @@ export type Snapshot = typeof snapshotTable.$inferSelect;
 export const importTable = pgTable('import', {
 	id: serial('id').primaryKey(),
 	filePath: text('file_path').notNull(),
+	contentHash: text('content_hash'),
+	fileSize: bigint('file_size', { mode: 'number' }),
 	previewPath: text('preview_path'),
 	date: timestamp('date', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
 	importedAt: timestamp('imported_at', { withTimezone: true, mode: 'date' })
@@ -81,6 +83,7 @@ export const importTable = pgTable('import', {
 	index('import_imported_at_idx').on(table.importedAt),
 	index('import_date_idx').on(table.date),
 	uniqueIndex('import_file_path_idx').on(table.filePath),
+	index('import_content_hash_size_idx').on(table.contentHash, table.fileSize),
 ]);
 
 export type Import = typeof importTable.$inferSelect;

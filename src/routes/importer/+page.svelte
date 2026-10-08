@@ -9,6 +9,8 @@
 	import SessionPicker from '$lib/ui/SessionPicker.svelte';
 	import { uploads } from '$lib/state/uploads.svelte';
 	import UploadProgress from '$lib/ui/UploadProgress.svelte';
+	import LocalImportGallery from '$lib/ui/LocalImportGallery.svelte';
+	let localGallery: LocalImportGallery;
 
 	let { data } = $props();
 
@@ -286,11 +288,10 @@
 		return formatter.format(new Date(date));
 	}
 
-
 	function handleFileSelect(e: Event) {
 		const target = e.target as HTMLInputElement;
 		if (target.files) {
-			void uploads.upload(target.files);
+			localGallery.stage(target.files);
 			target.value = '';
 		}
 	}
@@ -304,7 +305,7 @@
 		e.preventDefault();
 		e.stopPropagation();
 		if (e.dataTransfer?.files) {
-			void uploads.upload(e.dataTransfer.files);
+			localGallery.stage(e.dataTransfer.files);
 		}
 	}
 </script>
@@ -326,7 +327,9 @@
 	{#if isDraggingFile}
 		<div class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
 			<div class="rounded-3xl border-2 border-dashed border-neutral-700 bg-neutral-900/80 p-16 shadow-2xl transition-all">
-				<p class="text-3xl font-black tracking-tighter text-neutral-100 italic">DROP <span class="text-neutral-500 not-italic font-light uppercase tracking-normal text-xl">to import</span></p>
+				<p class="text-3xl font-black tracking-tighter text-neutral-100 italic">
+					DROP <span class="text-neutral-500 not-italic font-light uppercase tracking-normal text-xl">to import</span>
+				</p>
 			</div>
 		</div>
 	{/if}
@@ -334,9 +337,11 @@
 	<div class="mx-auto max-w-7xl">
 		<div class="mb-12 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
 			<div>
-				<p class="text-neutral-400 font-medium max-w-md">Scanning <code class="text-neutral-100 bg-neutral-900 px-1.5 py-0.5 rounded text-sm">IMPORT_DIR</code> for new RAW files.</p>
+				<p class="text-neutral-400 font-medium max-w-md">
+					Scanning <code class="text-neutral-100 bg-neutral-900 px-1.5 py-0.5 rounded text-sm">IMPORT_DIR</code> for new RAW files.
+				</p>
 			</div>
-			
+
 			<div class="flex items-center gap-3">
 				<button
 					onclick={handleRefresh}
@@ -347,7 +352,17 @@
 						<div class="h-4 w-4 animate-spin rounded-full border-2 border-neutral-950 border-t-transparent"></div>
 						Syncing...
 					{:else}
-						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.5"
+							stroke-linecap="round"
+							stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /></svg
+						>
 						Scan Directory
 					{/if}
 				</button>
@@ -408,12 +423,7 @@
 				{#each groupedByDate as group}
 					<div class="mb-8 mt-12 flex items-center justify-between">
 						<h2 class="text-2xl font-bold tracking-tight text-neutral-100">{group.date}</h2>
-						<button
-							onclick={() => toggleDateSelection(group.images)}
-							class="text-sm font-bold text-neutral-500 hover:text-neutral-100 transition-colors"
-						>
-							Select All
-						</button>
+						<button onclick={() => toggleDateSelection(group.images)} class="text-sm font-bold text-neutral-500 hover:text-neutral-100 transition-colors"> Select All </button>
 					</div>
 					<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
 						{#each group.images as item}
@@ -427,7 +437,9 @@
 								onclick={(e) => handleClick(item.id, itemIndex, e)}
 								ontouchstart={(e) => handleTouchStart(e, item.id, itemIndex)}
 								ontouchmove={handleTouchMove}
-								oncontextmenu={(e) => { e.preventDefault(); }}
+								oncontextmenu={(e) => {
+									e.preventDefault();
+								}}
 							>
 								<img
 									src={`/api/imports/${item.id}/preview`}
@@ -436,7 +448,7 @@
 									class="h-full w-full object-cover transition-all duration-500 group-hover:scale-110"
 									class:opacity-50={selectedIds.has(item.id)}
 								/>
-								
+
 								<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
 
 								<div class="absolute bottom-4 left-4 flex flex-col items-start opacity-0 transition-all translate-y-2 group-hover:opacity-100 group-hover:translate-y-0">
@@ -446,7 +458,17 @@
 
 								{#if selectedIds.has(item.id)}
 									<div class="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-950 shadow-xl">
-										<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="20"
+											height="20"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="3"
+											stroke-linecap="round"
+											stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg
+										>
 									</div>
 								{/if}
 							</button>
@@ -457,20 +479,30 @@
 		</div>
 	</div>
 
-	<div class="fixed bottom-10 left-1/2 z-30 -translate-x-1/2 overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-900/90 p-2 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.8)] backdrop-blur-xl transition-all"
-		 class:translate-y-32={selectedIds.size === 0}
-		 class:opacity-0={selectedIds.size === 0}
+	<div
+		class="fixed bottom-10 left-1/2 z-30 -translate-x-1/2 overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-900/90 p-2 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.8)] backdrop-blur-xl transition-all"
+		class:translate-y-32={selectedIds.size === 0}
+		class:opacity-0={selectedIds.size === 0}
 	>
 		<div class="flex items-center gap-2">
-			<button onclick={clearSelection} class="rounded-2xl px-6 py-3 text-sm font-bold text-neutral-500 transition-colors hover:text-neutral-100">
-				Cancel
-			</button>
+			<button onclick={clearSelection} class="rounded-2xl px-6 py-3 text-sm font-bold text-neutral-500 transition-colors hover:text-neutral-100"> Cancel </button>
 			<button
 				class="flex items-center gap-3 rounded-2xl bg-neutral-100 px-10 py-3 text-sm font-black tracking-tight text-neutral-950 transition-all hover:bg-white hover:scale-105"
 				onclick={() => (showModal = true)}
 			>
-				IMPORT {selectedIds.size} {selectedIds.size > 1 ? 'FILES' : 'FILE'}
-				<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+				IMPORT {selectedIds.size}
+				{selectedIds.size > 1 ? 'FILES' : 'FILE'}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="3"
+					stroke-linecap="round"
+					stroke-linejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg
+				>
 			</button>
 		</div>
 	</div>
@@ -478,9 +510,11 @@
 	{#if showModal}
 		<Modal onClose={() => (showModal = false)} class="!max-w-md !rounded-[2rem] !border-neutral-800 !bg-neutral-950 shadow-3xl">
 			<div class="p-10">
-				<h1 class="mb-2 text-3xl font-black tracking-tighter text-neutral-100 italic uppercase leading-none">Initialize <span class="text-neutral-500 not-italic font-light">Session</span></h1>
+				<h1 class="mb-2 text-3xl font-black tracking-tighter text-neutral-100 italic uppercase leading-none">
+					Initialize <span class="text-neutral-500 not-italic font-light">Session</span>
+				</h1>
 				<p class="mb-10 text-neutral-400 font-medium leading-relaxed">Organize your {selectedIds.size} selected images into a workspace.</p>
-				
+
 				<form onsubmit={importImages} class="flex flex-col gap-8">
 					{#if data.sessions.length > 0}
 						<SegmentedControl
@@ -512,7 +546,11 @@
 					{/if}
 
 					<div class="flex flex-col gap-3 pt-4">
-						<button class="w-full rounded-2xl bg-neutral-100 py-4 text-sm font-black tracking-tight text-neutral-950 transition-all hover:bg-white hover:scale-[1.02] disabled:opacity-50" type="submit" disabled={isCreating}>
+						<button
+							class="w-full rounded-2xl bg-neutral-100 py-4 text-sm font-black tracking-tight text-neutral-950 transition-all hover:bg-white hover:scale-[1.02] disabled:opacity-50"
+							type="submit"
+							disabled={isCreating}
+						>
 							{isCreating ? 'PROCESSING...' : 'CONFIRM IMPORT'}
 						</button>
 						<button type="button" onclick={() => (showModal = false)} class="w-full py-2 text-sm font-bold text-neutral-600 transition-colors hover:text-neutral-400">
