@@ -2,6 +2,37 @@ import { afterEach, expect, test } from 'bun:test';
 import { assignPendingUploads, createUploadAssignment } from './upload-assignment';
 
 const originalFetch = globalThis.fetch;
+test('one mixed selection assigns uploaded photos immediately and pending photos into the same session', async () => {
+	const requests: Record<string, unknown>[] = [];
+	globalThis.fetch = (async (input: Parameters<typeof fetch>[0], options?: RequestInit) => {
+		expect(input).toBe('/api/imports');
+		requests.push(JSON.parse(String(options?.body)));
+		return Response.json({ sessionId: 27 });
+	}) as unknown as typeof fetch;
+	let finishUpload!: (id: number) => void;
+	const uploading = new Promise<number>((resolve) => {
+		finishUpload = resolve;
+	});
+	const assigned: number[] = [];
+	const done = assignPendingUploads(
+		[uploading, Promise.resolve(101), Promise.resolve(102)],
+		{ name: 'Mixed selection' },
+		(index) => assigned.push(index),
+		(error) => {
+			throw error;
+		}
+	);
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	expect(requests).toEqual([
+		{ name: 'Mixed selection', importIds: [101], enqueue: true },
+		{ sessionId: 27, importIds: [102], enqueue: true }
+	]);
+	expect(assigned).toEqual([1, 2]);
+	finishUpload(103);
+	await done;
+	expect(requests[2]).toEqual({ sessionId: 27, importIds: [103], enqueue: true });
+	expect(assigned).toEqual([1, 2, 0]);
+});
 test('captures pending grouping without transferring again and reuses the created session', async () => {
 	const requests: Record<string, unknown>[] = [];
 	globalThis.fetch = (async (input: Parameters<typeof fetch>[0], options?: RequestInit) => {

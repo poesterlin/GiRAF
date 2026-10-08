@@ -12,6 +12,85 @@ function raf(offset = 148, length = 4, size = offset + length): File {
 }
 
 describe('local photo previews', () => {
+	test.skipIf(!process.env.LOCAL_PREVIEW_RAF)('extracts the real Fuji thumbnail with bounded reads', async () => {
+		const file = new File([await Bun.file(process.env.LOCAL_PREVIEW_RAF!).arrayBuffer()], 'sample.RAF');
+		const reads: number[] = [];
+		const track = (blob: Blob): Blob => {
+			const slice = blob.slice.bind(blob);
+			const read = blob.arrayBuffer.bind(blob);
+			blob.arrayBuffer = () => {
+				reads.push(blob.size);
+				return read();
+			};
+			blob.slice = (start, end, type) => track(slice(start, end, type));
+			return blob;
+		};
+		track(file);
+		const preview = await extractLocalPhotoPreview(file, { preferThumbnail: true });
+		try {
+			const blob = await (await fetch(preview.url)).blob();
+			const sharp = (await import('sharp')).default;
+			const metadata = await sharp(Buffer.from(await blob.arrayBuffer())).metadata();
+			expect(blob.size).toBeLessThan(20_000);
+			expect(metadata.width).toBe(160);
+			expect(metadata.height).toBe(120);
+			expect(preview.capturedAt).toBeInstanceOf(Date);
+			expect(reads).toEqual([92, 256 * 1024]);
+		} finally {
+			URL.revokeObjectURL(preview.url);
+		}
+	});
+	test.each([true, false])('uses a bounded IFD1 thumbnail and inherits orientation, endian = %s', async (little) => {
+		const tiff = new Uint8Array(100);
+		tiff.set(new TextEncoder().encode(little ? 'II' : 'MM'));
+		const view = new DataView(tiff.buffer);
+		view.setUint16(2, 42, little);
+		view.setUint32(4, 8, little);
+		view.setUint16(8, 1, little);
+		view.setUint16(10, 0x112, little);
+		view.setUint16(12, 3, little);
+		view.setUint32(14, 1, little);
+		view.setUint16(18, 6, little);
+		view.setUint32(22, 26, little);
+		view.setUint16(26, 2, little);
+		for (const [entry, tag, value] of [
+			[28, 0x201, 60],
+			[40, 0x202, 17]
+		]) {
+			view.setUint16(entry, tag, little);
+			view.setUint16(entry + 2, 4, little);
+			view.setUint32(entry + 4, 1, little);
+			view.setUint32(entry + 8, value, little);
+		}
+		tiff.set([255, 216, 255, 192, 0, 11, 8, 0, 120, 0, 160, 1, 1, 17, 0, 255, 217], 60);
+		const file = () => new File([new Uint8Array([255, 216, 255, 225, 0, 108]), 'Exif\0\0', tiff, new Uint8Array([255, 217])], 'photo.jpg');
+		const get = async (preferThumbnail: boolean) => {
+			const result = await extractLocalPhotoPreview(file(), { preferThumbnail });
+			try {
+				return new Uint8Array(await (await fetch(result.url)).arrayBuffer());
+			} finally {
+				URL.revokeObjectURL(result.url);
+			}
+		};
+		expect((await get(false)).length).toBe(114);
+		const thumbnail = await get(true);
+		expect(thumbnail.length).toBe(53);
+		expect(thumbnail[31]).toBe(6);
+		const valid = tiff.slice();
+		for (const corrupt of [
+			() => view.setUint32(36, 0xffffffff, little),
+			() => view.setUint32(48, 999, little),
+			() => view.setUint32(32, 2, little),
+			() => {
+				tiff[76] = 0;
+			},
+			() => view.setUint32(22, 0xffffffff, little)
+		]) {
+			tiff.set(valid);
+			corrupt();
+			expect((await get(true)).length).toBe(114);
+		}
+	});
 	test('extracts Fuji big-endian JPEG range, with bounded reads only', async () => {
 		const file = raf(148, 300_000, 2_000_000);
 		const reads: number[] = [];

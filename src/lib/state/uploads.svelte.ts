@@ -1,6 +1,7 @@
 import { invalidateAll } from '$app/navigation';
 import pLimit from 'p-limit';
-import { checkUploadDuplicates } from '$lib/upload-duplicates';
+import { checkUploadDuplicates, cacheFileFingerprint } from '$lib/upload-duplicates';
+import { getLocalFingerprint } from '$lib/local-preview-client';
 import { createUploadAssignment, type UploadSessionTarget } from '$lib/upload-assignment';
 import { app } from './app.svelte';
 
@@ -69,26 +70,18 @@ class UploadState {
 		};
 		updateProgress();
 		try {
-			this.checking += 1;
-			let checks;
-			try {
-				checks = await checkUploadDuplicates(fileArray);
-			} catch (error) {
-				for (const file of fileArray) options.onFileFailed?.(file, error);
-				this.failed += fileArray.length;
-				this.completed += fileArray.length;
-				for (const transfer of transfers) transfer.loaded = transfer.size;
-				updateProgress();
-				app.addToast(error instanceof Error ? error.message : 'Duplicate check failed', 'error');
-				return { failedFiles: fileArray, assignmentFailed: false };
-			} finally {
-				this.checking -= 1;
-			}
 			await Promise.all(
 				fileArray.map((file, index) => {
-					const check = checks.find((check) => check.key === String(index));
 					const processFile = async () => {
 						try {
+							this.checking += 1;
+							let check;
+							try {
+								cacheFileFingerprint(file, await getLocalFingerprint(file));
+								[check] = await checkUploadDuplicates([file]);
+							} finally {
+								this.checking -= 1;
+							}
 							if (check?.duplicate) {
 								if (!check.imported && check.id !== undefined) await assignFile(file, [check.id]);
 								options.onFileUploaded?.(file, check.id, check.imported);
@@ -136,7 +129,7 @@ class UploadState {
 							updateProgress();
 						}
 					};
-					return check?.duplicate ? processFile() : this.limit(processFile);
+					return this.limit(processFile);
 				})
 			);
 		} finally {

@@ -3,11 +3,12 @@ import { extractLocalPhotoPreview } from './local-photo-preview';
 import { fingerprintFile } from './upload-duplicates';
 
 async function getPreview(file: File): Promise<{ blob: Blob; capturedAt?: Date }> {
-	const preview = await extractLocalPhotoPreview(file);
+	const preview = await extractLocalPhotoPreview(file, { preferThumbnail: true });
 	try {
 		const blob = await (await fetch(preview.url)).blob();
 		const bitmap = await createImageBitmap(blob);
 		try {
+			if (Math.max(bitmap.width, bitmap.height) <= 480) return { blob, capturedAt: preview.capturedAt };
 			const scale = Math.min(1, 480 / Math.max(bitmap.width, bitmap.height));
 			const canvas = new OffscreenCanvas(Math.max(1, Math.round(bitmap.width * scale)), Math.max(1, Math.round(bitmap.height * scale)));
 			const context = canvas.getContext('2d');

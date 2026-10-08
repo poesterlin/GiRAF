@@ -50,7 +50,7 @@ function getWorker(): WorkerState | undefined {
 	}
 }
 
-async function request<T>(current: WorkerState, call: () => Promise<T>): Promise<T> {
+async function request<T>(current: WorkerState, call: () => Promise<T>, timeout = 5000): Promise<T> {
 	let rejectPending!: (error: Error) => void;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const failure = new Promise<never>((_, reject) => {
@@ -59,7 +59,7 @@ async function request<T>(current: WorkerState, call: () => Promise<T>): Promise
 		timer = setTimeout(() => {
 			unavailable = true;
 			stopWorker(current, new Error('Local preview worker timed out.'));
-		}, 5000);
+		}, timeout);
 	});
 	try {
 		return await Promise.race([call(), failure]);
@@ -87,7 +87,7 @@ export async function getLocalFingerprint(file: File): Promise<string> {
 	const current = getWorker();
 	if (current) {
 		try {
-			return await request(current, () => current.api.getFingerprint(file));
+			return await request(current, () => current.api.getFingerprint(file), 30000);
 		} catch {
 			// Keep duplicate detection available when workers are unavailable.
 		}

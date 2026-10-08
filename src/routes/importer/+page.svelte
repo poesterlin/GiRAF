@@ -68,34 +68,32 @@
 				}
 			});
 		}
-		void uploads.upload(batch.map((item) => item.file!), undefined, {
-			onFileUploaded(file, importId, imported) {
-				const entry = batch.find((item) => item.file === file)!;
-				const item = localItems.find((item) => item.id === entry.id);
-				if (item) {
-					item.uploading = false;
-					item.importId = importId;
+		void uploads.upload(
+			batch.map((item) => item.file!),
+			undefined,
+			{
+				onFileUploaded(file, importId, imported) {
+					const entry = batch.find((item) => item.file === file)!;
+					const item = localItems.find((item) => item.id === entry.id);
+					if (item) {
+						item.uploading = false;
+						item.importId = importId;
+					}
+					entry.resolveUpload?.(imported ? undefined : importId);
+					if (imported && alive) removeLocal(entry.id);
+				},
+				onFileFailed(file) {
+					const entry = batch.find((item) => item.file === file)!;
+					entry.resolveUpload?.(undefined);
+					if (alive) removeLocal(entry.id);
 				}
-				entry.resolveUpload?.(imported ? undefined : importId);
-				if (imported && alive) removeLocal(entry.id);
-			},
-			onFileFailed(file) {
-				const entry = batch.find((item) => item.file === file)!;
-				entry.resolveUpload?.(undefined);
-				if (alive) removeLocal(entry.id);
 			}
-		});
-	}
-
-	function selectSource(id: number) {
-		if (selectedIds.size && [...selectedIds].some((selected) => selected < 0 !== id < 0)) {
-			clearSelection();
-			app.addToast('Select local files and server images separately to assign a session.', 'info');
-		}
+		);
 	}
 
 	// Core State
 	let selectedIds = $state<Set<number>>(new Set());
+	let assigningIds = $state<Set<number>>(new Set());
 	let showModal = $state(false);
 	let sessionName = $state('');
 	let isCreating = $state(false);
@@ -143,7 +141,7 @@
 	function handleTouchStart(event: TouchEvent, id: number, index: number) {
 		longPressTimer = window.setTimeout(() => {
 			longPressTimer = null;
-			selectSource(id);
+			if (assigningIds.has(id)) return;
 			inSelectionMode = true;
 			isDragging = true;
 			dragStartIndex = index;
@@ -173,7 +171,7 @@
 			const rangeIds = new Set<number>();
 			for (let i = start; i <= end; i++) {
 				const item = allItems[i];
-				if (item && item.id < 0 === allItems[dragStartIndex]?.id < 0) rangeIds.add(item.id);
+				if (item && !assigningIds.has(item.id)) rangeIds.add(item.id);
 			}
 			selectedIds = new Set([...selectedIds, ...rangeIds]);
 		}
@@ -199,8 +197,7 @@
 	}
 
 	function handleClick(id: number, index: number, event: MouseEvent) {
-		if (allItems[index]?.assigning) return;
-		selectSource(id);
+		if (assigningIds.has(id)) return;
 		if (!inSelectionMode) {
 			inSelectionMode = true;
 		}
@@ -209,7 +206,7 @@
 			const start = Math.min(lastSelectedIndex, index);
 			const end = Math.max(lastSelectedIndex, index);
 			for (let i = start; i <= end; i++) {
-				if (allItems[i].id < 0 === id < 0) selectedIds.add(allItems[i].id);
+				if (!assigningIds.has(allItems[i].id)) selectedIds.add(allItems[i].id);
 			}
 		} else if (selectedIds.has(id)) {
 			selectedIds.delete(id);
@@ -240,18 +237,12 @@
 	}
 
 	function selectAll() {
-		const source = selectedIds.size ? [...selectedIds][0] : allItems[0]?.id;
-		selectedIds = new Set(allItems.filter((item) => item.id < 0 === source < 0).map((item) => item.id));
+		selectedIds = new Set(allItems.filter((item) => !assigningIds.has(item.id)).map((item) => item.id));
 		inSelectionMode = true;
 	}
 
 	function toggleDateSelection(images: ImageItem[]) {
-		let source = selectedIds.size ? [...selectedIds][0] : images[0]?.id;
-		if (!images.some((item) => item.id < 0 === source < 0)) {
-			source = images[0].id;
-			selectSource(source);
-		}
-		const allIdsInGroup = images.filter((item) => item.id < 0 === source < 0).map((img) => img.id);
+		const allIdsInGroup = images.filter((item) => !assigningIds.has(item.id)).map((img) => img.id);
 		const allAreSelected = allIdsInGroup.every((id) => selectedIds.has(id));
 
 		if (allAreSelected) {
@@ -322,6 +313,10 @@
 	async function importImages(e: Event) {
 		e.preventDefault();
 		if (isCreating || !selectedIds.size) return;
+		if (importMode === 'new' && !sessionName.trim()) {
+			app.addToast('Enter a session name.', 'info');
+			return;
+		}
 		if (importMode === 'existing' && !selectedSessionId) {
 			app.addToast('Choose a session.', 'info');
 			return;
@@ -335,42 +330,27 @@
 		};
 
 		try {
-			if (body.importIds[0] < 0) {
-				const items = localItems.filter((item) => body.importIds.includes(item.id) && !item.assigning);
-				const target = importMode === 'new' ? { name: sessionName.trim() } : { sessionId: selectedSessionId! };
-				showModal = false;
-				clearSelection();
-				for (const item of items) item.assigning = true;
-				void assignPendingUploads(items.map((item) => item.uploadPromise!), target, (index) => {
-					if (alive) removeLocal(items[index].id);
-					void invalidateAll();
-				}, (error) => app.addToast(error instanceof Error ? error.message : 'Session assignment failed', 'error'))
-					.finally(() => { for (const item of items) item.assigning = false; });
-				return;
-			}
-			const response = await fetch('/api/imports', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(body)
-			});
-			const result = (await response.json()) as { sessionId?: number; assignmentCommitted?: boolean; message?: string };
-			if (!response.ok && !result.assignmentCommitted) throw new Error(result.message || 'Failed to assign images');
-			app.addToast(
-				!response.ok
-					? result.message || 'Images assigned to session.'
-					: importMode === 'existing'
-						? 'Images added to session. Import started.'
-						: 'Session created. Import started.',
-				'info'
-			);
-			data.items = data.items.filter((item) => !body.importIds.includes(item.id));
-			clearSelection();
-			sessionName = '';
+			const items = allItems.filter((item) => body.importIds.includes(item.id) && !assigningIds.has(item.id));
+			const target = importMode === 'new' ? { name: sessionName.trim() } : { sessionId: selectedSessionId! };
 			showModal = false;
-			invalidateAll();
-			if (typeof result.sessionId === 'number') {
-				startImportPolling(result.sessionId);
-			}
+			clearSelection();
+			assigningIds = new Set([...assigningIds, ...items.map((item) => item.id)]);
+			void assignPendingUploads(
+				items.map((item) => item.uploadPromise ?? Promise.resolve(item.importId ?? item.id)),
+				target,
+				(index) => {
+					if (alive) {
+						const item = items[index];
+						if (item.file) removeLocal(item.id);
+						else data.items = data.items.filter((entry) => entry.id !== item.id);
+					}
+					void invalidateAll();
+				},
+				(error) => app.addToast(error instanceof Error ? error.message : 'Session assignment failed', 'error')
+			).finally(() => {
+				if (alive) assigningIds = new Set([...assigningIds].filter((id) => !items.some((item) => item.id === id)));
+			});
+			return;
 		} catch (error) {
 			console.error('Import assignment failed', error);
 			app.addToast(error instanceof Error ? error.message : 'Failed to assign images', 'error');
@@ -542,6 +522,7 @@
 							<button
 								data-id={item.id}
 								data-index={itemIndex}
+								disabled={assigningIds.has(item.id)}
 								class="group relative aspect-[3/2] overflow-hidden rounded-2xl bg-neutral-900 ring-offset-black transition-all"
 								class:ring-4={selectedIds.has(item.id)}
 								class:ring-neutral-100={selectedIds.has(item.id)}
@@ -568,7 +549,13 @@
 										}}
 									/>
 								{:else}
-									<span class="px-2 text-center text-xs text-neutral-400">{item.previewError ?? 'Reading local preview…'}</span>
+									<span class="absolute inset-0 flex items-center justify-center" role="status" aria-label={item.previewError ?? 'Loading preview'}>
+										{#if item.previewError}
+											<span class="text-xs text-neutral-400">{item.previewError}</span>
+										{:else}
+											<span class="h-3 w-3 animate-spin rounded-full border border-white border-t-black motion-reduce:animate-none" aria-hidden="true"></span>
+										{/if}
+									</span>
 								{/if}
 
 								{#if item.file && item.importId === undefined}
