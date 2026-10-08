@@ -81,13 +81,18 @@
 					const localDuplicate = entries.some((other) => other.id !== id && other.sha256 === sha256);
 					entry.sha256 = sha256;
 					if (localDuplicate) {
-						entry.submitted = true; entry.selected = false; entry.status = 'Duplicate of another selected file';
+						entry.submitted = true;
+						entry.selected = false;
+						entry.status = 'Duplicate of another selected file';
 					} else {
 						const [check] = await checkUploadDuplicates([file]);
 						entry = entries.find((entry) => entry.id === id);
 						if (!alive || !entry) return;
-						if (check.duplicate && check.imported) { entry.submitted = true; entry.selected = false; entry.status = 'Already imported — no upload needed'; }
-						else entry.status = check.duplicate ? 'Already uploaded — choose a session' : undefined;
+						if (check.duplicate && check.imported) {
+							entry.submitted = true;
+							entry.selected = false;
+							entry.status = 'Already imported — no upload needed';
+						} else entry.status = check.duplicate ? 'Already uploaded — choose a session' : undefined;
 					}
 				} catch {
 					const entry = entries.find((entry) => entry.id === id);
@@ -107,13 +112,6 @@
 			entry.target = { ...target };
 			entry.selected = false;
 		}
-	}
-	function targetLabel(target: UploadSessionTarget) {
-		return target.name ?? sessions.find((session) => session.id === target.sessionId)?.name ?? `Session ${target.sessionId}`;
-	}
-	function removeSelected() {
-		for (const entry of selected) if (entry.url) URL.revokeObjectURL(entry.url);
-		entries = entries.filter((entry) => !selected.includes(entry));
 	}
 	async function uploadAssigned() {
 		submitting = true;
@@ -162,24 +160,7 @@
 {#if entries.length}
 	<section class="mb-10 rounded-2xl border border-neutral-800 bg-neutral-900/30 p-4" aria-label="Local photos awaiting upload">
 		<h2 class="text-lg font-bold text-neutral-100">Organize before uploading</h2>
-		<p class="mt-1 text-sm text-neutral-400">Select photos and assign them to sessions. Previews stay on your device until you upload. Keep this page open while organizing.</p>
-		<div class="my-4 flex flex-wrap items-center gap-3 text-sm">
-			<button
-				class="rounded-lg bg-neutral-800 px-3 py-2"
-				onclick={() => {
-					for (const entry of entries) if (!entry.submitted) entry.selected = true;
-				}}>Select all</button
-			>
-			<button
-				class="rounded-lg bg-neutral-800 px-3 py-2"
-				onclick={() => {
-					for (const entry of entries) entry.selected = false;
-				}}>Clear selection</button
-			>
-			<button class="rounded-lg bg-neutral-800 px-3 py-2 disabled:opacity-40" disabled={!selected.length} onclick={removeSelected}>Remove selected</button>
-			<span class="text-neutral-400">{selected.length} selected · {assigned.length} ready</span>
-		</div>
-		<div class="mb-4 flex flex-wrap items-center gap-3">
+		<div class="my-4 flex flex-wrap items-center gap-3">
 			<select aria-label="Session assignment type" bind:value={mode} class="rounded-lg bg-neutral-800 p-2"
 				><option value="new">New session</option><option value="existing">Existing session</option></select
 			>
@@ -187,7 +168,8 @@
 				<input aria-label="New session name" placeholder="Session name" bind:value={name} class="rounded-lg bg-neutral-800 p-2" />
 			{:else}
 				<select aria-label="Existing session" bind:value={sessionId} class="max-w-full rounded-lg bg-neutral-800 p-2"
-					><option value="">Choose a session</option>{#each sessions.filter((session) => !session.isArchived) as session (session.id)}<option value={String(session.id)}>{session.name}</option
+					><option value="">Choose a session</option>{#each sessions.filter((session) => !session.isArchived) as session (session.id)}<option value={String(session.id)}
+							>{session.name}</option
 						>{/each}</select
 				>
 			{/if}
@@ -212,6 +194,7 @@
 					}}
 					aria-pressed={entry.selected}
 					aria-label={`Select ${entry.file.name}`}
+					title={entry.status ?? entry.file.name}
 				>
 					<div class="flex aspect-[3/2] items-center justify-center bg-neutral-800">
 						{#if entry.url}<img
@@ -224,14 +207,6 @@
 									entry.url = undefined;
 								}}
 							/>{:else}<span class="px-2 text-center text-xs text-neutral-400">{entry.previewError ? 'Preview unavailable' : 'Reading local preview…'}</span>{/if}
-					</div>
-					<div class="p-2 text-xs">
-						<p class="truncate text-neutral-100">{entry.file.name}</p>
-						<p class="text-neutral-500">
-							{(entry.file.size / 1_000_000).toFixed(1)} MB{entry.capturedAt ? ` · ${entry.capturedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
-						</p>
-						<p class="mt-1 truncate text-neutral-100">{entry.target ? targetLabel(entry.target) : 'No session assigned'}</p>
-						{#if entry.status}<p class="mt-1 text-neutral-400">{entry.status}</p>{/if}
 					</div>
 				</button>
 			{/each}

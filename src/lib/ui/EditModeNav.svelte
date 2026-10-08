@@ -9,12 +9,10 @@
 		IconClipboard,
 		IconCopy,
 		IconCrop,
-		IconFilter,
 		IconFlag,
 		IconHistory,
 	} from '$lib/ui/icons';
 	import { IconFlagFilled } from '@tabler/icons-svelte';
-	import FilterModal from './FilterModal.svelte';
 	import FlagModal from './FlagModal.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import { edits } from '$lib/state/editing.svelte';
@@ -33,10 +31,9 @@
 		isFlagged?: boolean;
 	}
 
-	let { img, showSnapshots, showCrop, showEdit, showClipboard, showFlag, isFlagged, showLast, showFilter }: Props = $props();
+	let { img, showSnapshots, showCrop, showEdit, showClipboard, showFlag, isFlagged, showLast }: Props = $props();
 
 	let showFlagModal = $state(false);
-	let showFilterModal = $state(false);
 	let copiedConfig = $state(false);
 	let pastedConfig = $state(false);
 	let hasClipboardContent = $state(false);
@@ -50,6 +47,10 @@
 
 	const tooltipPosition = $derived(isDesktop ? 'right' : 'top');
 	const iconSize = $derived(isDesktop ? 24 : 20);
+	const filterQuery = $derived.by(() => {
+		const filter = page.url.searchParams.get('filter');
+		return filter === null ? '' : `?${new URLSearchParams({ filter })}`;
+	});
 
 	const keyMap = $derived(
 		new Map<string, () => void>([
@@ -210,11 +211,11 @@
 <svelte:window onfocus={() => checkClipboard()} onkeyup={handleKeyUp} />
 
 <nav class="flex flex-row lg:flex-col items-center gap-1 rounded-full border border-neutral-800/50 bg-neutral-950/40 p-1 backdrop-blur-xl shadow-2xl">
-	
+
 	<!-- {#if showReset && edits.canUndo}
-		<button 
-			class="flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90" 
-			onclick={() => {}} 
+		<button
+			class="flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
+			onclick={() => {}}
 			aria-label="Reset All"
 		>
 			<IconRestore size={20} />
@@ -224,8 +225,8 @@
 	<!-- navigation -->
 	{#if showCrop}
 		<Tooltip text="Crop & Rotate" position={tooltipPosition}>
-			<a 
-				href="/editor/{img}/crop" 
+			<a
+				href="/editor/{img}/crop{filterQuery}"
 				aria-label="Crop"
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
 			>
@@ -235,8 +236,8 @@
 	{/if}
 	{#if showEdit}
 		<Tooltip text="Adjustments" position={tooltipPosition}>
-			<a 
-				href="/editor/{img}" 
+			<a
+				href="/editor/{img}{filterQuery}"
 				aria-label="Edit"
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
 			>
@@ -248,11 +249,11 @@
 	<!-- flag button -->
 	{#if showFlag}
 		<Tooltip text={isFlagged ? "Remove Flag" : "Flag as Favorite"} position={tooltipPosition}>
-			<button 
-				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full transition-all hover:bg-neutral-800 active:scale-90" 
+			<button
+				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full transition-all hover:bg-neutral-800 active:scale-90"
 				class:text-neutral-100={isFlagged}
 				class:text-neutral-400={!isFlagged}
-				onclick={() => (showFlagModal = true)} 
+				onclick={() => (showFlagModal = true)}
 				aria-label="Flagged"
 			>
 				{#if isFlagged}
@@ -267,9 +268,9 @@
 	<!-- last version -->
 	{#if showLast && edits.lastSavedPP3 && countPP3Properties(diffPP3(edits.lastSavedPP3, edits.pp3)) > 0}
 		<Tooltip text="Load Last Saved Version" position={tooltipPosition}>
-			<button 
+			<button
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
-				onclick={() => edits.initialize(edits.lastSavedPP3, page.data.image)} 
+				onclick={() => edits.initialize(edits.lastSavedPP3, page.data.image)}
 				aria-label="Load Last Version"
 			>
 				<IconHistory size={iconSize} />
@@ -280,8 +281,8 @@
 	<!-- version snapshots -->
 	{#if showSnapshots}
 		<Tooltip text="Snapshots" position={tooltipPosition}>
-			<a 
-				href="?snapshot" 
+			<a
+				href="?snapshot"
 				aria-label="Snapshots"
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
 			>
@@ -290,28 +291,12 @@
 		</Tooltip>
 	{/if}
 
-	<!-- filter button -->
-	{#if showFilter}
-		{@const filter = page.url.searchParams.get('filter')}
-		{@const hasFilter = filter !== null && filter !== 'none'}
-		<Tooltip text="Filter Gallery" position={tooltipPosition}>
-			<button 
-				class:bg-neutral-700={hasFilter}
-				class:text-neutral-100={hasFilter}
-				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
-				onclick={() => (showFilterModal = true)} 
-				aria-label="Filters"
-			>
-				<IconFilter size={iconSize} />
-			</button>
-		</Tooltip>
-	{/if}
 
 	<!-- Copy / Paste config buttons -->
 	{#if showClipboard}
 		<Tooltip text={copiedConfig ? "Copied!" : "Copy Edit Config"} position={tooltipPosition}>
-			<button 
-				onclick={copyConfig} 
+			<button
+				onclick={copyConfig}
 				aria-label="Copy edit config"
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full transition-all hover:bg-neutral-800 active:scale-90"
 				class:text-neutral-100={copiedConfig}
@@ -326,8 +311,8 @@
 		</Tooltip>
 		{#if hasClipboardContent}
 			<Tooltip text={pastedConfig ? "Pasted!" : "Paste Edit Config"} position={tooltipPosition}>
-				<button 
-					onclick={pasteConfig} 
+				<button
+					onclick={pasteConfig}
 					aria-label="Paste edit config"
 					class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full transition-all hover:bg-neutral-800 active:scale-90"
 					class:text-neutral-100={pastedConfig}
@@ -346,8 +331,4 @@
 
 {#if showFlagModal}
 	<FlagModal {img} onClose={() => (showFlagModal = false)} />
-{/if}
-
-{#if showFilterModal}
-    <FilterModal onClose={() => (showFilterModal = false)} />
 {/if}

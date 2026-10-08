@@ -8,6 +8,11 @@ services:
     init: true
     environment:
       ORIGIN: https://${HOST_DOMAIN}
+      CLUT_DIR: /app/cluts
+      IMPORT_DIR: /app/import
+      EXPORT_DIR: /app/export
+      TMP_DIR: /app/tmp
+    env_file: .env
     networks:
       - default
       - traefik_web
@@ -25,7 +30,20 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    volumes:
+      - ./cluts:/app/cluts
+      - import:/app/import
+      - ./export:/app/export
+      - ./tmp:/app/tmp
 
 networks:
   traefik_web:
     external: true
+
+volumes:
+  import:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./import
+      o: bind

@@ -226,7 +226,7 @@ export function makeSessionPath(session: Session): string {
 	const month = (startedAt.getMonth() + 1).toString().padStart(2, '0');
 	const day = startedAt.getDate().toString().padStart(2, '0');
 
-	const exportDir = process.env.EXPORT_DIR || '/exports';
+	const exportDir = process.env.EXPORT_DIR || '/app/export';
 	return join(exportDir, year.toString(), `${year}-${month}-${day}_${session.name}`);
 }
 

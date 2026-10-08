@@ -243,7 +243,11 @@
 			const result = (await response.json()) as { sessionId?: number; assignmentCommitted?: boolean; message?: string };
 			if (!response.ok && !result.assignmentCommitted) throw new Error(result.message || 'Failed to assign images');
 			app.addToast(
-				!response.ok ? result.message || 'Images assigned to session.' : importMode === 'existing' ? 'Images added to session. Import started.' : 'Session created. Import started.',
+				!response.ok
+					? result.message || 'Images assigned to session.'
+					: importMode === 'existing'
+						? 'Images added to session. Import started.'
+						: 'Session created. Import started.',
 				'info'
 			);
 			data.items = data.items.filter((item) => !body.importIds.includes(item.id));
@@ -277,15 +281,6 @@
 		} finally {
 			isRefreshing = false;
 		}
-	}
-
-	// TODO: Set locale from env
-	const formatter = Intl.DateTimeFormat('de-DE', {
-		hour: 'numeric',
-		minute: 'numeric'
-	});
-	function formatTime(date: Date) {
-		return formatter.format(new Date(date));
 	}
 
 	function handleFileSelect(e: Event) {
@@ -374,18 +369,18 @@
 					onclick={() => fileInput.click()}
 					class="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/40 px-5 py-3 text-xs font-bold text-neutral-500 transition-all hover:bg-neutral-900 hover:text-neutral-100 disabled:opacity-50"
 				>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							width="14"
-							height="14"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2.5"
-							stroke-linecap="round"
-							stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg
-						>
-						Manual Upload
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg
+					>
+					Manual Upload
 				</button>
 			</div>
 		</div>
@@ -448,13 +443,6 @@
 									class="h-full w-full object-cover transition-all duration-500 group-hover:scale-110"
 									class:opacity-50={selectedIds.has(item.id)}
 								/>
-
-								<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
-
-								<div class="absolute bottom-4 left-4 flex flex-col items-start opacity-0 transition-all translate-y-2 group-hover:opacity-100 group-hover:translate-y-0">
-									<span class="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Recorded</span>
-									<span class="text-xs font-bold text-white uppercase">{formatTime(item.date)}</span>
-								</div>
 
 								{#if selectedIds.has(item.id)}
 									<div class="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-950 shadow-xl">
