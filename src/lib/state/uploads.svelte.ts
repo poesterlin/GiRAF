@@ -5,10 +5,12 @@ import { getLocalFingerprint } from '$lib/local-preview-client';
 import { createUploadAssignment, type UploadSessionTarget } from '$lib/upload-assignment';
 import { app } from './app.svelte';
 import { importTiming } from '$lib/import-timing';
+import { prepareUploadSource } from '$lib/upload-source';
 
 export type { UploadSessionTarget } from '$lib/upload-assignment';
 export type UploadBatchResult = { failedFiles: File[]; assignmentFailed: boolean; sessionId?: number };
 export type UploadOptions = {
+	onFilePrepared?: (original: File, prepared: File) => Promise<void>;
 	onFileUploaded?: (file: File, id?: number, imported?: boolean) => void;
 	onFileFailed?: (file: File, error: unknown) => void;
 };
@@ -75,16 +77,21 @@ class UploadState {
 			await Promise.all(
 				fileArray.map((file, index) => {
 					const processFile = async () => {
+						let previewWork: Promise<void> | undefined;
 						importTiming('upload.queue', batchStarted, { file: file.name });
 						try {
+							const readStarted = performance.now();
+							const source = await prepareUploadSource(file);
+							importTiming('upload.source-ready', readStarted, { file: file.name, bytes: file.size, buffered: source !== file });
+							if (source !== file) previewWork = options.onFilePrepared?.(file, source).catch((error) => console.error('Preview preparation failed', error));
 							this.checking += 1;
 							let check;
 							try {
 								const hashStarted = performance.now();
-								cacheFileFingerprint(file, await getLocalFingerprint(file));
+								cacheFileFingerprint(source, await getLocalFingerprint(source));
 								importTiming('upload.hash', hashStarted, { file: file.name, bytes: file.size });
 								const checkStarted = performance.now();
-								[check] = await checkUploadDuplicates([file]);
+								[check] = await checkUploadDuplicates([source]);
 								importTiming('upload.duplicate-check', checkStarted, { file: file.name, duplicate: check?.duplicate });
 							} finally {
 								this.checking -= 1;
@@ -121,7 +128,7 @@ class UploadState {
 								request.onerror = () => reject(new Error('Network error'));
 								request.onabort = () => reject(new Error('Upload aborted'));
 								const body = new FormData();
-								body.append('files', file);
+								body.append('files', source);
 								if (capturedTarget) body.append('sessionAssigned', 'true');
 								request.send(body);
 								importTiming('upload.started', batchStarted, { file: file.name });
@@ -136,6 +143,8 @@ class UploadState {
 							console.error(`Upload failed: ${file.name}`, error);
 							app.addToast(`Failed to upload ${file.name}: ${error instanceof Error ? error.message : String(error)}`, 'error');
 						} finally {
+							// Release the upload slot only once its buffered preview is also finished.
+							await previewWork;
 							this.completed += 1;
 							transfers[index].loaded = file.size;
 							updateProgress();

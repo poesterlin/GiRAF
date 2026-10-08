@@ -19,6 +19,15 @@ from database lookup time. Diagnostics are session-local and reset on reload.
 
 ## Workflow
 
+Camera/USB sources are prepared by the upload queue. Files up to 64 MiB are read
+once into a memory-backed File; hashing, transfer and preview extraction reuse
+that copy. Camera reads are serialized, and at most three upload slots retain
+source snapshots (192 MiB of source payload, plus browser/worker overhead).
+Previews no longer read ahead from the camera. Larger files keep bounded hashing
+and stream their original source to the server, using the server preview after
+upload rather than opening the camera for an additional local preview.
+`upload.source-ready` logs preparation time and whether the source was buffered.
+
 Selecting or dropping files shows local previews and immediately starts background
 uploads after each file's duplicate check. Session grouping is independent of
 transfer progress.

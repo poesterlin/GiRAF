@@ -105,6 +105,8 @@ export async function getLocalPreview(file: File): Promise<{ url: string; captur
 		} catch (error) {
 			importTiming('preview.fallback', started, { file: file.name, error: String(error) });
 			// Unsupported worker image APIs and worker failures use bounded extraction directly.
+		} finally {
+			if (current.pending.size === 0) stopWorker(current, new Error('Preview worker idle.'));
 		}
 	}
 	const preview = await extractLocalPhotoPreview(file, { preferThumbnail: true });
@@ -122,6 +124,8 @@ export async function getLocalFingerprint(file: File): Promise<string> {
 		} catch (error) {
 			importTiming('hash.fallback', started, { file: file.name, error: String(error) });
 			// Keep duplicate detection available when workers are unavailable.
+		} finally {
+			if (current.pending.size === 0) stopWorker(current, new Error('Hash worker idle.'));
 		}
 	}
 	return fingerprintFile(file);

@@ -45,6 +45,28 @@
 		const staged = performance.now();
 		importTiming('batch.selected', staged, { files: files.length, bytes: Array.from(files).reduce((sum, file) => sum + file.size, 0) });
 		const batch: ImageItem[] = [];
+		function preparePreview(original: File, source: File) {
+			const id = batch.find((item) => item.file === original)!.id;
+			const file = source;
+			return previewLimit(async () => {
+				importTiming('preview.queue', staged, { file: file.name, pending: previewLimit.pendingCount });
+				if (!alive || !localItems.some((item) => item.id === id)) return;
+				try {
+					const preview = await getLocalPreview(file);
+					const item = localItems.find((item) => item.id === id);
+					if (!alive || !item) {
+						URL.revokeObjectURL(preview.url);
+						return;
+					}
+					item.url = preview.url;
+					importTiming('preview.ready', staged, { file: file.name });
+					if (preview.capturedAt) item.date = preview.capturedAt;
+				} catch {
+					const item = localItems.find((item) => item.id === id);
+					if (alive && item) item.previewError = 'Preview unavailable';
+				}
+			});
+		}
 		for (const file of Array.from(files)) {
 			if (localItems.some((item) => item.file?.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified)) continue;
 			const id = nextLocalId--;
@@ -55,30 +77,12 @@
 			const entry = { id, file, date: new Date(file.lastModified), uploading: true, uploadPromise, resolveUpload };
 			localItems.push(entry);
 			batch.push(entry);
-			void previewLimit(async () => {
-				importTiming('preview.queue', staged, { file: file.name, pending: previewLimit.pendingCount });
-				if (!alive || !localItems.some((item) => item.id === id)) return;
-				try {
-					const preview = await getLocalPreview(file);
-					const url = preview.url;
-					const item = localItems.find((item) => item.id === id);
-					if (!alive || !item) {
-						URL.revokeObjectURL(url);
-						return;
-					}
-					item.url = url;
-					importTiming('preview.ready', staged, { file: file.name });
-					if (preview.capturedAt) item.date = preview.capturedAt;
-				} catch {
-					const item = localItems.find((item) => item.id === id);
-					if (alive && item) item.previewError = 'Preview unavailable';
-				}
-			});
 		}
 		void uploads.upload(
 			batch.map((item) => item.file!),
 			undefined,
 			{
+				onFilePrepared: preparePreview,
 				onFileUploaded(file, importId, imported) {
 					const entry = batch.find((item) => item.file === file)!;
 					const item = localItems.find((item) => item.id === entry.id);
@@ -316,7 +320,6 @@
 
 	onDestroy(() => {
 		alive = false;
-		previewLimit.clearQueue();
 		releaseLocalPreviewWorker();
 		handleTouchEnd();
 		for (const item of localItems) if (item.url) URL.revokeObjectURL(item.url);
@@ -594,9 +597,9 @@
 										e.preventDefault();
 									}}
 								>
-									{#if item.id >= 0 || item.url}
+									{#if item.id >= 0 || item.url || item.importId !== undefined}
 										<img
-											src={item.url ?? `/api/imports/${item.id}/preview`}
+											src={item.url ?? `/api/imports/${item.importId ?? item.id}/preview`}
 											alt=""
 											draggable={false}
 											onload={() => {
