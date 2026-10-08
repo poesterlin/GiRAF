@@ -4,6 +4,8 @@
 	import { countPP3Properties, diffPP3, parsePP3, stringifyPP3 } from '$lib/pp3-utils';
 	import {
 		IconAdjustmentsHorizontal,
+		IconArrowBackUp,
+		IconArrowForwardUp,
 		IconGitBranch,
 		IconCheck,
 		IconClipboard,
@@ -13,6 +15,7 @@
 		IconHistory,
 	} from '$lib/ui/icons';
 	import { IconFlagFilled } from '@tabler/icons-svelte';
+	import IconDots from '@tabler/icons-svelte/icons/dots';
 	import FlagModal from './FlagModal.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import { edits } from '$lib/state/editing.svelte';
@@ -26,6 +29,7 @@
 		img: string;
 		showSnapshots?: boolean;
 		showCrop?: boolean;
+		showHistory?: boolean;
 		// showUndoRedo?: boolean;
 		// showReset?: boolean;
 		showEdit?: boolean;
@@ -36,7 +40,36 @@
 		isFlagged?: boolean;
 	}
 
-	let { img, showSnapshots, showCrop, showEdit, showClipboard, showFlag, isFlagged, showLast }: Props = $props();
+	let { img, showSnapshots, showCrop, showHistory = false, showEdit, showClipboard, showFlag, isFlagged, showLast }: Props = $props();
+
+	let showMore = $state(false);
+	let moreContainer = $state<HTMLDivElement>();
+	let moreButton = $state<HTMLButtonElement>();
+	let isDesktop = $state(false);
+	const moreId = $props.id();
+	const compact = $derived(showHistory && !isDesktop);
+	const canLoadLast = $derived(showLast && edits.lastSavedPP3 && countPP3Properties(diffPP3(edits.lastSavedPP3, edits.pp3)) > 0);
+
+	function closeMore(restoreFocus = false) {
+		showMore = false;
+		if (restoreFocus) moreButton?.focus();
+	}
+
+	function handleOutsidePointer(event: PointerEvent) {
+		if (showMore && !moreContainer?.contains(event.target as Node)) closeMore();
+	}
+
+	function handleMoreKeydown(event: KeyboardEvent) {
+		if (showMore && event.key === 'Escape') {
+			event.preventDefault();
+			closeMore(true);
+		}
+	}
+
+	beforeNavigate(() => closeMore());
+	$effect(() => {
+		if (!compact) closeMore();
+	});
 
 	let showFlagModal = $state(false);
 	let copiedConfig = $state(false);
@@ -77,7 +110,6 @@
 		showCropChoice = false;
 	}
 	let hasClipboardContent = $state(false);
-	let isDesktop = $state(false);
 
 	if (browser) {
 		const mediaQuery = window.matchMedia('(min-width: 1024px)');
@@ -285,7 +317,7 @@
 	</Modal>
 {/if}
 
-<svelte:window onfocus={() => checkClipboard()} onkeyup={handleKeyUp} />
+<svelte:window onfocus={() => checkClipboard()} onkeyup={handleKeyUp} onpointerdown={handleOutsidePointer} onkeydown={handleMoreKeydown} />
 
 <nav class="flex flex-row lg:flex-col items-center gap-1 rounded-full border border-neutral-800/50 bg-neutral-950/40 p-1 backdrop-blur-xl shadow-2xl">
 
@@ -305,6 +337,8 @@
 			<a
 				href="/editor/{img}/crop{filterQuery}"
 				aria-label="Crop"
+				class:min-h-11={compact}
+				class:min-w-11={compact}
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
 			>
 				<IconCrop size={iconSize} />
@@ -316,6 +350,8 @@
 			<a
 				href="/editor/{img}{filterQuery}"
 				aria-label="Edit"
+				class:min-h-11={compact}
+				class:min-w-11={compact}
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
 			>
 				<IconAdjustmentsHorizontal size={iconSize} />
@@ -323,6 +359,69 @@
 		</Tooltip>
 	{/if}
 
+	{#if compact}
+		<button
+			type="button"
+			onclick={() => edits.undo()}
+			disabled={!edits.canUndo}
+			aria-label="Undo"
+			class="flex h-11 w-11 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-100 disabled:pointer-events-none disabled:opacity-25"
+		>
+			<IconArrowBackUp size={20} />
+		</button>
+		<button
+			type="button"
+			onclick={() => edits.redo()}
+			disabled={!edits.canRedo}
+			aria-label="Redo"
+			class="flex h-11 w-11 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-100 disabled:pointer-events-none disabled:opacity-25"
+		>
+			<IconArrowForwardUp size={20} />
+		</button>
+		{#if showFlag || showSnapshots || canLoadLast || showClipboard}
+			<div class="relative" bind:this={moreContainer}>
+				<button
+					bind:this={moreButton}
+					type="button"
+					aria-label="More editing actions"
+					aria-expanded={showMore}
+					aria-controls={moreId}
+					onclick={() => (showMore = !showMore)}
+					class="flex h-11 w-11 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-100"
+				>
+					<IconDots size={20} />
+				</button>
+				{#if showMore}
+					<div id={moreId} role="group" aria-label="More editing actions" class="absolute right-0 bottom-full z-50 mb-2 max-h-[60dvh] w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950 p-1 text-sm text-neutral-200 shadow-2xl">
+						{#if showFlag}
+							<button type="button" class="more-action" onclick={() => { closeMore(true); showFlagModal = true; }}>
+								{#if isFlagged}<IconFlagFilled size={20} />{:else}<IconFlag size={20} />{/if}
+								{isFlagged ? 'Remove flag' : 'Flag as favorite'}
+								</button>
+						{/if}
+						{#if canLoadLast}
+							<button type="button" class="more-action" onclick={() => { closeMore(true); edits.initialize(edits.lastSavedPP3, page.data.image); }}>
+								<IconHistory size={20} /> Load last saved version
+							</button>
+						{/if}
+						{#if showSnapshots}
+							<a href="?snapshot" class="more-action" onclick={() => closeMore(true)}><IconGitBranch size={20} /> Snapshots</a>
+						{/if}
+						{#if showClipboard}
+							<button type="button" class="more-action" onclick={() => { closeMore(true); void copyConfig(); }}>
+								<IconCopy size={20} /> {copiedConfig ? 'Copied!' : 'Copy edit config'}
+							</button>
+							{#if hasClipboardContent}
+								<button type="button" class="more-action" onclick={() => { closeMore(true); void pasteConfig(); }}>
+									<IconClipboard size={20} /> {pastedConfig ? 'Pasted!' : 'Paste edit config'}
+								</button>
+							{/if}
+						{/if}
+					</div>
+				{/if}
+			</div>
+		{/if}
+	{:else}
 	<!-- flag button -->
 	{#if showFlag}
 		<Tooltip text={isFlagged ? "Remove Flag" : "Flag as Favorite"} position={tooltipPosition}>
@@ -404,8 +503,28 @@
 			</Tooltip>
 		{/if}
 	{/if}
+	{/if}
 </nav>
 
 {#if showFlagModal}
 	<FlagModal {img} onClose={() => (showFlagModal = false)} />
 {/if}
+
+<style>
+	.more-action {
+		display: flex;
+		min-height: 44px;
+		width: 100%;
+		align-items: center;
+		gap: 0.75rem;
+		border-radius: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		text-align: left;
+	}
+
+	.more-action:hover,
+	.more-action:focus-visible {
+		background: #262626;
+		color: #f5f5f5;
+	}
+</style>

@@ -11,7 +11,18 @@
 	import EditModeNav from '$lib/ui/EditModeNav.svelte';
 	import Tooltip from '$lib/ui/Tooltip.svelte';
 	import LutPicker from '$lib/ui/LutPicker.svelte';
-	import { IconArchive, IconArrowBackUp, IconArrowForwardUp, IconCheck, IconChevronLeft, IconChevronRight, IconDeviceFloppy, IconFidgetSpinner, IconRestore, IconFilter } from '$lib/ui/icons';
+	import {
+		IconArchive,
+		IconArrowBackUp,
+		IconArrowForwardUp,
+		IconCheck,
+		IconChevronLeft,
+		IconChevronRight,
+		IconDeviceFloppy,
+		IconFidgetSpinner,
+		IconRestore,
+		IconFilter
+	} from '$lib/ui/icons';
 	import { fade } from 'svelte/transition';
 	import { onDestroy, untrack } from 'svelte';
 	import Adjustments from './Adjustments.svelte';
@@ -21,6 +32,7 @@
 	let { data } = $props();
 	let showLutPicker = $state(false);
 	let showFilterModal = $state(false);
+	let mobileActions: HTMLDetailsElement | undefined;
 
 	let sampleImage = $state('');
 	let sampleImageId = $state<string | null>(null);
@@ -33,7 +45,9 @@
 	let actionVersion = 0;
 	let confirmationVersion = 0;
 	let resetting = false;
-	onDestroy(() => { actionVersion += 1; });
+	onDestroy(() => {
+		actionVersion += 1;
+	});
 	let beforeImage = $derived(apiPath + `/edit?preview&config=${toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
 	let flashKey = $state<string | null>(null);
 	let flashTimer: number | null = null;
@@ -44,7 +58,7 @@
 		confirmationVersion += 1;
 		snapshotSaved = false;
 		resetSaved = false;
-		if(edits.hasChanges) {
+		if (edits.hasChanges) {
 			edits.snapshot();
 		}
 	});
@@ -136,7 +150,9 @@
 				edits.isFaulty = true;
 				edits.isLoading = false;
 			});
-		return () => { active = false; };
+		return () => {
+			active = false;
+		};
 	});
 
 	$effect(() => {
@@ -144,16 +160,18 @@
 		tagStore.selected = data.imageTags.map((it) => it.name);
 	});
 
-	const keyMap = $derived(new Map<string, () => void>([
-		['s', snapshot],
-		['ArrowRight', () => (data.nextImage ? (goto(`/editor/${data.nextImage}?filter=${page.url.searchParams.get('filter')}`)) : undefined)],
-		['ArrowLeft', () => (data.previousImage ? (goto(`/editor/${data.previousImage}?filter=${page.url.searchParams.get('filter')}`)) : undefined)],
-		['a', () => (data.image.isArchived ? restoreImage() : archiveImage())],
-		['p', () => showPreview()],
-		['r', ()=>reset()],
-		['z', () => edits.undo()],
-		['y', () => edits.redo()]
-	]));
+	const keyMap = $derived(
+		new Map<string, () => void>([
+			['s', snapshot],
+			['ArrowRight', () => (data.nextImage ? goto(`/editor/${data.nextImage}?filter=${page.url.searchParams.get('filter')}`) : undefined)],
+			['ArrowLeft', () => (data.previousImage ? goto(`/editor/${data.previousImage}?filter=${page.url.searchParams.get('filter')}`) : undefined)],
+			['a', () => (data.image.isArchived ? restoreImage() : archiveImage())],
+			['p', () => showPreview()],
+			['r', () => reset()],
+			['z', () => edits.undo()],
+			['y', () => edits.redo()]
+		])
+	);
 
 	function handleKeyDown(event: KeyboardEvent) {
 		const target = event.target as HTMLElement | null;
@@ -182,12 +200,12 @@
 		}
 	}
 
-	function showPreview(){
+	function showPreview() {
 		const url = new URL(apiPath + `/render`, location.origin);
 		window.open(url, '_blank');
 	}
 
-	async function reset(){
+	async function reset() {
 		if (resetting) return;
 		resetting = true;
 		const imageId = edits.currentImageId;
@@ -218,7 +236,15 @@
 	}
 </script>
 
-<svelte:window onkeydown={handleKeyDown} />
+<svelte:window
+	onkeydown={(event) => {
+		if (event.key === 'Escape' && mobileActions) mobileActions.open = false;
+		handleKeyDown(event);
+	}}
+	onpointerdown={(event) => {
+		if (mobileActions && !mobileActions.contains(event.target as Node)) mobileActions.open = false;
+	}}
+/>
 
 <div class="flex h-full flex-col overflow-hidden bg-neutral-950 text-neutral-200 lg:flex-row">
 	<!-- Image Preview Section -->
@@ -226,42 +252,26 @@
 		<div class="flex h-full items-center justify-center p-2 sm:p-2">
 			<BeforeAfter {beforeImage} imageId={data.image.id} afterImage={sampleImageId === String(data.image.id) ? sampleImage : ''} />
 		</div>
-		
+
 		<!-- Desktop Left Nav -->
 		<div class="absolute inset-y-0 left-4 hidden z-30 lg:flex flex-col justify-center pointer-events-none">
 			<div class="pointer-events-auto">
-				<EditModeNav
-					img={page.params.img!}
-					showCrop
-					showSnapshots
-					showClipboard
-					showFlag
-					showLast
-				/>
+				<EditModeNav img={page.params.img!} showCrop showSnapshots showClipboard showFlag showLast />
 			</div>
 		</div>
 
 		<!-- Mobile Bottom Nav -->
 		<div class="absolute bottom-4 left-0 right-0 z-40 flex justify-center lg:hidden pointer-events-none">
 			<div class="pointer-events-auto">
-				<EditModeNav
-					img={page.params.img!}
-					showCrop
-					showSnapshots
-					showClipboard
-					showFlag
-					showLast
-				/>
+				<EditModeNav img={page.params.img!} showHistory showCrop showSnapshots showClipboard showFlag showLast />
 			</div>
 		</div>
 	</div>
 
 	<!-- Controls Panel Section -->
-	<aside
-		class="flex w-full flex-col border-t border-neutral-800 bg-neutral-950 transition-all duration-300 lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l h-[45vh] lg:h-auto"
-	>
+	<aside class="flex w-full flex-col border-t border-neutral-800 bg-neutral-950 transition-all duration-300 lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l h-[45vh] lg:h-auto">
 		<!-- Panel Header -->
-		<div class="flex items-center justify-between border-b border-neutral-800 px-6 py-3 lg:py-4">
+		<div class="hidden lg:flex items-center justify-between border-b border-neutral-800 px-6 py-3 lg:py-4">
 			<div class="flex items-center gap-3">
 				<div class="h-2 w-2 rounded-full bg-neutral-500"></div>
 				<h2 class="text-xs font-bold tracking-widest uppercase text-neutral-400">Adjustments</h2>
@@ -292,14 +302,63 @@
 		</div>
 
 		<!-- Scrollable Controls -->
-		<div class="flex-1 overflow-y-auto px-4 py-4 lg:px-6 custom-scrollbar">
+		<div class="min-h-0 flex-1 overflow-y-auto px-3 py-2 lg:px-6 lg:py-4 custom-scrollbar">
 			{#if edits.pp3}
 				<Adjustments {data} bind:showLutPicker />
 			{/if}
 		</div>
 
 		<!-- Actions Footer -->
-		<div class="border-t border-neutral-800 bg-neutral-900/50 p-4 lg:p-6 backdrop-blur-sm">
+		<div
+			class="flex shrink-0 items-center gap-1 border-t border-neutral-800 bg-neutral-900 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden"
+			aria-label="Photo actions"
+		>
+			{#if data.previousImage}
+				<a href={`/editor/${data.previousImage}?filter=${page.url.searchParams.get('filter')}`} aria-label="Previous image" class="mobile-action"><IconChevronLeft size={20} /></a>
+			{:else}
+				<button disabled aria-label="Previous image" class="mobile-action"><IconChevronLeft size={20} /></button>
+			{/if}
+			{#if data.nextImage}
+				<a href={`/editor/${data.nextImage}?filter=${page.url.searchParams.get('filter')}`} aria-label="Next image" class="mobile-action"><IconChevronRight size={20} /></a>
+			{:else}
+				<button disabled aria-label="Next image" class="mobile-action"><IconChevronRight size={20} /></button>
+			{/if}
+			<button onclick={() => (showFilterModal = true)} aria-label="Filter gallery" class="mobile-action"><IconFilter size={20} /></button>
+			<button
+				onclick={snapshot}
+				class="ml-auto flex min-h-11 items-center justify-center gap-2 rounded-xl bg-neutral-100 px-4 text-sm font-semibold text-neutral-950"
+				aria-label="Save edits"
+			>
+				{#if snapshotSaved}<IconCheck size={18} />{:else}<IconDeviceFloppy size={18} />{/if}
+				{snapshotSaved ? 'Saved' : 'Save'}
+				{#if edits.hasChanges}<span class="h-1.5 w-1.5 rounded-full bg-neutral-600" aria-label="Unsaved changes"></span>{/if}
+			</button>
+			<details bind:this={mobileActions} class="relative">
+				<summary class="mobile-action list-none cursor-pointer" aria-label="More photo actions"
+					><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"
+						><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg
+					></summary
+				>
+				<div class="absolute bottom-full right-0 z-50 mb-2 w-44 rounded-xl border border-neutral-700 bg-neutral-900 p-1 shadow-xl">
+					<button
+						class="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm hover:bg-neutral-800"
+						onclick={() => {
+							mobileActions!.open = false;
+							reset();
+						}}><IconRestore size={18} />Reset edits</button
+					>
+					<button
+						class="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm hover:bg-neutral-800"
+						onclick={() => {
+							mobileActions!.open = false;
+							if (data.image.isArchived) restoreImage();
+							else archiveImage();
+						}}><IconArchive size={18} />{data.image.isArchived ? 'Restore photo' : 'Archive photo'}</button
+					>
+				</div>
+			</details>
+		</div>
+		<div class="hidden lg:block border-t border-neutral-800 bg-neutral-900/50 p-4 lg:p-6 backdrop-blur-sm">
 			<div class="grid grid-cols-2 gap-2 lg:gap-3">
 				<Button onclick={reset} flash={flashKey === 'r'} class="justify-center py-2 lg:py-2.5">
 					<span class="text-xs lg:text-sm">Reset</span>
@@ -344,9 +403,7 @@
 						</div>
 					{/if}
 
-					<div class="text-[10px] font-bold text-neutral-600 uppercase tracking-[0.2em]">
-						Nav
-					</div>
+					<div class="text-[10px] font-bold text-neutral-600 uppercase tracking-[0.2em]">Nav</div>
 
 					{#if data.nextImage}
 						<Tooltip text="Next Image" position="top">
@@ -410,6 +467,33 @@
 {/if}
 
 <style>
+	.mobile-action {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 44px;
+		min-height: 44px;
+		border-radius: 12px;
+	}
+	.mobile-action:hover {
+		background: #262626;
+	}
+	.mobile-action:disabled {
+		opacity: 0.25;
+	}
+	summary::-webkit-details-marker {
+		display: none;
+	}
+	@media (max-width: 1023px) {
+		.custom-scrollbar :global([data-adjustment-sections] summary) {
+			min-height: 44px;
+			padding-left: 12px;
+		}
+		.custom-scrollbar :global([data-adjustment-sections] details > div) {
+			padding: 6px 8px;
+			gap: 6px;
+		}
+	}
 	.custom-scrollbar::-webkit-scrollbar {
 		width: 4px;
 	}
@@ -431,8 +515,15 @@
 	}
 
 	@keyframes navFlash {
-		0% { transform: scale(1); }
-		50% { transform: scale(1.2); background-color: rgba(255, 255, 255, 0.2); }
-		100% { transform: scale(1); }
+		0% {
+			transform: scale(1);
+		}
+		50% {
+			transform: scale(1.2);
+			background-color: rgba(255, 255, 255, 0.2);
+		}
+		100% {
+			transform: scale(1);
+		}
 	}
 </style>
