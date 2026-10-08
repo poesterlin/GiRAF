@@ -12,7 +12,8 @@ export const load: PageServerLoad = async ({ params, depends }) => {
 	const sessionId = Number(params.session);
 
 	const session = await db.query.sessionTable.findFirst({
-		where: eq(sessionTable.id, sessionId)
+		where: eq(sessionTable.id, sessionId),
+		with: { images: { columns: { id: true } } }
 	});
 
 	if (!session) {
@@ -27,6 +28,10 @@ export const load: PageServerLoad = async ({ params, depends }) => {
 	return {
 		session,
 		images,
+		imageIds: Object.fromEntries(images.flatMap((filename) => {
+			const id = Number(filename.match(/^(\d+)_/)?.[1]);
+			return session.images.some((image) => image.id === id) ? [[filename, id]] : [];
+		})),
 		downloadReady: (await getExportDownload(sessionId))?.available ?? false
 	};
 };
