@@ -58,10 +58,7 @@ class EditingState {
 		this.throttledPP3 = structuredClone($state.snapshot(pp3));
 	}
 
-	initialize(pp3: string | PP3, image: Image) {
-		assert(image, 'Image must be provided to initialize editing state');
-		if (this.currentImageId === String(image.id) && (this.hasChangesFor(String(image.id)) || this.pendingSaves.has(String(image.id)))) return;
-
+	private preparePP3(pp3: string | PP3, image: Image) {
 		const newPp3 = typeof pp3 === 'string' ? parsePP3(pp3) : pp3;
 		ensureSectionDefaults(newPp3, 'Exposure', {
 			Enabled: true,
@@ -109,6 +106,19 @@ class EditingState {
 		ensureSectionDefaults(newPp3, 'Channel_Mixer', { Enabled: false, Red: '1000;0;0;', Green: '0;1000;0;', Blue: '0;0;1000;' });
 		setDefault(newPp3.White_Balance, 'Temperature', image.whiteBalance);
 		setDefault(newPp3.White_Balance, 'Green', image.tint);
+		return newPp3;
+	}
+
+	reset(pp3: string | PP3, image: Image) {
+		this.pp3 = this.preparePP3(pp3, image);
+		this.pushHistory();
+		this.resetPreviewPP3(this.pp3);
+	}
+
+	initialize(pp3: string | PP3, image: Image) {
+		assert(image, 'Image must be provided to initialize editing state');
+		if (this.currentImageId === String(image.id) && (this.hasChangesFor(String(image.id)) || this.pendingSaves.has(String(image.id)))) return;
+		const newPp3 = this.preparePP3(pp3, image);
 
 		const id = image.id.toString();
 

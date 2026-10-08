@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { getWorkerInstance } from '$lib';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
-	import { filterPP3, parsePP3, toBase64 } from '$lib/pp3-utils';
+	import { filterPP3, toBase64 } from '$lib/pp3-utils';
 	import { edits } from '$lib/state/editing.svelte';
 	import { tagStore } from '$lib/state/tag.svelte';
 	import BeforeAfter from '$lib/ui/BeforeAfter.svelte';
@@ -216,8 +216,7 @@
 			}
 			if (version !== actionVersion || imageId !== edits.currentImageId) return;
 
-			edits.pp3 = parsePP3(BasePP3);
-			edits.pushHistory();
+			edits.reset(BasePP3, data.image);
 			await edits.snapshot();
 			if (version !== actionVersion || imageId !== edits.currentImageId) return;
 
