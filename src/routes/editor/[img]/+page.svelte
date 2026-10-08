@@ -23,6 +23,7 @@
 	let showFilterModal = $state(false);
 
 	let sampleImage = $state('');
+	let sampleImageId = $state<string | null>(null);
 	onDestroy(() => {
 		if (sampleImage.startsWith('blob:')) URL.revokeObjectURL(sampleImage);
 	});
@@ -124,6 +125,7 @@
 				if (result) {
 					if (sampleImage.startsWith('blob:')) URL.revokeObjectURL(sampleImage);
 					sampleImage = result.url;
+					sampleImageId = imageId;
 					edits.isFaulty = result.error;
 					edits.isLoading = false;
 				}
@@ -222,7 +224,7 @@
 	<!-- Image Preview Section -->
 	<div class="relative flex-1 overflow-hidden bg-neutral-900 shadow-inner">
 		<div class="flex h-full items-center justify-center p-2 sm:p-2">
-			<BeforeAfter {beforeImage} afterImage={sampleImage} />
+			<BeforeAfter {beforeImage} imageId={data.image.id} afterImage={sampleImageId === String(data.image.id) ? sampleImage : ''} />
 		</div>
 		
 		<!-- Desktop Left Nav -->
