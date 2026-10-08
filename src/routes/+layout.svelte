@@ -3,6 +3,8 @@
 	import logo from '$lib/assets/logo.webp';
 	import { onNavigate } from '$app/navigation';
 	import { onDestroy, onMount } from 'svelte';
+	import UploadProgress from '$lib/ui/UploadProgress.svelte';
+	import { uploads } from '$lib/state/uploads.svelte';
 	import { app } from '$lib/state/app.svelte';
 	import { edits } from '$lib/state/editing.svelte';
 	import {
@@ -35,13 +37,16 @@
 
 	let triageEnabled = $derived(data.triageEnabled);
 	let showNotifications = $state(false);
+	let notificationsButton: HTMLButtonElement;
+	let notificationsPanel: HTMLDivElement;
 	let runningTaskCount = $state(0);
 	let runningTasksPollingInterval: ReturnType<typeof setInterval> | undefined;
 	let notificationsPollingInterval: ReturnType<typeof setInterval> | undefined;
 	let knownNotificationIds = new Set<string>();
+	let totalRunningTasks = $derived(runningTaskCount + (uploads.isUploading ? 1 : 0));
 	let notificationsAriaLabel = $derived(
-		runningTaskCount > 0
-			? `Open notifications. ${runningTaskCount} task${runningTaskCount === 1 ? '' : 's'} running`
+		totalRunningTasks > 0
+			? `Open notifications. ${totalRunningTasks} task${totalRunningTasks === 1 ? '' : 's'} running`
 			: 'Open notifications'
 	);
 
@@ -50,6 +55,12 @@
 		if (showNotifications) {
 			void app.markAllNotificationsRead();
 		}
+	}
+
+	function closeNotificationsOutside(event: PointerEvent) {
+		if (!showNotifications || !(event.target instanceof Node)) return;
+		if (notificationsButton?.contains(event.target) || notificationsPanel?.contains(event.target)) return;
+		showNotifications = false;
 	}
 
 	$effect(() => {
@@ -75,7 +86,7 @@
 		const nextIds = new Set(mapped.map((notification) => notification.id));
 		if (emitToasts) {
 			for (const notification of mapped) {
-				if (!knownNotificationIds.has(notification.id)) {
+				if (!knownNotificationIds.has(notification.id) && !(notification.type !== 'error' && /^Import (started|completed) for /.test(notification.message))) {
 					app.addToast(notification.message, notification.type);
 				}
 			}
@@ -85,6 +96,8 @@
 	}
 
 	async function refreshNotifications() {
+		if (app.notificationMutations) return;
+		const version = app.notificationVersion;
 		try {
 			const response = await fetch('/api/notifications');
 			if (!response.ok) {
@@ -92,6 +105,7 @@
 			}
 
 			const payload = (await response.json()) as { notifications?: ServerNotification[] };
+			if (version !== app.notificationVersion || app.notificationMutations) return;
 			if (!Array.isArray(payload.notifications)) {
 				return;
 			}
@@ -151,11 +165,13 @@
 	});
 </script>
 
+<svelte:window onpointerdown={closeNotificationsOutside} />
+
 <svelte:head>
 	<link rel="icon" href={logo} />
 </svelte:head>
 
-<div class="grid h-screen grid-rows-[auto_1fr] bg-neutral-950 text-neutral-200 font-sans">
+<div class="grid h-dvh grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-neutral-950 text-neutral-200 font-sans">
 	<header
 		class="z-50 flex items-center justify-between border-b border-neutral-800/50 bg-neutral-950/80 px-3 py-3 backdrop-blur-md sm:px-6"
 	>
@@ -232,12 +248,14 @@
 		<div class="relative flex items-center gap-2">
 			<button
 				type="button"
+				bind:this={notificationsButton}
 				class="relative flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-900 hover:text-neutral-100 sm:h-9 sm:w-9"
 				aria-label={notificationsAriaLabel}
+				aria-expanded={showNotifications}
 				onclick={toggleNotifications}
 			>
 				<IconBell size={20} />
-				{#if runningTaskCount > 0}
+				{#if totalRunningTasks > 0}
 					<span class="absolute top-1 right-1 inline-flex h-3 w-3 items-center justify-center" aria-hidden="true">
 						<span class="running-ring absolute inset-0 rounded-full border border-neutral-100/70"></span>
 						<span class="running-dot h-1.5 w-1.5 rounded-full bg-neutral-100"></span>
@@ -247,6 +265,7 @@
 
 			{#if showNotifications}
 				<div
+					bind:this={notificationsPanel}
 					class="absolute top-11 right-10 z-80 w-80 overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/95 shadow-2xl backdrop-blur-md"
 				>
 					<div class="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
@@ -263,19 +282,21 @@
 					</div>
 
 					<div class="max-h-72 overflow-y-auto">
-						{#if app.notifications.length === 0}
+						{#if uploads.isUploading}<div class="p-3"><UploadProgress /></div>{/if}
+						{#if app.notifications.length === 0 && !uploads.isUploading}
 							<p class="px-3 py-4 text-sm text-neutral-500">No notifications yet.</p>
 						{:else}
 							{#each app.notifications as notification (notification.id)}
 								{@const typeColor = {
-									success: 'bg-green-500',
-									error: 'bg-red-500',
-									info: 'bg-blue-500'
+									success: 'bg-neutral-500',
+									error: 'bg-neutral-500',
+									info: 'bg-neutral-500'
 								}[notification.type]}
 								<div class="border-b border-neutral-800/70 px-3 py-2 last:border-b-0">
 									<div class="flex items-start gap-2">
 										<span class={`mt-1 h-2 w-2 shrink-0 rounded-full ${typeColor}`}></span>
 										<div class="min-w-0 flex-1">
+											<p class="text-xs font-semibold uppercase tracking-wide text-neutral-100">{notification.type}</p>
 											<p class="text-sm text-neutral-200">{notification.message}</p>
 											<p class="mt-1 text-[11px] text-neutral-500">
 												{new Date(notification.createdAt).toLocaleTimeString()}
@@ -297,7 +318,7 @@
 		</a>
 		</div>
 	</header>
-	<main>
+	<main class="min-h-0">
 		{@render children?.()}
 	</main>
 </div>
@@ -306,12 +327,16 @@
 <div class="fixed right-4 bottom-4 z-80 flex flex-col items-end gap-2">
 	{#each app.toasts as toast (toast.id)}
 		{@const bg = {
-			success: 'bg-green-600/90',
-			error: 'bg-red-600/90',
+			success: 'bg-neutral-700/90',
+			error: 'bg-neutral-700/90',
 			info: 'bg-neutral-800/90'
 		}[toast.type]}
-		<div class="rounded-lg {bg} z-80 px-4 py-2 text-sm font-medium text-neutral-50 shadow-lg backdrop-blur-sm">
+		<div class="rounded-lg {bg} z-80 border border-neutral-400 px-4 py-2 text-sm font-medium text-neutral-50 shadow-lg backdrop-blur-sm">
+			<span class="mr-2 text-xs font-bold uppercase">{toast.type}</span>
 			{toast.message}
+			{#if toast.action}
+				<button class="ml-3 underline underline-offset-4 text-white" onclick={toast.action.run}>{toast.action.label}</button>
+			{/if}
 		</div>
 	{/each}
 </div>

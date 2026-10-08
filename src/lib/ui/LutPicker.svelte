@@ -43,7 +43,7 @@
 		<div class="flex flex-wrap gap-2">
 			{#each avaliableTags as tag}
 				<button
-					class="rounded bg-gray-200 px-3 py-1 text-black hover:bg-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+					class="rounded bg-gray-200 px-3 py-1 text-black hover:bg-gray-300 focus:ring-2 focus:ring-neutral-100 focus:outline-none"
 					onclick={() => toggleTag(tag)}
 					class:selected={selectedTags.includes(tag)}
 				>
@@ -72,6 +72,6 @@
 	}
 
 	.selected {
-		background-color: #4a90e2;
+		background-color: #737373;
 	}
 </style>

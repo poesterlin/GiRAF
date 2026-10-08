@@ -1,46 +1,88 @@
 <script lang="ts">
-	import { goto, invalidateAll, preloadData } from '$app/navigation';
+	import { untrack } from 'svelte';
+	import { beforeNavigate, goto, invalidateAll, preloadData } from '$app/navigation';
 	import { page } from '$app/state';
 	import { tagStore } from '$lib/state/tag.svelte';
 	import FlagModal from '$lib/ui/FlagModal.svelte';
 	import Tooltip from '$lib/ui/Tooltip.svelte';
 	import { IconArchive, IconChevronLeft, IconChevronRight, IconFlag, IconRestore, IconAdjustmentsFilled } from '$lib/ui/icons';
 	import ImageStrip from '../ImageStrip.svelte';
+	import TriagePreview from '$lib/ui/TriagePreview.svelte';
 
 	let { data } = $props();
+	const photoInfo = $derived.by(() => {
+		const image = data.image;
+		const exposure = image.exposure?.trim();
+		const seconds = exposure ? Number(exposure) : NaN;
+		const shutter = Number.isFinite(seconds) && seconds > 0
+			? seconds < 1 ? `1/${Math.round(1 / seconds)} s` : `${seconds} s`
+			: exposure ? /\bs\b|sec/i.test(exposure) ? exposure : `${exposure} s` : null;
+		return [
+			{ label: 'ISO', value: image.iso ? String(image.iso) : null },
+			{ label: 'Aperture', value: image.aperture ? `f/${image.aperture}` : null },
+			{ label: 'Shutter', value: shutter },
+			{ label: 'Focal length', value: image.focalLength ? /mm/i.test(image.focalLength) ? image.focalLength : `${image.focalLength} mm` : null }
+		].filter((item) => item.value);
+	});
 
 	let showTagModal = $state(false);
 	let isArchiving = $state(false);
 	let justRestored = $state(false);
+	let isRestoring = $state(false);
+	let navigationVersion = 0;
+	beforeNavigate(() => { navigationVersion += 1; });
 
 	async function archiveImage() {
+		if (isArchiving || isRestoring || data.image.isArchived) return;
+		const imageId = data.image.id;
+		const nextImage = data.nextImage;
+		const version = navigationVersion;
 		isArchiving = true;
-		await new Promise((r) => setTimeout(r, 300));
+		try {
+			await new Promise((r) => setTimeout(r, 300));
 
-		const res = await fetch(`/api/images/${page.params.img}/archive`, {
-			method: 'POST'
-		});
-		if (res.ok) {
-			await invalidateAll();
-			if (data.nextImage) {
-				goto(`/triage/${data.nextImage}`);
+			const res = await fetch(`/api/images/${imageId}/archive`, {
+				method: 'POST'
+			});
+			if (res.ok) {
+				await invalidateAll();
+				if (nextImage && navigationVersion === version && data.image.id === imageId) {
+					await goto(`/triage/${nextImage}`);
+				}
+			} else {
+				alert('Failed to archive image.');
 			}
-		} else {
+		} catch (error) {
+			console.error('Failed to archive image', error);
 			alert('Failed to archive image.');
+		} finally {
+			isArchiving = false;
 		}
-		isArchiving = false;
 	}
 
 	async function restoreImage() {
-		const res = await fetch(`/api/images/${page.params.img}/archive`, {
-			method: 'DELETE'
-		});
-		if (res.ok) {
-			await invalidateAll();
-			justRestored = true;
-			setTimeout(() => (justRestored = false), 1000);
-		} else {
+		if (isArchiving || isRestoring || !data.image.isArchived) return;
+		const imageId = data.image.id;
+		const version = navigationVersion;
+		isRestoring = true;
+		try {
+			const res = await fetch(`/api/images/${imageId}/archive`, {
+				method: 'DELETE'
+			});
+			if (res.ok) {
+				await invalidateAll();
+				if (navigationVersion === version && data.image.id === imageId) {
+					justRestored = true;
+					setTimeout(() => (justRestored = false), 1000);
+				}
+			} else {
+				alert('Failed to restore image.');
+			}
+		} catch (error) {
+			console.error('Failed to restore image', error);
 			alert('Failed to restore image.');
+		} finally {
+			isRestoring = false;
 		}
 	}
 	$effect(() => {
@@ -49,12 +91,12 @@
 	});
 
 	$effect(() => {
-		if (data.nextImage) {
-			preloadData(`/triage/${data.nextImage}`);
-		}
-		if (data.previousImage) {
-			preloadData(`/triage/${data.previousImage}`);
-		}
+		const next = data.nextImage;
+		const previous = data.previousImage;
+		untrack(() => {
+			if (next) void preloadData(`/triage/${next}`).catch(() => {});
+			if (previous) void preloadData(`/triage/${previous}`).catch(() => {});
+		});
 	});
 
 	const keyMap = $derived(
@@ -89,16 +131,31 @@
 	</aside>
 
 	<!-- Main Preview Area -->
-	<main class="relative order-1 flex-1 overflow-hidden bg-neutral-900 lg:order-2">
-		<div class="flex h-full items-center justify-center p-4">
-			<img 
-				src={`/api/images/${data.image.id}/preview?size=2048`} 
-				alt={`Image ${data.image.id}`}
-				class="h-full w-full object-contain rounded-lg shadow-2xl transition-transform duration-500"
-				class:scale-95={isArchiving}
-				class:opacity-50={isArchiving}
-			/>
+	<main class="relative order-1 flex min-h-0 flex-1 flex-col overflow-hidden bg-neutral-900 lg:order-2">
+		<div class="flex min-h-0 flex-1 items-center justify-center p-4" class:lg:pr-44={photoInfo.length > 0 || !!data.image.camera || !!data.image.lens}>
+			<TriagePreview imageId={data.image.id} archiving={isArchiving} />
 		</div>
+
+		{#if photoInfo.length || data.image.camera || data.image.lens}
+			<section aria-label="Photo information" class="z-10 mx-4 mb-3 shrink-0 rounded-2xl border border-neutral-600 bg-neutral-950/90 px-4 py-3 shadow-lg backdrop-blur-md lg:absolute lg:right-4 lg:bottom-4 lg:m-0 lg:w-36 lg:px-3">
+				{#if photoInfo.length}
+					<dl class="flex flex-wrap gap-x-5 gap-y-2 lg:flex-col lg:gap-y-3">
+						{#each photoInfo as item (item.label)}
+							<div>
+								<dt class="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">{item.label}</dt>
+								<dd class="mt-0.5 text-sm font-semibold text-neutral-100 tabular-nums">{item.value}</dd>
+							</div>
+						{/each}
+					</dl>
+				{/if}
+				{#if data.image.camera || data.image.lens}
+					<div class="mt-2 border-t border-neutral-700 pt-2 text-xs leading-relaxed text-neutral-300 break-words">
+						{#if data.image.camera}<p>{data.image.camera}</p>{/if}
+						{#if data.image.lens}<p class="text-neutral-400">{data.image.lens}</p>{/if}
+					</div>
+				{/if}
+			</section>
+		{/if}
 
 		<!-- Left Side Controls -->
 		<div class="absolute inset-y-0 left-4 flex flex-col justify-center gap-8 pointer-events-none sm:left-8">
@@ -107,7 +164,7 @@
 					<button
 						onclick={restoreImage}
 						aria-label="Restore Image"
-						disabled={!data.image.isArchived}
+						disabled={!data.image.isArchived || isArchiving || isRestoring}
 						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-400 backdrop-blur-md transition-all active:scale-90 disabled:opacity-50 sm:h-16 sm:w-14 shadow-2xl"
 						class:text-neutral-100={data.image.isArchived}
 						class:bg-neutral-800={data.image.isArchived}
@@ -147,9 +204,9 @@
 					<button
 						onclick={archiveImage}
 						aria-label="Archive Image"
-						disabled={data.image.isArchived}
-						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-red-400 backdrop-blur-md transition-all active:scale-90 disabled:opacity-10 sm:h-16 sm:w-14 shadow-2xl"
-						class:hover:bg-red-500={!data.image.isArchived}
+						disabled={data.image.isArchived || isArchiving || isRestoring}
+						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-100 backdrop-blur-md transition-all active:scale-90 disabled:opacity-10 sm:h-16 sm:w-14 shadow-2xl"
+						class:hover:bg-neutral-500={!data.image.isArchived}
 						class:hover:text-white={!data.image.isArchived}
 					>
 						<IconArchive size={28} />

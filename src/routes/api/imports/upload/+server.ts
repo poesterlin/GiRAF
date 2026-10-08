@@ -4,9 +4,11 @@ import { db } from '$lib/server/db';
 import { importTable } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { ExifDate, ExifDateTime, exiftool } from 'exiftool-vendored';
-import { join } from 'path';
-import { access, mkdir, writeFile } from 'fs/promises';
+import { basename, extname, join } from 'path';
+import { access, writeFile, unlink } from 'fs/promises';
+import { createHash, randomUUID } from 'crypto';
 import { constants } from 'fs';
+import { backfillImportFingerprints, findImportDuplicate } from '$lib/server/import-fingerprints';
 
 const IMPORT_DIR = env.IMPORT_DIR;
 
@@ -48,24 +50,54 @@ export const POST: RequestHandler = async ({ request }) => {
 	const results = [];
 
 	for (const file of files) {
-		const filePath = join(IMPORT_DIR, file.name);
+		if (!(file instanceof File)) {
+			results.push({ status: 'error', message: 'Invalid uploaded file' });
+			continue;
+		}
+		const safeName = basename(file.name.replaceAll('\\', '/'));
+		if (!safeName || safeName === '.' || safeName === '..') {
+			results.push({ name: file.name, status: 'error', message: 'Invalid filename' });
+			continue;
+		}
+		let filePath = join(IMPORT_DIR, safeName);
+		let written = false;
 		console.log(`[UPLOAD] Saving to ${filePath}`);
-		
+
 		try {
 			// Check if file already exists in DB
 			const existing = await db.query.importTable.findFirst({
 				where: eq(importTable.filePath, filePath)
 			});
 
-			if (existing) {
+			const buffer = Buffer.from(await file.arrayBuffer());
+			const contentHash = createHash('sha256').update(buffer).digest('hex');
+			await backfillImportFingerprints([buffer.length]);
+			const duplicate = await findImportDuplicate(contentHash, buffer.length);
+			if (duplicate) {
 				console.log(`[UPLOAD] ${file.name} already in queue, skipping`);
-				results.push({ name: file.name, status: 'skipped', message: 'Already in queue' });
+				results.push({
+					name: file.name,
+					status: 'skipped',
+					message: duplicate.importedAt ? 'Already imported' : 'Already in queue',
+					...(duplicate.importedAt ? {} : { id: duplicate.id })
+				});
 				continue;
 			}
 
 			// Save file
-			const arrayBuffer = await file.arrayBuffer();
-			await writeFile(filePath, Buffer.from(arrayBuffer));
+			const extension = extname(safeName);
+			const uniquePath = () => join(IMPORT_DIR, `${safeName.slice(0, safeName.length - extension.length)}-${randomUUID()}${extension}`);
+			if (existing) filePath = uniquePath();
+			for (;;) {
+				try {
+					await writeFile(filePath, buffer, { flag: 'wx' });
+					written = true;
+					break;
+				} catch (e) {
+					if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+					filePath = uniquePath();
+				}
+			}
 			console.log(`[UPLOAD] ${file.name} saved successfully`);
 
 			// Extract metadata
@@ -73,14 +105,20 @@ export const POST: RequestHandler = async ({ request }) => {
 			const recordingDate = tags?.CreateDate || tags?.DateTimeOriginal || new Date();
 
 			// Add to importTable
-			const [inserted] = await db.insert(importTable).values({
-				filePath,
-				date: toDate(recordingDate),
-			}).returning();
+			const [inserted] = await db
+				.insert(importTable)
+				.values({
+					filePath,
+					contentHash,
+					fileSize: buffer.length,
+					date: toDate(recordingDate)
+				})
+				.returning();
 
 			console.log(`[UPLOAD] ${file.name} added to DB with ID ${inserted.id}`);
 			results.push({ name: file.name, status: 'success', id: inserted.id });
 		} catch (e) {
+			if (written) await unlink(filePath).catch(() => {});
 			console.error(`[UPLOAD] Failed to upload ${file.name}:`, e);
 			results.push({ name: file.name, status: 'error', message: String(e) });
 		}

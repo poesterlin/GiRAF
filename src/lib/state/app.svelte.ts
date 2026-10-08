@@ -2,6 +2,7 @@ interface Toast {
     id: string;
     message: string;
     type: 'success' | 'error' | 'info';
+	action?: { label: string; run: () => void };
 }
 
 interface NotificationItem {
@@ -21,8 +22,25 @@ interface ServerNotificationItem {
 }
 
 class AppState {
+	notificationVersion = 0;
+	notificationMutations = 0;
     toasts = $state<Toast[]>([]);
 	notifications = $state<NotificationItem[]>([]);
+	private notificationQueue: Promise<void> = Promise.resolve();
+
+	private enqueueNotificationMutation(operation: () => Promise<void>) {
+		this.notificationMutations += 1;
+		const task = this.notificationQueue.catch(() => {}).then(async () => {
+			try {
+				await operation();
+			} finally {
+				this.notificationMutations -= 1;
+				this.notificationVersion += 1;
+			}
+		});
+		this.notificationQueue = task;
+		return task;
+	}
 
 	private createId() {
 		// crypto.randomUUID() is not available in all contexts
@@ -33,46 +51,53 @@ class AppState {
 		this.notifications = notifications;
 	}
 
-    addToast(message: string, type: 'success' | 'error' | 'info') {
+    addToast(message: string, type: 'success' | 'error' | 'info', action?: Toast['action']) {
         const id = this.createId();
-        const toast = { id, message, type };
+        const toast = { id, message, type, action };
 		this.toasts.push(toast);
 
         setTimeout(() => {
 			this.toasts = this.toasts.filter((item) => item.id !== id);
-        }, 3000);
+        }, action ? 10000 : 3000);
     }
 
 	async markAllNotificationsRead() {
+		const version = ++this.notificationVersion;
 		this.notifications = this.notifications.map((notification) => ({
 			...notification,
 			read: true
 		}));
-		try {
-			const response = await fetch('/api/notifications', { method: 'PATCH' });
-			if (!response.ok) {
-				return;
+		return this.enqueueNotificationMutation(async () => {
+			try {
+				const response = await fetch('/api/notifications', { method: 'PATCH' });
+				if (!response.ok) {
+					return;
+				}
+				const payload = (await response.json()) as { notifications?: ServerNotificationItem[] };
+				if (version !== this.notificationVersion) return;
+				if (!Array.isArray(payload.notifications)) {
+					return;
+				}
+				this.notifications = payload.notifications.map((notification) => ({
+					...notification,
+					createdAt: new Date(notification.createdAt)
+				}));
+			} catch {
+				// Keep local state even if request fails.
 			}
-			const payload = (await response.json()) as { notifications?: ServerNotificationItem[] };
-			if (!Array.isArray(payload.notifications)) {
-				return;
-			}
-			this.notifications = payload.notifications.map((notification) => ({
-				...notification,
-				createdAt: new Date(notification.createdAt)
-			}));
-		} catch {
-			// Keep local state even if request fails.
-		}
+		});
 	}
 
 	async clearNotifications() {
+		this.notificationVersion += 1;
 		this.notifications = [];
-		try {
-			await fetch('/api/notifications', { method: 'DELETE' });
-		} catch {
-			// Keep local state even if request fails.
-		}
+		return this.enqueueNotificationMutation(async () => {
+			try {
+				await fetch('/api/notifications', { method: 'DELETE' });
+			} catch {
+				// Keep local state even if request fails.
+			}
+		});
 	}
 }
 

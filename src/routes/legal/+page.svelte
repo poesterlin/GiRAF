@@ -46,7 +46,7 @@
 						<span class="text-neutral-400">({rawtherapeeVersion})</span>
 					{/if}
 				{:else}
-					<span class="text-amber-300">Not available in this deployment.</span>
+					<span class="text-neutral-100">Not available in this deployment.</span>
 				{/if}
 			</li>
 			<li>Third-party library licenses are listed below.</li>

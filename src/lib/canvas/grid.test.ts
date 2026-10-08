@@ -11,10 +11,16 @@ describe('crop grid handles', () => {
 		const pp3 = makePP3({ X: 10, Y: 20, W: 40, H: 60 });
 		const handles = getCropHandles(pp3);
 		expect(handles).toHaveLength(4);
-		expect(handles[0]).toEqual({ name: 'nw', x: 5, y: 15, w: 10, h: 10 });
-		expect(handles[1]).toEqual({ name: 'ne', x: 45, y: 15, w: 10, h: 10 });
-		expect(handles[2]).toEqual({ name: 'sw', x: 5, y: 75, w: 10, h: 10 });
-		expect(handles[3]).toEqual({ name: 'se', x: 45, y: 75, w: 10, h: 10 });
+		expect(handles[0]).toEqual({ name: 'nw', x: 2, y: 12, w: 16, h: 16 });
+		expect(handles[1]).toEqual({ name: 'ne', x: 42, y: 12, w: 16, h: 16 });
+		expect(handles[2]).toEqual({ name: 'sw', x: 2, y: 72, w: 16, h: 16 });
+		expect(handles[3]).toEqual({ name: 'se', x: 42, y: 72, w: 16, h: 16 });
+	});
+	it('selects the nearest corner when touch targets overlap on a small crop', () => {
+		const pp3 = makePP3({ X: 10, Y: 20, W: 24, H: 24 });
+		expect(checkHandleCollision(pp3, 34, 44, 24)).toBe('se');
+		expect(checkHandleCollision(pp3, 34, 20, 24)).toBe('ne');
+		expect(checkHandleCollision(pp3, 10, 44, 24)).toBe('sw');
 	});
 
 	it('checkHandleCollision respects hit slop', () => {

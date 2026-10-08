@@ -25,7 +25,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	const [sessionImages, imageTags, tags] = await Promise.all([
 		db.query.imageTable.findMany({
 			where: eq(imageTable.sessionId, image.sessionId),
-			orderBy: asc(imageTable.recordedAt)
+			orderBy: [asc(imageTable.recordedAt), asc(imageTable.id)]
 		}),
 		db.query.imageToTagTable.findMany({
 			where: eq(imageToTagTable.imageId, imageId),

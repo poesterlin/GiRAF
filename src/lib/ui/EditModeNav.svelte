@@ -2,7 +2,6 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import { countPP3Properties, diffPP3, parsePP3, stringifyPP3 } from '$lib/pp3-utils';
-	import { edits } from '$lib/state/editing.svelte';
 	import {
 		IconAdjustmentsHorizontal,
 		IconGitBranch,
@@ -10,15 +9,18 @@
 		IconClipboard,
 		IconCopy,
 		IconCrop,
-		IconFilter,
 		IconFlag,
 		IconHistory,
-		IconRestore
 	} from '$lib/ui/icons';
 	import { IconFlagFilled } from '@tabler/icons-svelte';
-	import FilterModal from './FilterModal.svelte';
 	import FlagModal from './FlagModal.svelte';
 	import Tooltip from './Tooltip.svelte';
+	import { edits } from '$lib/state/editing.svelte';
+	import { beforeNavigate } from '$app/navigation';
+	import { onDestroy } from 'svelte';
+	import { app } from '$lib/state/app.svelte';
+	import Modal from './Modal.svelte';
+	import type { PP3 } from '$lib/pp3-utils';
 
 	interface Props {
 		img: string;
@@ -34,12 +36,46 @@
 		isFlagged?: boolean;
 	}
 
-	let { img, showSnapshots, showCrop, showEdit, showClipboard, showFlag, isFlagged, showLast, showFilter }: Props = $props();
+	let { img, showSnapshots, showCrop, showEdit, showClipboard, showFlag, isFlagged, showLast }: Props = $props();
 
 	let showFlagModal = $state(false);
-	let showFilterModal = $state(false);
 	let copiedConfig = $state(false);
 	let pastedConfig = $state(false);
+	let pasteVersion = 0;
+	let showCropChoice = $state(false);
+	let rememberCropChoice = $state(false);
+	let pendingPaste: { pp3: PP3; imageId: string; version: number } | undefined;
+	const cropPreferenceKey = 'giraf_paste_crop';
+	function cancelPaste() {
+		pasteVersion += 1;
+		pendingPaste = undefined;
+		showCropChoice = false;
+	}
+	beforeNavigate(cancelPaste);
+	onDestroy(cancelPaste);
+
+	function applyPaste(pp3: PP3, includeCrop: boolean) {
+		if (!includeCrop) {
+			if (edits.pp3.Crop) pp3.Crop = structuredClone($state.snapshot(edits.pp3.Crop));
+			else delete pp3.Crop;
+		}
+		edits.pp3 = pp3;
+		edits.pushHistory();
+		pastedConfig = true;
+		setTimeout(() => (pastedConfig = false), 2000);
+	}
+
+	function chooseCrop(includeCrop: boolean) {
+		try {
+			if (rememberCropChoice) localStorage.setItem(cropPreferenceKey, includeCrop ? 'include' : 'exclude');
+			else localStorage.removeItem(cropPreferenceKey);
+		} catch { /* Device storage may be unavailable. */ }
+		if (pendingPaste && pendingPaste.version === pasteVersion && pendingPaste.imageId === edits.currentImageId) {
+			applyPaste(pendingPaste.pp3, includeCrop);
+		}
+		pendingPaste = undefined;
+		showCropChoice = false;
+	}
 	let hasClipboardContent = $state(false);
 	let isDesktop = $state(false);
 
@@ -51,6 +87,10 @@
 
 	const tooltipPosition = $derived(isDesktop ? 'right' : 'top');
 	const iconSize = $derived(isDesktop ? 24 : 20);
+	const filterQuery = $derived.by(() => {
+		const filter = page.url.searchParams.get('filter');
+		return filter === null ? '' : `?${new URLSearchParams({ filter })}`;
+	});
 
 	const keyMap = $derived(
 		new Map<string, () => void>([
@@ -153,6 +193,10 @@
 
 	// Paste PP3 from clipboard or localStorage and apply to current edits
 	async function pasteConfig() {
+		const imageId = edits.currentImageId;
+		const version = ++pasteVersion;
+		pendingPaste = undefined;
+		showCropChoice = false;
 		let pp3Text: string | null = null;
 
 		// try clipboard readText
@@ -187,10 +231,27 @@
 
 		// try to parse PP3 text and apply
 		try {
-			edits.pp3 = parsePP3(pp3Text);
-			edits.pushHistory();
-			pastedConfig = true;
-			setTimeout(() => (pastedConfig = false), 2000);
+			if (!imageId || imageId !== edits.currentImageId || version !== pasteVersion) return;
+			const pp3 = parsePP3(pp3Text);
+			if (pp3.Crop && pp3.Crop.Enabled !== false && Number(pp3.Crop.W) > 0 && Number(pp3.Crop.H) > 0) {
+				let preference: string | null = null;
+				try { preference = localStorage.getItem(cropPreferenceKey); } catch { /* Ask each time. */ }
+				if (preference === 'include' || preference === 'exclude') {
+					applyPaste(pp3, preference === 'include');
+					app.addToast(preference === 'include' ? 'Settings pasted including crop.' : 'Settings pasted keeping the current crop.', 'info', {
+						label: 'Edit crop preference',
+						run: () => {
+							if (version !== pasteVersion) return;
+							rememberCropChoice = true;
+							showCropChoice = true;
+						}
+					});
+				} else {
+					pendingPaste = { pp3, imageId, version };
+					rememberCropChoice = false;
+					showCropChoice = true;
+				}
+			} else applyPaste(pp3, true);
 		} catch {
 			pastedConfig = false;
 		}
@@ -208,14 +269,30 @@
 	}
 </script>
 
+{#if showCropChoice}
+	<Modal onClose={cancelPaste}>
+		<div class="p-6 text-neutral-100">
+			<h2 class="text-lg font-semibold">Crop when pasting settings</h2>
+			<p class="mt-2 text-sm text-neutral-300">Apply the crop from the copied settings, or keep this image’s current crop?</p>
+			<label class="mt-4 flex items-center gap-2 text-sm">
+				<input type="checkbox" bind:checked={rememberCropChoice} class="accent-white" /> Remember this choice on this device
+			</label>
+			<div class="mt-6 flex flex-wrap gap-3">
+				<button class="rounded-lg border border-neutral-400 px-4 py-2" onclick={() => chooseCrop(false)}>Keep current crop</button>
+				<button class="rounded-lg bg-white px-4 py-2 text-black" onclick={() => chooseCrop(true)}>Apply copied crop</button>
+			</div>
+		</div>
+	</Modal>
+{/if}
+
 <svelte:window onfocus={() => checkClipboard()} onkeyup={handleKeyUp} />
 
 <nav class="flex flex-row lg:flex-col items-center gap-1 rounded-full border border-neutral-800/50 bg-neutral-950/40 p-1 backdrop-blur-xl shadow-2xl">
-	
+
 	<!-- {#if showReset && edits.canUndo}
-		<button 
-			class="flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90" 
-			onclick={() => {}} 
+		<button
+			class="flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
+			onclick={() => {}}
 			aria-label="Reset All"
 		>
 			<IconRestore size={20} />
@@ -225,8 +302,8 @@
 	<!-- navigation -->
 	{#if showCrop}
 		<Tooltip text="Crop & Rotate" position={tooltipPosition}>
-			<a 
-				href="/editor/{img}/crop" 
+			<a
+				href="/editor/{img}/crop{filterQuery}"
 				aria-label="Crop"
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
 			>
@@ -236,8 +313,8 @@
 	{/if}
 	{#if showEdit}
 		<Tooltip text="Adjustments" position={tooltipPosition}>
-			<a 
-				href="/editor/{img}" 
+			<a
+				href="/editor/{img}{filterQuery}"
 				aria-label="Edit"
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
 			>
@@ -249,11 +326,11 @@
 	<!-- flag button -->
 	{#if showFlag}
 		<Tooltip text={isFlagged ? "Remove Flag" : "Flag as Favorite"} position={tooltipPosition}>
-			<button 
-				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full transition-all hover:bg-neutral-800 active:scale-90" 
-				class:text-yellow-500={isFlagged}
+			<button
+				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full transition-all hover:bg-neutral-800 active:scale-90"
+				class:text-neutral-100={isFlagged}
 				class:text-neutral-400={!isFlagged}
-				onclick={() => (showFlagModal = true)} 
+				onclick={() => (showFlagModal = true)}
 				aria-label="Flagged"
 			>
 				{#if isFlagged}
@@ -268,9 +345,9 @@
 	<!-- last version -->
 	{#if showLast && edits.lastSavedPP3 && countPP3Properties(diffPP3(edits.lastSavedPP3, edits.pp3)) > 0}
 		<Tooltip text="Load Last Saved Version" position={tooltipPosition}>
-			<button 
+			<button
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
-				onclick={() => edits.initialize(edits.lastSavedPP3, page.data.image)} 
+				onclick={() => edits.initialize(edits.lastSavedPP3, page.data.image)}
 				aria-label="Load Last Version"
 			>
 				<IconHistory size={iconSize} />
@@ -281,8 +358,8 @@
 	<!-- version snapshots -->
 	{#if showSnapshots}
 		<Tooltip text="Snapshots" position={tooltipPosition}>
-			<a 
-				href="?snapshot" 
+			<a
+				href="?snapshot"
 				aria-label="Snapshots"
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
 			>
@@ -291,31 +368,15 @@
 		</Tooltip>
 	{/if}
 
-	<!-- filter button -->
-	{#if showFilter}
-		{@const filter = page.url.searchParams.get('filter')}
-		{@const hasFilter = filter !== null && filter !== 'none'}
-		<Tooltip text="Filter Gallery" position={tooltipPosition}>
-			<button 
-				class:bg-neutral-700={hasFilter}
-				class:text-neutral-100={hasFilter}
-				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
-				onclick={() => (showFilterModal = true)} 
-				aria-label="Filters"
-			>
-				<IconFilter size={iconSize} />
-			</button>
-		</Tooltip>
-	{/if}
 
 	<!-- Copy / Paste config buttons -->
 	{#if showClipboard}
 		<Tooltip text={copiedConfig ? "Copied!" : "Copy Edit Config"} position={tooltipPosition}>
-			<button 
-				onclick={copyConfig} 
+			<button
+				onclick={copyConfig}
 				aria-label="Copy edit config"
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full transition-all hover:bg-neutral-800 active:scale-90"
-				class:text-green-500={copiedConfig}
+				class:text-neutral-100={copiedConfig}
 				class:text-neutral-400={!copiedConfig}
 			>
 				{#if copiedConfig}
@@ -327,11 +388,11 @@
 		</Tooltip>
 		{#if hasClipboardContent}
 			<Tooltip text={pastedConfig ? "Pasted!" : "Paste Edit Config"} position={tooltipPosition}>
-				<button 
-					onclick={pasteConfig} 
+				<button
+					onclick={pasteConfig}
 					aria-label="Paste edit config"
 					class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full transition-all hover:bg-neutral-800 active:scale-90"
-					class:text-blue-500={pastedConfig}
+					class:text-neutral-100={pastedConfig}
 					class:text-neutral-400={!pastedConfig}
 				>
 					{#if pastedConfig}
@@ -347,8 +408,4 @@
 
 {#if showFlagModal}
 	<FlagModal {img} onClose={() => (showFlagModal = false)} />
-{/if}
-
-{#if showFilterModal}
-    <FilterModal onClose={() => (showFilterModal = false)} />
 {/if}

@@ -30,7 +30,7 @@ services:
       - TMP_DIR=/app/tmp
     volumes:
       - ./cluts:/app/cluts
-      - import:/app/import:ro
+      - import:/app/import
       - ./export:/app/export
       - ./tmp:/app/tmp
 

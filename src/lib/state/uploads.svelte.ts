@@ -1,0 +1,173 @@
+import { invalidateAll } from '$app/navigation';
+import pLimit from 'p-limit';
+import { checkUploadDuplicates, cacheFileFingerprint } from '$lib/upload-duplicates';
+import { getLocalFingerprint } from '$lib/local-preview-client';
+import { createUploadAssignment, type UploadSessionTarget } from '$lib/upload-assignment';
+import { app } from './app.svelte';
+import { importTiming } from '$lib/import-timing';
+import { prepareUploadSource } from '$lib/upload-source';
+
+export type { UploadSessionTarget } from '$lib/upload-assignment';
+export type UploadBatchResult = { failedFiles: File[]; assignmentFailed: boolean; sessionId?: number };
+export type UploadOptions = {
+	onFilePrepared?: (original: File, prepared: File) => Promise<void>;
+	onFileUploaded?: (file: File, id?: number, imported?: boolean) => void;
+	onFileFailed?: (file: File, error: unknown) => void;
+};
+
+class UploadState {
+	isUploading = $state(false);
+	total = $state(0);
+	completed = $state(0);
+	failed = $state(0);
+	progress = $state(0);
+	visible = $state(false);
+	checking = $state(0);
+	private limit = pLimit(3);
+	private transfers: { size: number; loaded: number }[] = [];
+	private batches = 0;
+	private assignmentFailed = false;
+
+	async upload(files: FileList | File[], target?: UploadSessionTarget, options: UploadOptions = {}): Promise<UploadBatchResult> {
+		const result: UploadBatchResult = { failedFiles: [], assignmentFailed: false };
+		if (files.length === 0) return result;
+		const capturedTarget = target ? { ...target } : undefined;
+		const assign = capturedTarget
+			? createUploadAssignment(capturedTarget, (id) => {
+					result.sessionId = id;
+				})
+			: undefined;
+		const assignFile = async (file: File, ids: number[]) => {
+			if (!assign || !ids.length) return;
+			try {
+				await assign(ids);
+			} catch (error) {
+				result.assignmentFailed = true;
+				this.assignmentFailed = true;
+				result.failedFiles.push(file);
+				this.failed += 1;
+				app.addToast(
+					`Uploaded ${file.name}, but session assignment failed. The file remains in the import queue: ${error instanceof Error ? error.message : String(error)}`,
+					'error'
+				);
+			}
+		};
+		this.batches += 1;
+		const fileArray = Array.from(files);
+		const batchStarted = performance.now();
+		if (!this.isUploading) {
+			this.assignmentFailed = false;
+			this.total = 0;
+			this.completed = 0;
+			this.failed = 0;
+			this.transfers = [];
+		}
+		this.total += fileArray.length;
+		this.visible = true;
+		this.isUploading = true;
+		app.addToast(`Starting upload of ${fileArray.length} file${fileArray.length === 1 ? '' : 's'}…`, 'info');
+		const transfers = fileArray.map((file) => ({ size: file.size, loaded: 0 }));
+		this.transfers.push(...transfers);
+		const updateProgress = () => {
+			const totalBytes = this.transfers.reduce((sum, file) => sum + file.size, 0);
+			this.progress = totalBytes ? (this.transfers.reduce((sum, file) => sum + file.loaded, 0) / totalBytes) * 100 : (this.completed / this.total) * 100;
+		};
+		updateProgress();
+		try {
+			await Promise.all(
+				fileArray.map((file, index) => {
+					const processFile = async () => {
+						let previewWork: Promise<void> | undefined;
+						importTiming('upload.queue', batchStarted, { file: file.name });
+						try {
+							const readStarted = performance.now();
+							const source = await prepareUploadSource(file);
+							importTiming('upload.source-ready', readStarted, { file: file.name, bytes: file.size, buffered: source !== file });
+							if (source !== file) previewWork = options.onFilePrepared?.(file, source).catch((error) => console.error('Preview preparation failed', error));
+							this.checking += 1;
+							let check;
+							try {
+								const hashStarted = performance.now();
+								cacheFileFingerprint(source, await getLocalFingerprint(source));
+								importTiming('upload.hash', hashStarted, { file: file.name, bytes: file.size });
+								const checkStarted = performance.now();
+								[check] = await checkUploadDuplicates([source]);
+								importTiming('upload.duplicate-check', checkStarted, { file: file.name, duplicate: check?.duplicate });
+							} finally {
+								this.checking -= 1;
+							}
+							if (check?.duplicate) {
+								if (!check.imported && check.id !== undefined) await assignFile(file, [check.id]);
+								options.onFileUploaded?.(file, check.id, check.imported);
+								return;
+							}
+							const importIds = await new Promise<number[]>((resolve, reject) => {
+								const transferStarted = performance.now();
+								const request = new XMLHttpRequest();
+								request.open('POST', '/api/imports/upload');
+								request.upload.onprogress = (event) => {
+									if (event.lengthComputable) {
+										transfers[index].loaded = file.size * (event.loaded / event.total);
+										updateProgress();
+									}
+								};
+								request.upload.onload = () => importTiming('upload.bytes-sent', transferStarted, { file: file.name, bytes: file.size });
+								request.onload = () => {
+									importTiming('upload.response', transferStarted, { file: file.name, status: request.status });
+									try {
+										const payload = JSON.parse(request.responseText) as { message?: string; results?: { status: string; id?: number; message?: string }[] };
+										if (request.status < 200 || request.status >= 300) throw new Error(payload.message || `Upload failed (${request.status})`);
+										if (!payload.results?.length || payload.results.some((result) => result.status === 'error')) {
+											throw new Error(payload.results?.find((result) => result.status === 'error')?.message || 'File processing failed');
+										}
+										resolve(payload.results.flatMap((result) => (result.id === undefined ? [] : [result.id])));
+									} catch (error) {
+										reject(error);
+									}
+								};
+								request.onerror = () => reject(new Error('Network error'));
+								request.onabort = () => reject(new Error('Upload aborted'));
+								const body = new FormData();
+								body.append('files', source);
+								if (capturedTarget) body.append('sessionAssigned', 'true');
+								request.send(body);
+								importTiming('upload.started', batchStarted, { file: file.name });
+							});
+							await assignFile(file, importIds);
+							options.onFileUploaded?.(file, importIds[0], !importIds.length);
+						} catch (error) {
+							importTiming('upload.error', batchStarted, { file: file.name, error: String(error) });
+							options.onFileFailed?.(file, error);
+							result.failedFiles.push(file);
+							this.failed += 1;
+							console.error(`Upload failed: ${file.name}`, error);
+							app.addToast(`Failed to upload ${file.name}: ${error instanceof Error ? error.message : String(error)}`, 'error');
+						} finally {
+							// Release the upload slot only once its buffered preview is also finished.
+							await previewWork;
+							this.completed += 1;
+							transfers[index].loaded = file.size;
+							updateProgress();
+						}
+					};
+					return this.limit(processFile);
+				})
+			);
+		} finally {
+			this.batches -= 1;
+			if (this.isUploading && this.batches === 0) {
+				this.isUploading = false;
+				this.transfers = [];
+				if (!this.assignmentFailed)
+					app.addToast(
+						this.failed ? `Uploaded ${this.completed - this.failed} of ${this.total} files. ${this.failed} failed.` : `Successfully uploaded ${this.total} files`,
+						this.failed ? 'error' : 'success'
+					);
+				void invalidateAll().catch((error) => console.error('Failed to refresh uploads', error));
+			}
+		}
+		return result;
+	}
+}
+
+export const uploads = new UploadState();

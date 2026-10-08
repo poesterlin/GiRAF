@@ -12,7 +12,7 @@
 		<button
 			type="button"
 			class="relative aspect-4/3 overflow-hidden rounded-md border-2 transition-all"
-			class:border-blue-500={value === session.id}
+			class:border-neutral-300={value === session.id}
 			class:border-transparent={value !== session.id}
 			onclick={() => (value = session.id)}
 		>

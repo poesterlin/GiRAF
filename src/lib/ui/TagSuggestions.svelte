@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { tagStore } from '$lib/state/tag.svelte';
-	import { slide } from 'svelte/transition';
+	import { tagStore } from "$lib/state/tag.svelte";
+	import { slide } from "svelte/transition";
+
 
 	function handleSuggestionClick(tag: string) {
 		tagStore.addTag(tag);

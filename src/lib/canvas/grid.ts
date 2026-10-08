@@ -3,7 +3,7 @@ import type { PP3 } from "$lib/pp3-utils";
 export function getCropHandles(pp3: PP3<number>) {
     const crop = pp3.Crop;
 
-    const handleSize = 10, edgeHandles = false;
+    const handleSize = 16, edgeHandles = false;
     const hs = Math.max(6, handleSize);
     const half = hs / 2;
 
@@ -56,7 +56,7 @@ export function drawCropGrid(ctx: CanvasRenderingContext2D, pp3: PP3<number>, { 
         gridColor = 'rgba(255,255,255,0.6)',
         handleFill = 'rgba(255,255,255,0.95)',
         handleStroke = 'rgba(0,0,0,0.6)',
-        selectedHandleFill = 'rgba(255,0,0,0.95)',
+        selectedHandleFill = 'rgba(180,180,180,1)',
         lineWidth = 1,
         gridLineWidth = 1;
 
@@ -148,12 +148,19 @@ export function drawCropGrid(ctx: CanvasRenderingContext2D, pp3: PP3<number>, { 
 
 export function checkHandleCollision(pp3: PP3<number>, x: number, y: number, hitSlop: number): string | undefined {
     const handles = getCropHandles(pp3);
+    let nearest: string | undefined;
+    let nearestDistance = Infinity;
     for (const handle of handles) {
         if (x >= handle.x - hitSlop && x <= handle.x + handle.w + hitSlop &&
             y >= handle.y - hitSlop && y <= handle.y + handle.h + hitSlop) {
-            return handle.name;
+            const distance = Math.hypot(x - (handle.x + handle.w / 2), y - (handle.y + handle.h / 2));
+            if (distance < nearestDistance) {
+                nearest = handle.name;
+                nearestDistance = distance;
+            }
         }
     }
+	if (nearest) return nearest;
 
     return checkGridCollision(pp3, x, y, hitSlop) ? 'grid' : undefined;
 }

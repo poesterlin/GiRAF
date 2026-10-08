@@ -1,11 +1,11 @@
 {
   "name": "giraf",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "bunx --bun vite dev",
-    "build": "bunx --bun vite build",
+    "build": "bun run licenses:generate && bunx --bun vite build",
     "preview": "bunx --bun vite preview",
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -13,7 +13,9 @@
     "format": "prettier --write .",
     "lint": "prettier --check . && eslint .",
     "test": "bun test",
-    "licenses:generate": "bunx license-checker --production --excludePrivatePackages --out src/lib/assets/THIRD_PARTY_LICENSES.txt",
+    "preview:parity": "bun scripts/preview-parity/index.ts",
+    "wasm:build": "bun scripts/build-wasm.ts",
+    "licenses:generate": "bunx --bun license-checker --production --excludePrivatePackages --out src/lib/assets/THIRD_PARTY_LICENSES.txt",
     "db:start": "docker compose up",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
@@ -35,6 +37,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-svelte": "^3.14.0",
     "globals": "^16.5.0",
+    "license-checker": "^25.0.1",
     "prettier": "^3.8.1",
     "prettier-plugin-svelte": "^3.4.1",
     "prettier-plugin-tailwindcss": "^0.6.14",
@@ -55,8 +58,10 @@
     "comlink": "^4.4.2",
     "drizzle-orm": "^0.40.1",
     "exiftool-vendored": "^30.5.0",
+    "hash-wasm": "^4.12.0",
     "jpeg-js": "^0.4.4",
     "p-limit": "^7.3.0",
+    "postgres": "^3.4.9",
     "sharp": "^0.34.5"
   }
 }

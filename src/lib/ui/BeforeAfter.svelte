@@ -1,8 +1,28 @@
 <script lang="ts">
-	const { beforeImage, afterImage } = $props<{
+	const { beforeImage, afterImage, imageId } = $props<{
 		beforeImage: string;
 		afterImage: string;
+		imageId: number;
 	}>();
+
+	let readyPreview = $state<{ imageId: number; url: string } | null>(null);
+	const displayedPreview = $derived(readyPreview && readyPreview.imageId === imageId ? readyPreview.url : beforeImage);
+	const showingEdited = $derived(readyPreview?.imageId === imageId);
+
+	$effect(() => {
+		const url = afterImage;
+		const id = imageId;
+		if (!url) return;
+		let active = true;
+		const preview = new Image();
+		preview.src = url;
+		void preview.decode().then(() => {
+			if (active) readyPreview = { imageId: id, url };
+		}).catch(() => {
+			// Keep the original or last ready preview if the next image fails to load.
+		});
+		return () => { active = false; };
+	});
 
 	let split = $state(0.5);
 
@@ -156,9 +176,9 @@
 
 	<!-- After (clipped) -->
 	<div class="pane after-pane">
-		<img src={afterImage} alt="After" draggable="false" style:transform={`translate(${x}px, ${y}px) scale(${scale})`} />
+		<img src={displayedPreview} alt={showingEdited ? 'After' : 'Original preview'} draggable="false" style:transform={`translate(${x}px, ${y}px) scale(${scale})`} />
 		<div class="absolute top-4 right-4 z-10 rounded-full border border-neutral-700/50 bg-neutral-100 px-3 py-1 text-[10px] font-bold tracking-widest uppercase text-neutral-950 backdrop-blur-md transition-opacity group-hover:opacity-100 sm:opacity-0">
-			Edited
+			{showingEdited ? 'Edited' : 'Loading edits…'}
 		</div>
 	</div>
 

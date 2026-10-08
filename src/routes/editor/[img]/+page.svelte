@@ -13,6 +13,7 @@
 	import LutPicker from '$lib/ui/LutPicker.svelte';
 	import { IconArchive, IconArrowBackUp, IconArrowForwardUp, IconCheck, IconChevronLeft, IconChevronRight, IconDeviceFloppy, IconFidgetSpinner, IconRestore, IconFilter } from '$lib/ui/icons';
 	import { fade } from 'svelte/transition';
+	import { onDestroy, untrack } from 'svelte';
 	import Adjustments from './Adjustments.svelte';
 	import Snapshots from './Snapshots.svelte';
 	import FilterModal from '$lib/ui/FilterModal.svelte';
@@ -22,15 +23,27 @@
 	let showFilterModal = $state(false);
 
 	let sampleImage = $state('');
+	let sampleImageId = $state<string | null>(null);
+	onDestroy(() => {
+		if (sampleImage.startsWith('blob:')) URL.revokeObjectURL(sampleImage);
+	});
 	let apiPath = $derived(`/api/images/${data.image.id}`);
 	let snapshotSaved = $state(false);
 	let resetSaved = $state(false);
+	let actionVersion = 0;
+	let confirmationVersion = 0;
+	let resetting = false;
+	onDestroy(() => { actionVersion += 1; });
 	let beforeImage = $derived(apiPath + `/edit?preview&config=${toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
 	let flashKey = $state<string | null>(null);
 	let flashTimer: number | null = null;
 
 	// TODO: Configure autosave behavior in settings
 	beforeNavigate(() => {
+		actionVersion += 1;
+		confirmationVersion += 1;
+		snapshotSaved = false;
+		resetSaved = false;
 		if(edits.hasChanges) {
 			edits.snapshot();
 		}
@@ -61,42 +74,69 @@
 	}
 
 	async function snapshot() {
+		const imageId = edits.currentImageId;
+		const version = actionVersion;
 		await edits.snapshot();
+		if (version !== actionVersion || imageId !== edits.currentImageId) return;
 
 		snapshotSaved = true;
+		resetSaved = false;
+		const confirmation = ++confirmationVersion;
 		await invalidateAll();
 
 		setTimeout(() => {
+			if (version !== actionVersion || confirmation !== confirmationVersion) return;
 			snapshotSaved = false;
 		}, 2000);
 	}
 
 	$effect(() => {
 		const latestSnapshot = data.snapshots[0];
-		if (latestSnapshot) {
-			edits.initialize(latestSnapshot.pp3, data.image);
-		} else {
-			edits.initialize(parsePP3(BasePP3), data.image);
-		}
+		const image = data.image;
+		const pp3 = latestSnapshot?.pp3 ?? BasePP3;
+		untrack(() => edits.initialize(pp3, image));
 	});
 
 	$effect(() => {
 		const worker = getWorkerInstance();
+		let active = true;
 		edits.isLoading = true;
-		worker
-			.refreshImage(page.params.img!, toBase64(edits.throttledPP3))
+		const imageId = page.params.img!;
+		const config = toBase64(edits.throttledPP3);
+		let timeout: ReturnType<typeof setTimeout>;
+		let timedOut = false;
+		const render = worker.refreshImage(imageId, config).then((result) => {
+			if (timedOut && result?.url.startsWith('blob:')) URL.revokeObjectURL(result.url);
+			return result;
+		});
+		const fallback = new Promise<{ url: string; error: boolean }>((resolve) => {
+			timeout = setTimeout(() => {
+				timedOut = true;
+				resolve({ url: `/api/images/${imageId}/edit?config=${encodeURIComponent(config)}`, error: false });
+			}, 15000);
+		});
+		Promise.race([render, fallback])
+			.finally(() => clearTimeout(timeout))
 			.then((result) => {
+				if (!active) {
+					if (result?.url.startsWith('blob:')) URL.revokeObjectURL(result.url);
+					return;
+				}
 				if (result) {
+					if (sampleImage.startsWith('blob:')) URL.revokeObjectURL(sampleImage);
 					sampleImage = result.url;
+					sampleImageId = imageId;
 					edits.isFaulty = result.error;
 					edits.isLoading = false;
 				}
 			})
 			.catch((error) => {
+				if (!active) return;
 				console.error('Error refreshing image:', error);
 				edits.isFaulty = true;
 				edits.isLoading = false;
 			});
+		return () => { active = false; };
 	});
 
 	$effect(() => {
@@ -148,20 +188,33 @@
 	}
 
 	async function reset(){
-		if (edits.hasChanges) {
-			await snapshot();
+		if (resetting) return;
+		resetting = true;
+		const imageId = edits.currentImageId;
+		const version = actionVersion;
+		try {
+			if (edits.hasChanges) {
+				await snapshot();
+			}
+			if (version !== actionVersion || imageId !== edits.currentImageId) return;
+
+			edits.pp3 = parsePP3(BasePP3);
+			edits.pushHistory();
+			await edits.snapshot();
+			if (version !== actionVersion || imageId !== edits.currentImageId) return;
+
+			resetSaved = true;
+			snapshotSaved = false;
+			const confirmation = ++confirmationVersion;
+			await invalidateAll();
+
+			setTimeout(() => {
+				if (version !== actionVersion || confirmation !== confirmationVersion) return;
+				resetSaved = false;
+			}, 2000);
+		} finally {
+			resetting = false;
 		}
-
-		edits.pp3 = parsePP3(BasePP3);
-		edits.pushHistory();
-		await edits.snapshot();
-
-		resetSaved = true;
-		await invalidateAll();
-
-		setTimeout(() => {
-			resetSaved = false;
-		}, 2000);
 	}
 </script>
 
@@ -169,9 +222,9 @@
 
 <div class="flex h-full flex-col overflow-hidden bg-neutral-950 text-neutral-200 lg:flex-row">
 	<!-- Image Preview Section -->
-	<div class="relative flex-1 overflow-hidden bg-neutral-900 shadow-inner">
+	<div class="relative min-h-0 flex-1 overflow-hidden bg-neutral-900 shadow-inner">
 		<div class="flex h-full items-center justify-center p-2 sm:p-2">
-			<BeforeAfter {beforeImage} afterImage={sampleImage} />
+			<BeforeAfter {beforeImage} imageId={data.image.id} afterImage={sampleImageId === String(data.image.id) ? sampleImage : ''} />
 		</div>
 		
 		<!-- Desktop Left Nav -->

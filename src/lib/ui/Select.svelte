@@ -193,7 +193,7 @@
 	}   
 
 	.trigger:focus {
-		outline: 2px solid #9ca3af;
+		outline: 2px solid #d4d4d4;
 	}
 
 	.trigger[disabled],

@@ -139,23 +139,23 @@
 
 						{#if jobStates[item.id] === 'exporting'}
 							<span
-								class="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-blue-400 border border-blue-500/20"
+								class="inline-flex items-center gap-1.5 rounded-full bg-neutral-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-neutral-100 border border-neutral-300/20"
 							>
-								<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400"></span>
+								<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-400"></span>
 								Exporting
 							</span>
 						{:else if item.status === 'Updated'}
 							<span
-								class="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-400 border border-amber-500/20"
+								class="inline-flex items-center gap-1.5 rounded-full bg-neutral-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-neutral-100 border border-neutral-300/20"
 							>
-								<span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
+								<span class="h-1.5 w-1.5 rounded-full bg-neutral-400"></span>
 								Changes Pending
 							</span>
 						{:else}
 							<span
-								class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-400 border border-emerald-500/20"
+								class="inline-flex items-center gap-1.5 rounded-full bg-neutral-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-neutral-100 border border-neutral-300/20"
 							>
-								<span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+								<span class="h-1.5 w-1.5 rounded-full bg-neutral-400"></span>
 								Exported
 							</span>
 						{/if}
@@ -383,7 +383,7 @@
 			>
 				<input type="hidden" name="id" value={albumDeleteId} required />
 
-				<button class="w-full rounded-2xl bg-red-600 py-4 text-sm font-black tracking-tight text-white transition-all hover:bg-red-500 hover:scale-[1.02]" type="submit">
+				<button class="w-full rounded-2xl bg-neutral-700 py-4 text-sm font-black tracking-tight text-white transition-all hover:bg-neutral-500 hover:scale-[1.02]" type="submit">
 					REMOVE LINK
 				</button>
 				<button type="button" onclick={() => (albumDeleteId = undefined)} class="w-full py-2 text-sm font-bold text-neutral-600 transition-colors hover:text-neutral-400">
