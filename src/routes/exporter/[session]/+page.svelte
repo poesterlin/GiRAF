@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { invalidate } from '$app/navigation';
 	import { IconChevronRight, IconChevronLeft, IconX } from '$lib/ui/icons';
 
 	let { data } = $props();
@@ -7,10 +8,12 @@
 	let currentIndex = $state(0);
 
 	function nextImage() {
+		if (!data.images.length) return;
 		currentIndex = (currentIndex + 1) % data.images.length;
 	}
 
 	function prevImage() {
+		if (!data.images.length) return;
 		currentIndex = (currentIndex - 1 + data.images.length) % data.images.length;
 	}
 
@@ -26,7 +29,16 @@
 
 	onMount(() => {
 		window.addEventListener('keydown', handleKeydown);
+		let refreshing = false;
+		const interval = setInterval(async () => {
+			if (data.downloadReady || refreshing) return;
+			refreshing = true;
+			try { await invalidate('exporter:session'); } catch (error) {
+				console.error('Failed to refresh export status', error);
+			} finally { refreshing = false; }
+		}, 2000);
 		return () => {
+			clearInterval(interval);
 			window.removeEventListener('keydown', handleKeydown);
 		};
 	});
@@ -101,18 +113,20 @@
 			</div>
 		</div>
 		
-		<a
-			href="/exporter"
-			class="flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-900/50 text-neutral-100 backdrop-blur-xl border border-neutral-800 hover:bg-neutral-800"
-		>
-			<IconX size={24} />
-		</a>
+		<div class="flex items-center gap-3">
+			{#if data.downloadReady}
+				<a href="/api/sessions/{data.session.id}/download-export" download class="rounded-xl border border-neutral-300 bg-neutral-100 px-4 py-3 text-sm font-bold text-neutral-950 hover:bg-white">Download ZIP</a>
+			{:else}
+				<button disabled class="rounded-xl border border-neutral-600 bg-neutral-900 px-4 py-3 text-sm font-bold text-neutral-300" title="Available once all images are exported and processing has finished">Download ZIP</button>
+			{/if}
+			<a href="/exporter" aria-label="Close preview" class="flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-900/50 text-neutral-100 backdrop-blur-xl border border-neutral-800 hover:bg-neutral-800"><IconX size={24} /></a>
+		</div>
 	</div>
 
 	{#if data.images.length > 0}
 		<div class="relative flex h-full w-full items-center justify-center p-12">
 			<img
-				src={`/api/exporter/sessions/${data.session.id}/${data.images[currentIndex]}`}
+				src={`/api/exporter/sessions/${data.session.id}/${data.images[currentIndex % data.images.length]}`}
 				alt={`Exported image ${currentIndex + 1} for session ${data.session.name}`}
 				class="h-full w-full max-w-full max-h-full object-contain"
 			/>
