@@ -6,8 +6,26 @@ Brightness=0
 Contrast=0
 Saturation=0
 HighlightCompr=0
+HighlightComprThreshold=0
 ShadowCompr=0
 Black=0
+
+[Vibrance]
+Enabled=false
+Pastels=0
+Saturated=0
+PSThreshold=0;75;
+ProtectSkins=true
+AvoidColorShift=true
+PastSatTog=false
+SkinTonesCurve=0;
+
+[Local Contrast]
+Enabled=false
+Radius=80
+Amount=0.2
+Darkness=1
+Lightness=1
 
 [Rotation]
 Enabled=true

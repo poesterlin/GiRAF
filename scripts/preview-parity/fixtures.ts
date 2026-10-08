@@ -69,6 +69,31 @@ export function compressedFixtureTiff(bits: 8 | 16, grayscale = false) {
 	}
 	return Buffer.concat([header, pixels]);
 }
+
+/** Attach a real ICC profile to these single-strip fixtures without altering samples. */
+export function withIccProfile(tiff: Buffer, profile: Buffer) {
+	const count = tiff.readUInt16LE(8);
+	const stripEntry = Array.from({ length: count }, (_, i) => 10 + i * 12).find((offset) => tiff.readUInt16LE(offset) === 273)!;
+	const headerSize = tiff.readUInt32LE(stripEntry + 8);
+	const result = Buffer.alloc(tiff.length + 12 + profile.length);
+	tiff.copy(result, 0, 0, 10 + count * 12);
+	result.writeUInt16LE(count + 1, 8);
+	for (let i = 0; i < count; i++) {
+		const offset = 10 + i * 12;
+		const tag = result.readUInt16LE(offset);
+		if (tag === 273 || (tag === 258 && result.readUInt32LE(offset + 4) > 1)) result.writeUInt32LE(result.readUInt32LE(offset + 8) + 12, offset + 8);
+	}
+	const tag = 10 + count * 12;
+	result.writeUInt16LE(34675, tag);
+	result.writeUInt16LE(7, tag + 2);
+	result.writeUInt32LE(profile.length, tag + 4);
+	result.writeUInt32LE(tiff.length + 12, tag + 8);
+	tiff.copy(result, headerSize + 12, headerSize);
+	// Copy the sample-depth array, leaving the new directory terminator zeroed.
+	tiff.copy(result, 10 + (count + 1) * 12 + 4, 10 + count * 12 + 4, headerSize);
+	profile.copy(result, tiff.length + 12);
+	return result;
+}
 export async function generateFixtures(directory: string, grayscale: boolean) {
 	const files: string[] = [];
 	for (const bits of [8, 16] as const) {

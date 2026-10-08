@@ -2,21 +2,20 @@ import { assert } from '$lib';
 import { countPP3Properties, diffPP3, parsePP3, stringifyPP3, type PP3 } from '$lib/pp3-utils';
 import type { Image } from '$lib/server/db/schema';
 
+const PREVIEW_UPDATE_INTERVAL = 100;
+
 class EditingState {
 	public pp3 = $state<PP3>() as PP3;
 	public throttledPP3 = $state<PP3>({});
 	public updateThrottledPP3 = (pp3: PP3) => {
 		if (!pp3) return;
-		if (
-			countPP3Properties(diffPP3(this.throttledPP3, pp3)) === 0 &&
-			countPP3Properties(diffPP3(pp3, this.throttledPP3)) === 0
-		) {
+		if (countPP3Properties(diffPP3(this.throttledPP3, pp3)) === 0 && countPP3Properties(diffPP3(pp3, this.throttledPP3)) === 0) {
 			this.cancelPreviewUpdate();
 			return;
 		}
 		// Keep only the latest immutable edit, even while a trailing update is queued.
 		this.pendingPreviewPP3 = structuredClone($state.snapshot(pp3));
-		const remaining = 300 - (Date.now() - this.lastPreviewUpdate);
+		const remaining = PREVIEW_UPDATE_INTERVAL - (Date.now() - this.lastPreviewUpdate);
 		if (remaining <= 0) {
 			this.flushPreviewPP3();
 		} else if (this.previewTimeout === null) {
@@ -69,6 +68,7 @@ class EditingState {
 			Contrast: 0,
 			Saturation: 0,
 			HighlightCompr: 0,
+			HighlightComprThreshold: 0,
 			ShadowCompr: 0,
 			Black: 0
 		});
@@ -85,8 +85,25 @@ class EditingState {
 			Enabled: true,
 			Degree: 0
 		});
-		setDefault(newPp3.White_Balance, "Temperature", image.whiteBalance);
-		setDefault(newPp3.White_Balance, "Green", image.tint);
+		ensureSectionDefaults(newPp3, 'Vibrance', {
+			Enabled: false,
+			Pastels: 0,
+			Saturated: 0,
+			PSThreshold: '0;75;',
+			ProtectSkins: true,
+			AvoidColorShift: true,
+			PastSatTog: false,
+			SkinTonesCurve: '0;'
+		});
+		ensureSectionDefaults(newPp3, 'Local_Contrast', {
+			Enabled: false,
+			Radius: 80,
+			Amount: 0.2,
+			Darkness: 1,
+			Lightness: 1
+		});
+		setDefault(newPp3.White_Balance, 'Temperature', image.whiteBalance);
+		setDefault(newPp3.White_Balance, 'Green', image.tint);
 
 		const id = image.id.toString();
 

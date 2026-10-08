@@ -1,0 +1,30 @@
+services:
+  editor:
+    ports: !reset []
+    expose:
+      - "3000"
+    restart: unless-stopped
+    init: true
+    environment:
+      ORIGIN: https://${HOST_DOMAIN}
+    networks:
+      - default
+      - traefik_web
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik_web
+      - traefik.http.routers.raw-editor.rule=Host(`${HOST_DOMAIN}`)
+      - traefik.http.services.raw-editor.loadbalancer.server.port=3000
+      - traefik.http.routers.raw-editor.middlewares=raw-editor-isolation
+      - traefik.http.middlewares.raw-editor-isolation.headers.customresponseheaders.Cross-Origin-Opener-Policy=same-origin
+      - traefik.http.middlewares.raw-editor-isolation.headers.customresponseheaders.Cross-Origin-Embedder-Policy=credentialless
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  traefik_web:
+    external: true

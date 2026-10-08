@@ -88,8 +88,22 @@
 		const worker = getWorkerInstance();
 		let active = true;
 		edits.isLoading = true;
-		worker
-			.refreshImage(page.params.img!, toBase64(edits.throttledPP3))
+		const imageId = page.params.img!;
+		const config = toBase64(edits.throttledPP3);
+		let timeout: ReturnType<typeof setTimeout>;
+		let timedOut = false;
+		const render = worker.refreshImage(imageId, config).then((result) => {
+			if (timedOut && result?.url.startsWith('blob:')) URL.revokeObjectURL(result.url);
+			return result;
+		});
+		const fallback = new Promise<{ url: string; error: boolean }>((resolve) => {
+			timeout = setTimeout(() => {
+				timedOut = true;
+				resolve({ url: `/api/images/${imageId}/edit?config=${encodeURIComponent(config)}`, error: false });
+			}, 15000);
+		});
+		Promise.race([render, fallback])
+			.finally(() => clearTimeout(timeout))
 			.then((result) => {
 				if (!active) {
 					if (result?.url.startsWith('blob:')) URL.revokeObjectURL(result.url);

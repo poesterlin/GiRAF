@@ -3,6 +3,8 @@
 	import logo from '$lib/assets/logo.webp';
 	import { onNavigate } from '$app/navigation';
 	import { onDestroy, onMount } from 'svelte';
+	import UploadProgress from '$lib/ui/UploadProgress.svelte';
+	import { uploads } from '$lib/state/uploads.svelte';
 	import { app } from '$lib/state/app.svelte';
 	import { edits } from '$lib/state/editing.svelte';
 	import {
@@ -39,9 +41,10 @@
 	let runningTasksPollingInterval: ReturnType<typeof setInterval> | undefined;
 	let notificationsPollingInterval: ReturnType<typeof setInterval> | undefined;
 	let knownNotificationIds = new Set<string>();
+	let totalRunningTasks = $derived(runningTaskCount + (uploads.isUploading ? 1 : 0));
 	let notificationsAriaLabel = $derived(
-		runningTaskCount > 0
-			? `Open notifications. ${runningTaskCount} task${runningTaskCount === 1 ? '' : 's'} running`
+		totalRunningTasks > 0
+			? `Open notifications. ${totalRunningTasks} task${totalRunningTasks === 1 ? '' : 's'} running`
 			: 'Open notifications'
 	);
 
@@ -237,7 +240,7 @@
 				onclick={toggleNotifications}
 			>
 				<IconBell size={20} />
-				{#if runningTaskCount > 0}
+				{#if totalRunningTasks > 0}
 					<span class="absolute top-1 right-1 inline-flex h-3 w-3 items-center justify-center" aria-hidden="true">
 						<span class="running-ring absolute inset-0 rounded-full border border-neutral-100/70"></span>
 						<span class="running-dot h-1.5 w-1.5 rounded-full bg-neutral-100"></span>
@@ -263,7 +266,8 @@
 					</div>
 
 					<div class="max-h-72 overflow-y-auto">
-						{#if app.notifications.length === 0}
+						{#if uploads.visible}<div class="p-3"><UploadProgress /></div>{/if}
+						{#if app.notifications.length === 0 && !uploads.visible}
 							<p class="px-3 py-4 text-sm text-neutral-500">No notifications yet.</p>
 						{:else}
 							{#each app.notifications as notification (notification.id)}

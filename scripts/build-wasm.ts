@@ -33,18 +33,25 @@ const wasm = await readFile(join(build, 'rt-wasm.wasm'));
 if (!WebAssembly.validate(wasm)) throw new Error('Invalid WASM binary');
 const { default: createModule } = await import(pathToFileURL(join(build, 'rt-wasm.js')).href);
 const module = await createModule({ wasmBinary: wasm, locateFile: (file: string) => join(build, file) });
-const required = ['_malloc', '_free', '_tiff_to_jpeg_with_pp3', '_tiff_to_jpeg_with_pp3_and_clut', '_get_output_data', '_get_output_size', '_free_output', '_load_tiff_image', '_render_tiff_image', '_release_tiff_image'];
+const required = [
+	'_malloc',
+	'_free',
+	'_tiff_to_jpeg_with_pp3',
+	'_tiff_to_jpeg_with_pp3_and_clut',
+	'_get_output_data',
+	'_get_output_size',
+	'_free_output',
+	'_load_tiff_image',
+	'_render_tiff_image',
+	'_release_tiff_image'
+];
 for (const name of required) {
 	if (typeof module[name] !== 'function') throw new Error(`Missing editor API: ${name}`);
 }
 
 // Verify retained-image ownership and byte-identical A/B/A output before install.
-const verification = Bun.spawn([
-	process.execPath,
-	join(source, 'test/persistent-images.mjs'),
-		join(build, 'rt-wasm.js')
-], { cwd: source, stdout: 'inherit', stderr: 'inherit' });
-if (await verification.exited !== 0) throw new Error('Native compatibility tests failed; editor artifacts were not replaced');
+const verification = Bun.spawn([process.execPath, join(source, 'test/persistent-images.mjs'), join(build, 'rt-wasm.js')], { cwd: source, stdout: 'inherit', stderr: 'inherit' });
+if ((await verification.exited) !== 0) throw new Error('Native compatibility tests failed; editor artifacts were not replaced');
 
 const files = ['rt-wasm.js', 'rt-wasm.wasm'];
 for (const optional of ['rt-wasm.worker.js', 'rt-wasm.data']) {

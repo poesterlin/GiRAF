@@ -111,13 +111,58 @@
 			centered
 			onchange={() => edits.pushHistory()}
 		/>
-		<!-- <Slider
-			label="Black"
+		<Slider
+			label="Black Level"
 			bind:value={edits.pp3.Exposure.Black as number}
+			min={-16384}
+			max={32768}
+			step={1}
+			resetValue={0}
 			centered
 			ignored={edits.pp3.Exposure.Auto as boolean}
-			onchange={() => (edits.pp3.Exposure.Auto = false)}
-		/> -->
+			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
+		/>
+		<Slider
+			label="Highlight Compression"
+			bind:value={edits.pp3.Exposure.HighlightCompr as number}
+			min={0}
+			max={500}
+			step={1}
+			resetValue={0}
+			ignored={edits.pp3.Exposure.Auto as boolean}
+			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
+		/>
+		<Slider
+			label="Highlight Threshold"
+			bind:value={edits.pp3.Exposure.HighlightComprThreshold as number}
+			min={0}
+			max={100}
+			step={1}
+			resetValue={0}
+			ignored={edits.pp3.Exposure.Auto as boolean}
+			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
+		/>
+	</Section>
+	<Section title="Vibrance" section="Vibrance">
+		<Slider label="Vibrance (Muted Colors)" bind:value={edits.pp3.Vibrance.Pastels as number} min={-100} max={100} step={1} centered resetValue={0} ignored={!edits.pp3.Vibrance.Enabled as boolean} onchange={() => {
+			if (edits.pp3.Vibrance.PastSatTog) edits.pp3.Vibrance.Saturated = edits.pp3.Vibrance.Pastels;
+			edits.pp3.Vibrance.Enabled = true; edits.pushHistory();
+		}} />
+		{#if !edits.pp3.Vibrance.PastSatTog}
+			<Slider label="Saturated Colors" bind:value={edits.pp3.Vibrance.Saturated as number} min={-100} max={100} step={1} centered resetValue={0} ignored={!edits.pp3.Vibrance.Enabled as boolean} onchange={() => { edits.pp3.Vibrance.Enabled = true; edits.pushHistory(); }} />
+		{/if}
+		<Checkbox label="Link Muted and Saturated Colors" bind:checked={edits.pp3.Vibrance.PastSatTog as boolean} onchange={() => {
+			if (edits.pp3.Vibrance.PastSatTog) edits.pp3.Vibrance.Saturated = edits.pp3.Vibrance.Pastels;
+			edits.pushHistory();
+		}} />
+		<Checkbox label="Protect Skin Tones" bind:checked={edits.pp3.Vibrance.ProtectSkins as boolean} onchange={() => edits.pushHistory()} />
+		<Checkbox label="Avoid Color Shift" bind:checked={edits.pp3.Vibrance.AvoidColorShift as boolean} onchange={() => edits.pushHistory()} />
+	</Section>
+	<Section title="Local Contrast" section="Local_Contrast">
+		<Slider label="Amount" bind:value={edits.pp3.Local_Contrast.Amount as number} min={0} max={1} step={0.01} resetValue={0.2} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
+		<Slider label="Radius" bind:value={edits.pp3.Local_Contrast.Radius as number} min={20} max={200} step={1} resetValue={80} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
+		<Slider label="Darkness" bind:value={edits.pp3.Local_Contrast.Darkness as number} min={0} max={3} step={0.01} resetValue={1} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
+		<Slider label="Lightness" bind:value={edits.pp3.Local_Contrast.Lightness as number} min={0} max={3} step={0.01} resetValue={1} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
 	</Section>
 	<Section title="Shadows & Highlights" section="Shadows_&_Highlights">
 		{@const shadowsHighlights = edits.pp3['Shadows_&_Highlights']}

@@ -153,6 +153,16 @@ Required in `.env` (see `.env.example`):
 
 ## Docker Deployment
 
+Deploy the local checkout (including local edits) through Traefik:
+
+```bash
+docker compose -f docker-compose.yml -f compose.deploy.yaml up -d --build --wait --wait-timeout 180 editor
+```
+
+The deployment override removes the development host-port binding, joins
+`traefik_web`, routes `HOST_DOMAIN`, sets the SvelteKit origin, and checks the
+application root for health. Use the same two compose files for logs and status.
+
 Two services in `docker-compose.yml`:
 
 1. **editor**: Main SvelteKit app (Node adapter), port 3000

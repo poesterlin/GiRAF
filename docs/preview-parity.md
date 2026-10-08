@@ -1,8 +1,22 @@
 # TIFF preview parity
 
-Production previews currently use RawTherapee because the bundled WASM fails
-the strict parity gate. The harness bypasses that gate to expose native defects.
-This changes preview performance but adds no user-interface indicator.
+Production previews use the validated native subset and transparently fall back
+to RawTherapee for unsupported tools or color profiles. The harness invokes native
+exports directly, bypassing fallback so processing defects cannot be hidden.
+No user-interface engine indicator is added.
+
+## Current results
+
+The installed source revision is `84b8cc08a04bdb0139d6e7421ad2e0d67309742c`.
+The final expanded RGB8/RGB16/compressed-RGB16 corpus, tagged with RT 5.12's
+RTv4 sRGB profile, passed **99/99 cases** in practical perceptual mode.
+Report: `/tmp/opencode/preview-complete-expanded/report.html`.
+
+On the 16-bit fixture, representative mean ΔE00 improved from roughly 10.84 to
+0.04 for +1 EV, 11.07 to 0.07 for 4500 K WB, and 5.23 to 0.08 for auto exposure.
+Five-degree straightening measures approximately 1.04 mean / 4.97 p95, with 1.38%
+of pixels above 10. These are measured corpus results, not universal visibility
+guarantees. Historical failures below describe earlier artifacts.
 
 ## Native source and builds
 

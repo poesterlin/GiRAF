@@ -7,7 +7,8 @@
 	import SegmentedControl from '$lib/ui/SegmentedControl.svelte';
 	import { slide } from 'svelte/transition';
 	import SessionPicker from '$lib/ui/SessionPicker.svelte';
-	import pLimit from 'p-limit';
+	import { uploads } from '$lib/state/uploads.svelte';
+	import UploadProgress from '$lib/ui/UploadProgress.svelte';
 
 	let { data } = $props();
 
@@ -19,8 +20,6 @@
 	let importMode = $state<'new' | 'existing'>('new');
 	let selectedSessionId = $state<number | null>(null);
 	let isRefreshing = $state(false);
-	let isUploading = $state(false);
-	let uploadProgress = $state(0);
 	let isDraggingFile = $state(false);
 	let fileInput: HTMLInputElement;
 	let importPollingIntervals: Record<number, ReturnType<typeof setInterval>> = {};
@@ -284,51 +283,12 @@
 		return formatter.format(new Date(date));
 	}
 
-	async function uploadFiles(files: FileList | File[]) {
-		if (files.length === 0) return;
-		app.addToast(`Starting upload of ${files.length} files...`, 'info');
-		isUploading = true;
-		uploadProgress = 0;
-		const totalFiles = files.length;
-		let uploadedCount = 0;
-
-		const maxConcurrent = 3;
-		const fileArray = Array.from(files);
-		const limit = pLimit(maxConcurrent);
-
-		const uploadFile = async (file: File) => {
-			const formData = new FormData();
-			formData.append('files', file);
-
-			try {
-				const response = await fetch('/api/imports/upload', {
-					method: 'POST',
-					body: formData
-				});
-
-				if (!response.ok) throw new Error('Upload failed');
-
-				uploadedCount += 1;
-				uploadProgress = (uploadedCount / totalFiles) * 100;
-				invalidateAll();
-			} catch (error) {
-				console.error('Upload error:', error);
-				app.addToast(`Failed to upload ${file.name}`, 'error');
-			}
-		};
-
-		await Promise.all(fileArray.map((file) => limit(() => uploadFile(file))));
-
-		app.addToast(`Successfully uploaded ${uploadedCount} files`, 'success');
-		isUploading = false;
-		uploadProgress = 0;
-		invalidateAll();
-	}
 
 	function handleFileSelect(e: Event) {
 		const target = e.target as HTMLInputElement;
 		if (target.files) {
-			uploadFiles(target.files);
+			void uploads.upload(target.files);
+			target.value = '';
 		}
 	}
 
@@ -341,7 +301,7 @@
 		e.preventDefault();
 		e.stopPropagation();
 		if (e.dataTransfer?.files) {
-			uploadFiles(e.dataTransfer.files);
+			void uploads.upload(e.dataTransfer.files);
 		}
 	}
 </script>
@@ -395,10 +355,9 @@
 				<button
 					onclick={() => fileInput.click()}
 					class="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/40 px-5 py-3 text-xs font-bold text-neutral-500 transition-all hover:bg-neutral-900 hover:text-neutral-100 disabled:opacity-50"
-					disabled={isUploading}
 				>
-					{#if isUploading}
-						Uploading...
+					{#if uploads.isUploading}
+						Add More Files
 					{:else}
 						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
 						Manual Upload
@@ -407,11 +366,7 @@
 			</div>
 		</div>
 
-		{#if isUploading}
-			<div class="mb-12 h-2 w-full overflow-hidden rounded-full bg-neutral-900">
-				<div class="h-full bg-neutral-100 transition-all duration-300" style="width: {uploadProgress}%"></div>
-			</div>
-		{/if}
+		<div class="mb-6"><UploadProgress /></div>
 
 		{#snippet empty()}
 			<div class="flex h-[40vh] items-center justify-center rounded-3xl border border-neutral-800 bg-neutral-900/20">

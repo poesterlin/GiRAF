@@ -7,7 +7,7 @@ import { parsePP3, stringifyPP3 } from '../../src/lib/pp3-utils';
 import { getRequiredClutPath } from '../../src/lib/preview-parity-policy';
 import { renderNativePp3 } from '../../src/lib/wasm-pp3-api';
 import { createHash } from 'node:crypto';
-import { generateFixtures } from './fixtures';
+import { generateFixtures, withIccProfile } from './fixtures';
 import { buildScenarios } from './scenarios';
 import { compare } from './metrics';
 
@@ -28,12 +28,13 @@ const options = {
 	'max-fraction-above-10': { type: 'string' },
 	help: { type: 'boolean' },
 	synthetic: { type: 'boolean' },
-	grayscale: { type: 'boolean' }
+	grayscale: { type: 'boolean' },
+	'synthetic-icc': { type: 'string' }
 } as const;
 const { values: args, positionals } = parseArgs({ options, allowPositionals: true });
 if (args.help) {
 	console.log(
-		'bun scripts/preview-parity/index.ts [--synthetic] [--grayscale] [--out DIR] [--pp3 FILE] [--lut HALD.png] [--rt BINARY | --docker-image IMAGE] [--mode perceptual|strict] [--max-mean-delta-e00 3] [--max-p95-delta-e00 7] [--max-fraction-above-10 0.05] [--max-mae 2] [--max-rmse 3] [--min-psnr 38] [--max-p99 10] TIFF...'
+		'bun scripts/preview-parity/index.ts [--synthetic] [--grayscale] [--synthetic-icc FILE] [--out DIR] [--pp3 FILE] [--lut HALD.png] [--rt BINARY | --docker-image IMAGE] [--mode perceptual|strict] [--max-mean-delta-e00 3] [--max-p95-delta-e00 7] [--max-fraction-above-10 0.05] [--max-mae 2] [--max-rmse 3] [--min-psnr 38] [--max-p99 10] TIFF...'
 	);
 	process.exit(0);
 }
@@ -52,7 +53,15 @@ if (Object.values(perceptualLimits).some((v) => !Number.isFinite(v) || v < 0) ||
 if (Object.values(limits).some((v) => !Number.isFinite(v) || v < 0)) throw new Error('Thresholds must be finite nonnegative numbers');
 const out = resolve(args.out ?? `preview-parity-${Date.now()}`);
 await mkdir(out, { recursive: true });
-if (args.synthetic) positionals.push(...(await generateFixtures(out, !!args.grayscale)));
+if (args['synthetic-icc'] && !args.synthetic) throw new Error('--synthetic-icc requires --synthetic');
+if (args.synthetic) {
+	const fixtures = await generateFixtures(out, !!args.grayscale);
+	if (args['synthetic-icc']) {
+		const profile = await readFile(resolve(args['synthetic-icc']));
+		for (const fixture of fixtures.filter((path) => !path.includes('gray'))) await writeFile(fixture, withIccProfile(await readFile(fixture), profile));
+	}
+	positionals.push(...fixtures);
+}
 const hash = async (file: string) =>
 	createHash('sha256')
 		.update(await readFile(file))
@@ -118,7 +127,8 @@ try {
 		wasm: await hash(join(root, 'static/rt-wasm.wasm')),
 		pp3: await hash(resolve(args.pp3 ?? join(root, 'src/lib/assets/client.pp3'))),
 		inputs: await Promise.all(positionals.map(async (p) => ({ path: resolve(p), sha256: await hash(p) }))),
-		lut: args.lut ? await hash(resolve(args.lut)) : null
+		lut: args.lut ? await hash(resolve(args.lut)) : null,
+		icc: args['synthetic-icc'] ? await hash(resolve(args['synthetic-icc'])) : null
 	};
 	const base = parsePP3(await readFile(resolve(args.pp3 ?? join(root, 'src/lib/assets/client.pp3')), 'utf8'));
 	let clut: { data: Uint16Array; level: number } | undefined;

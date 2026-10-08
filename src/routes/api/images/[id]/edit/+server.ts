@@ -30,7 +30,8 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		}
 
 		const output = await editImage(image.tifPath, pp3String, {
-			allowConcurrent: isPreview
+			allowConcurrent: isPreview,
+			quality: 85
 		});
 		return respondWithFile(output);
 	} catch (err) {
