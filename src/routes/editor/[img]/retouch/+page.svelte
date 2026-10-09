@@ -62,6 +62,7 @@
 		zoom = Math.max(1, Math.min(8, level));
 	}
 	function chooseSpot(index: number) {
+		showOriginal = false;
 		selected = index;
 		adding = false;
 		target = undefined;
@@ -83,6 +84,17 @@
 	);
 	const visible = $derived(draft ?? spots);
 	const active = $derived(visible[selected]);
+	$effect(() => {
+		if (!adding && !active) {
+			if (spots.length) selected = Math.min(Math.max(selected, 0), spots.length - 1);
+			else { adding = true; setting = 'radius'; }
+		}
+		if (adding) { selected = -1; setting = 'radius'; }
+		if (!spots.length) showOriginal = false;
+	});
+	function addMode() {
+		adding = true; selected = -1; target = undefined; setting = 'radius'; showOriginal = false; detail = undefined;
+	}
 	const editorLink = $derived(`/editor/${data.image.id}${page.url.search}`);
 	$effect(() => {
 		if (!svg || !dimensions.width) return;
@@ -338,23 +350,16 @@
 			<h1 class="font-semibold">Retouch</h1>
 			<a href={editorLink} class="flex min-h-11 items-center px-3 text-sm">Done</a>
 		</div>
-		<p class="text-xs text-neutral-400" aria-live="polite">
-			{adding ? (target ? '2 · Tap a clean source. Drag to pan.' : '1 · Tap the blemish to zoom in.') : 'Drag either circle · pinch to zoom'}
-		</p>
+		<div class="flex items-center gap-1" aria-label="Spot selection">
+			<button class="tool shrink-0" class:chosen={adding} aria-label="Add spot" aria-pressed={adding} onclick={addMode}><IconPlus size={18}/></button>
+			<div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" aria-label="Spots">
+				{#each spots as _, i}<button class="icon-tool shrink-0 rounded-full text-xs" class:chosen={!adding && selected === i} aria-label={`Select spot ${i+1}`} aria-pressed={!adding && selected === i} onclick={() => chooseSpot(i)}>{i+1}</button>{/each}
+			</div>
+			{#if target}<button class="tool text-xs" onclick={addMode}>Cancel source</button>{/if}
+			{#if active && !adding}<button class="icon-tool" aria-label="Delete selected spot" onclick={() => { commit(spots.filter((_,i) => i !== selected)); target = undefined; }}><IconTrash size={18}/></button>{/if}
+		</div>
 		<div class="flex gap-2">
-			<button
-				class="tool flex-1"
-				class:chosen={adding}
-				onclick={() => {
-					adding = !target;
-					target = undefined;
-					selected = -1;
-					setting = 'radius';
-					zoom = 1;
-				}}
-			>
-				<IconPlus size={18} /> {target ? 'Cancel' : 'Spot'}</button
-			>
+			{#if edits.canUndo}
 			<button
 				class="tool"
 				disabled={!edits.canUndo}
@@ -362,22 +367,27 @@
 				onclick={() => {
 					edits.undo();
 					target = undefined;
-					selected = -1;
+					adding = false; showOriginal = false;
 				}}><IconArrowBackUp size={20} /></button
 			>
+			{/if}
+			{#if edits.canRedo}
 			<button
 				class="tool"
 				disabled={!edits.canRedo}
 				aria-label="Redo"
 				onclick={() => {
 					edits.redo();
-					selected = -1;
+					target = undefined; adding = false; showOriginal = false;
 				}}><IconArrowForwardUp size={20} /></button
 			>
-			<button class="tool" aria-pressed={showOriginal} onclick={() => (showOriginal = !showOriginal)}>Before</button>
+			{/if}
+			{#if spots.length}<button class="tool" aria-pressed={showOriginal} class:chosen={showOriginal} onclick={() => (showOriginal = !showOriginal)}>Before</button>{/if}
+			{#if edits.hasChanges || saving}<button class="tool chosen ml-auto" disabled={saving} onclick={save}><IconDeviceFloppy size={18}/>{saving ? 'Saving…' : 'Save'}</button>{:else if saved}<span class="ml-auto flex items-center gap-1 text-xs text-neutral-400"><IconCheck size={16}/>Saved</span>{/if}
 		</div>
+		{#if !showOriginal && (active || target)}
 		<div class="flex items-center gap-1">
-			{#each ['radius', 'feather'] as key}<button
+			{#each active ? ['radius', 'feather'] : ['radius'] as key}<button
 					class="min-h-11 flex-1 rounded-lg px-2 text-xs font-medium"
 					class:bg-neutral-800={setting === key}
 					disabled={!active && key !== 'radius'}
@@ -395,28 +405,7 @@
 				resetValue={setting === 'radius' ? Math.min(40, data.maxRadius) : setting === 'feather' ? 50 : 100}
 				onchange={(value) => change(setting, setting === 'radius' ? value : value / 100)}
 			/>{/key}
-		<div class="flex gap-2">
-			<div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" aria-label="Spots">
-				{#each spots as _, i}<button
-						class="icon-tool shrink-0 rounded-full text-xs"
-						class:chosen={selected === i}
-						aria-label={`Select spot ${i + 1}`}
-						aria-pressed={selected === i}
-						onclick={() => chooseSpot(i)}>{i + 1}</button
-					>{/each}
-			</div>
-			<button
-				class="tool"
-				aria-label="Delete selected spot"
-				disabled={!active}
-				onclick={() => {
-					commit(spots.filter((_, i) => i !== selected));
-					selected = -1;
-				}}><IconTrash size={18} /></button
-			><button class="tool chosen" disabled={saving} onclick={save}
-				>{#if saved}<IconCheck size={18} />{:else}<IconDeviceFloppy size={18} />{/if}{saving ? 'Saving…' : saved ? 'Saved' : 'Save'}</button
-			>
-		</div>
+		{/if}
 	</aside>
 </div>
 
