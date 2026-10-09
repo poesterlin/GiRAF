@@ -88,6 +88,12 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	}
 
 	// find next image in line
+	const [matchingImage] = await db
+		.select({ id: imageTable.id })
+		.from(imageTable)
+		.where(and(...filters))
+		.limit(1);
+
 	const [nextImage] = await db
 		.select({ id: imageTable.id })
 		.from(imageTable)
@@ -104,6 +110,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		.limit(1);
 
 	return {
+		hasMatchingImages: !!matchingImage,
 		luts,
 		image,
 		imageTags: imageTags.map((it) => it.tag) as { id: number; name: string }[],

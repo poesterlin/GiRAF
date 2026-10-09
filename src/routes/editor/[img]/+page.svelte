@@ -113,6 +113,7 @@
 	}
 
 	$effect(() => {
+		if (!data.hasMatchingImages) return;
 		const latestSnapshot = data.snapshots[0];
 		const image = data.image;
 		const pp3 = latestSnapshot?.pp3 ?? BasePP3;
@@ -120,6 +121,10 @@
 	});
 
 	$effect(() => {
+		if (!data.hasMatchingImages) {
+			edits.isLoading = false;
+			return;
+		}
 		const worker = getWorkerInstance();
 		let active = true;
 		edits.isLoading = true;
@@ -182,6 +187,7 @@
 	);
 
 	function handleKeyDown(event: KeyboardEvent) {
+		if (!data.hasMatchingImages) return;
 		const target = event.target as HTMLElement | null;
 		if (event.repeat) {
 			return;
@@ -253,6 +259,18 @@
 	}}
 />
 
+{#if !data.hasMatchingImages}
+	<div class="flex h-full items-center justify-center overflow-y-auto bg-neutral-950 px-6 py-12 text-center text-neutral-200">
+		<div class="flex max-w-sm flex-col items-center gap-5">
+			<div class="rounded-full border border-neutral-700 bg-neutral-900 p-5 text-neutral-400"><IconFilter size={32} /></div>
+			<h1 class="text-2xl font-bold">No photos match this filter</h1>
+			<div class="flex flex-wrap justify-center gap-3">
+				<button class="min-h-12 rounded-xl border border-neutral-600 px-5 font-semibold hover:bg-neutral-800" onclick={() => (showFilterModal = true)}>Change filter</button>
+				<a href={`/editor/${data.image.id}?filter=none`} class="flex min-h-12 items-center rounded-xl bg-neutral-100 px-5 font-semibold text-neutral-950 hover:bg-white">Show all photos</a>
+			</div>
+		</div>
+	</div>
+{:else}
 <div class="flex h-full flex-col overflow-hidden bg-neutral-950 text-neutral-200 lg:flex-row">
 	<!-- Image Preview Section -->
 	<div class="relative min-h-0 flex-1 overflow-hidden bg-neutral-900 shadow-inner">
@@ -461,7 +479,9 @@
 	</aside>
 </div>
 
-{#if showLutPicker}
+{/if}
+
+{#if showLutPicker && data.hasMatchingImages}
 	<LutPicker luts={data.luts} onClose={() => (showLutPicker = false)} imageId={page.params.img!} />
 {/if}
 
@@ -469,7 +489,7 @@
 	<FilterModal onClose={() => (showFilterModal = false)} />
 {/if}
 
-{#if page.url.searchParams.has('snapshot')}
+{#if page.url.searchParams.has('snapshot') && data.hasMatchingImages}
 	<Snapshots snapshots={data.snapshots} profiles={data.profiles} />
 {/if}
 
