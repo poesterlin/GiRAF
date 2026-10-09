@@ -31,11 +31,22 @@
 		edits.pushHistory();
 	}
 
+	function handleSummaryClick(event: MouseEvent) {
+		if (!window.matchMedia('(max-width: 1023px)').matches) return;
+		const summary = event.currentTarget as HTMLElement;
+		const details = summary.closest('details');
+		if (!details || details.open) return;
+		const group = details.closest('[data-adjustment-sections]');
+		group?.querySelectorAll<HTMLDetailsElement>('details[open]').forEach((other) => {
+			if (other !== details) other.open = false;
+		});
+	}
+
 </script>
 
 <div class="relative mb-1">
 	<details class="">
-		<summary class="mb-1 flex cursor-pointer items-center rounded-lg bg-neutral-800 px-4 py-2 pr-14 select-none">
+		<summary onclick={handleSummaryClick} class="mb-1 flex cursor-pointer items-center rounded-lg bg-neutral-800 px-4 py-2 pr-14 select-none">
 			<IconChevronRight class="mr-2 shrink-0" />
 			<span class="font-medium text-zinc-300 select-none">{title}</span>
 		</summary>

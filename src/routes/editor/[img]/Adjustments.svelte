@@ -25,7 +25,7 @@
 	}
 </script>
 
-<section class="control-section">
+<section class="control-section" data-adjustment-sections>
 	<Section title="White Balance" section="White_Balance">
 		<!-- Select options for: edits.pp3.White_Balance.Setting -->
 		<Select
@@ -118,9 +118,9 @@
 			min={-100}
 			max={100}
 			step={0.1}
-			map={(value) => Math.round(value * (value < 0 ? 163.84 : 327.68))}
-			inverseMap={(value) => value / (value < 0 ? 163.84 : 327.68)}
-			displayValue={(value) => Number((value / (value < 0 ? 163.84 : 327.68)).toFixed(1))}
+			map={(value) => Math.round(-value * (value > 0 ? 163.84 : 327.68))}
+			inverseMap={(value) => -value / (value < 0 ? 163.84 : 327.68)}
+			displayValue={(value) => Number((-value / (value < 0 ? 163.84 : 327.68)).toFixed(1))}
 			resetValue={0}
 			centered
 			ignored={edits.pp3.Exposure.Auto as boolean}
@@ -143,6 +143,18 @@
 		<Slider label="Lightness" bind:value={edits.pp3.Local_Contrast.Lightness as number} min={0} max={3} step={0.01} resetValue={1} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
 	</Section>
 	<ColorAdjustments />
+	<Section title="Dehaze" section="Dehaze">
+		<Slider
+			label="Amount"
+			bind:value={edits.pp3.Dehaze.Strength as number}
+			min={0}
+			max={100}
+			step={1}
+			resetValue={0}
+			ignored={!edits.pp3.Dehaze.Enabled as boolean}
+			onchange={() => { edits.pp3.Dehaze.Enabled = true; edits.pushHistory(); }}
+		/>
+	</Section>
 	<Section title="Dynamic Range" section="Shadows_&_Highlights">
 		{@const shadowsHighlights = edits.pp3['Shadows_&_Highlights']}
 		<Slider
