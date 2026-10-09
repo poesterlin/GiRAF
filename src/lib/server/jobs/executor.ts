@@ -20,6 +20,8 @@ import type { ExportPayload, ImportPayload, JobResult } from './types';
 import { integrations } from '../integrations';
 import { exiftool } from 'exiftool-vendored';
 import { assert } from '$lib';
+import { makeOutputPath, moveExportFile } from '../export-files';
+export { makeOutputPath, makeSessionPath } from '../export-files';
 
 const SIMILARITY_THRESHOLD = 45; // Hamming distance threshold for considering images similar
 
@@ -165,11 +167,13 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 				throw new Error('Aborted');
 			}
 			const image = images[i];
+			const outputPath = makeOutputPath(image, session);
 			if (image.isArchived) {
+				await moveExportFile(outputPath, true);
 				continue;
 			}
 
-			const outputPath = makeOutputPath(image, session);
+			await moveExportFile(outputPath, false);
 			const needsExport = !image.lastExportedAt || image.lastExportedAt < image.updatedAt;
 			let isReadyForUpload = false;
 
@@ -212,22 +216,6 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 		console.error(`[Executor] Failed export for session: ${sessionId}`, e);
 		return { status: 'error', message: e.message };
 	}
-}
-
-export function makeOutputPath(image: Image, session: Session): string {
-	const totalImages = (session as any).images?.length ?? 100;
-	const digits = Math.max(2, Math.ceil(Math.log10(totalImages + 1)));
-	return join(makeSessionPath(session), `${image.id.toString().padStart(digits, '0')}_${session.name}.jpg`);
-}
-
-export function makeSessionPath(session: Session): string {
-	const startedAt = new Date(session.startedAt);
-	const year = startedAt.getFullYear();
-	const month = (startedAt.getMonth() + 1).toString().padStart(2, '0');
-	const day = startedAt.getDate().toString().padStart(2, '0');
-
-	const exportDir = process.env.EXPORT_DIR || '/app/export';
-	return join(exportDir, year.toString(), `${year}-${month}-${day}_${session.name}`);
 }
 
 export async function ensureDir(path: string) {

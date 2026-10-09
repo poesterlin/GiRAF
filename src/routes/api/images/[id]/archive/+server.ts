@@ -1,5 +1,6 @@
 import { db } from "$lib/server/db";
-import { imageTable } from "$lib/server/db/schema";
+import { imageTable, sessionTable } from "$lib/server/db/schema";
+import { makeOutputPath, moveExportFile } from '$lib/server/export-files';
 import { and, eq, gt } from "drizzle-orm";
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
@@ -15,6 +16,8 @@ export const POST: RequestHandler = async ({ params }) => {
         return json({ error: "Image not found" }, { status: 404 });
     }
 
+    const session = await db.query.sessionTable.findFirst({ where: eq(sessionTable.id, image.sessionId) });
+    if (session) await moveExportFile(makeOutputPath(image, session), true);
     await db.update(imageTable).set({ isArchived: true }).where(eq(imageTable.id, id));
 
     // find next image in line
@@ -39,6 +42,8 @@ export const DELETE: RequestHandler = async ({ params }) => {
         return json({ error: "Image not found" }, { status: 404 });
     }
 
+    const session = await db.query.sessionTable.findFirst({ where: eq(sessionTable.id, image.sessionId) });
+    if (session) await moveExportFile(makeOutputPath(image, session), false);
     await db.update(imageTable).set({ isArchived: false }).where(eq(imageTable.id, id));
 
     return new Response();

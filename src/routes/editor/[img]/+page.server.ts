@@ -2,7 +2,7 @@ import { db } from '$lib/server/db';
 import { imageTable, imageToTagTable, profileTable, snapshotTable } from '$lib/server/db/schema';
 import { error, redirect } from '@sveltejs/kit';
 import { Glob } from 'bun';
-import { and, asc, desc, eq, exists, gt, isNull, lt, notExists, or } from 'drizzle-orm';
+import { and, asc, desc, eq, exists, gt, isNull, isNotNull, lt, notExists, or } from 'drizzle-orm';
 import { join } from 'node:path';
 import { env } from 'node:process';
 import type { PageServerLoad } from './$types';
@@ -10,7 +10,7 @@ import { editorFilterQuery, readEditorFilters } from '$lib/editor-filters';
 
 export const load: PageServerLoad = async ({ params, url }) => {
 	const selectedFilters = readEditorFilters(url.searchParams);
-	if (selectedFilters.edited !== 'any' && selectedFilters.cutoff === 'workflow' && !selectedFilters.since) {
+	if (selectedFilters.edited === 'edited' && selectedFilters.cutoff !== 'export' && !selectedFilters.since) {
 		const query = new URLSearchParams(editorFilterQuery({ ...selectedFilters, since: new Date().toISOString() }).slice(1));
 		for (const [key, value] of query) url.searchParams.set(key, value);
 		url.searchParams.delete('filter');
@@ -55,15 +55,25 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	}
 
 	const filters = [eq(imageTable.sessionId, image.sessionId)];
+	if (selectedFilters.newlyImported) {
+		const latestExport = await db.query.imageTable.findFirst({
+			where: and(eq(imageTable.sessionId, image.sessionId), isNotNull(imageTable.lastExportedAt)),
+			columns: { lastExportedAt: true },
+			orderBy: desc(imageTable.lastExportedAt)
+		});
+		if (latestExport?.lastExportedAt) filters.push(gt(imageTable.createdAt, latestExport.lastExportedAt));
+	}
 	if (selectedFilters.archived !== 'any') filters.push(eq(imageTable.isArchived, selectedFilters.archived === 'only'));
-	if (selectedFilters.edited !== 'any') {
+	if (selectedFilters.edited === 'unedited') {
+		filters.push(notExists(db.select().from(snapshotTable).where(eq(snapshotTable.imageId, imageTable.id))));
+	} else if (selectedFilters.edited === 'edited') {
 		const edits = db.select().from(snapshotTable).where(and(
 			eq(snapshotTable.imageId, imageTable.id),
-			selectedFilters.cutoff === 'workflow'
+			selectedFilters.cutoff !== 'export'
 				? lt(snapshotTable.createdAt, new Date(selectedFilters.since!))
 				: or(isNull(imageTable.lastExportedAt), gt(snapshotTable.createdAt, imageTable.lastExportedAt))
 		));
-		filters.push(selectedFilters.edited === 'edited' ? exists(edits) : notExists(edits));
+		filters.push(exists(edits));
 	}
 
 	// find next image in line
