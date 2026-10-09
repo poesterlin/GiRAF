@@ -1,4 +1,4 @@
-import { mkdir, readdir, rename } from 'node:fs/promises';
+import { mkdir, readdir, rename, stat } from 'node:fs/promises';
 import { dirname, join, basename } from 'node:path';
 import type { Image, Session } from './db/schema';
 
@@ -11,9 +11,31 @@ export function makeSessionPath(session: Session): string {
 }
 
 export function makeOutputPath(image: Image, session: Session): string {
-	const totalImages = (session as Session & { images?: unknown[] }).images?.length ?? 100;
-	const digits = Math.max(2, Math.ceil(Math.log10(totalImages + 1)));
-	return join(makeSessionPath(session), `${image.id.toString().padStart(digits, '0')}_${session.name}.jpg`);
+	const date = new Date(image.recordedAt);
+	const pad = (value: number) => String(value).padStart(2, '0');
+	const day = `${pad(date.getUTCFullYear() % 100)}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}`;
+	const time = `${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}`;
+	return join(makeSessionPath(session), `${day}_${time}_${image.id}.jpg`);
+}
+
+export function exportImageId(filename: string): number | undefined {
+	const match = filename.match(/^\d{6}_\d{6}_(\d+)\.jpg$/) ?? filename.match(/^(\d+)_.*\.jpg$/);
+	return match ? Number(match[1]) : undefined;
+}
+
+export async function findExportPath(image: Image, session: Session): Promise<string> {
+	const path = makeOutputPath(image, session);
+	try { await stat(path); return path; } catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+	}
+	try {
+		const names = await readdir(dirname(path));
+		const legacy = names.sort().find((name) => name.endsWith(`_${session.name}.jpg`) && exportImageId(name) === image.id);
+		return legacy ? join(dirname(path), legacy) : path;
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+		return path;
+	}
 }
 
 export async function moveExportFile(outputPath: string, archived: boolean): Promise<void> {
@@ -28,6 +50,17 @@ export async function moveExportFile(outputPath: string, archived: boolean): Pro
 		return;
 	}
 	const filename = basename(outputPath);
+	if (/^\d{6}_\d{6}_\d+\.jpg$/.test(filename)) {
+		const matches = names.filter((name) => exportImageId(name) === exportImageId(filename));
+		if (!matches.length) return;
+		await mkdir(dirname(destination), { recursive: true });
+		for (const name of matches) {
+			try { await rename(join(dirname(source), name), join(dirname(destination), name)); } catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+			}
+		}
+		return;
+	}
 	const separator = filename.indexOf('_');
 	const id = Number(filename.slice(0, separator));
 	// Older exports can use different ID padding as the session size changes.

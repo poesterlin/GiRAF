@@ -20,7 +20,7 @@ import type { ExportPayload, ImportPayload, JobResult } from './types';
 import { integrations } from '../integrations';
 import { exiftool } from 'exiftool-vendored';
 import { assert } from '$lib';
-import { makeOutputPath, moveExportFile } from '../export-files';
+import { makeOutputPath, moveExportFile, findExportPath } from '../export-files';
 export { makeOutputPath, makeSessionPath } from '../export-files';
 
 const SIMILARITY_THRESHOLD = 45; // Hamming distance threshold for considering images similar
@@ -167,7 +167,7 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 				throw new Error('Aborted');
 			}
 			const image = images[i];
-			const outputPath = makeOutputPath(image, session);
+			let outputPath = makeOutputPath(image, session);
 			if (image.isArchived) {
 				await moveExportFile(outputPath, true);
 				continue;
@@ -199,6 +199,7 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 				await db.update(imageTable).set({ lastExportedAt: new Date() }).where(eq(imageTable.id, image.id));
 				isReadyForUpload = true;
 			} else {
+				outputPath = await findExportPath(image, session);
 				isReadyForUpload = await fileExists(outputPath);
 			}
 
