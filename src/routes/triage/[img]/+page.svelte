@@ -39,15 +39,14 @@
 		const version = navigationVersion;
 		isArchiving = true;
 		try {
-			await new Promise((r) => setTimeout(r, 300));
-
 			const res = await fetch(`/api/images/${imageId}/archive`, {
 				method: 'POST'
 			});
 			if (res.ok) {
-				await invalidateAll();
 				if (nextImage && navigationVersion === version && data.image.id === imageId) {
-					await goto(`/triage/${nextImage}`);
+					await goto(`/triage/${nextImage}`, { invalidateAll: true, noScroll: true });
+				} else {
+					await invalidateAll();
 				}
 			} else {
 				alert('Failed to archive image.');

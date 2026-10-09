@@ -5,7 +5,7 @@
 	import { edits } from '$lib/state/editing.svelte';
 	import Button from '$lib/ui/Button.svelte';
 	import Checkbox from '$lib/ui/Checkbox.svelte';
-	import Section from '$lib/ui/Section.svelte';
+	import AdjustmentGroup from '$lib/ui/AdjustmentGroup.svelte';
 	import Select from '$lib/ui/Select.svelte';
 	import Slider from '$lib/ui/Slider.svelte';
 	import ColorAdjustments from '$lib/ui/ColorAdjustments.svelte';
@@ -26,7 +26,70 @@
 </script>
 
 <section class="control-section" data-adjustment-sections>
-	<Section title="White Balance" section="White_Balance">
+	<AdjustmentGroup title="Light" group="light">
+		<Checkbox label="Auto Exposure" bind:checked={edits.pp3.Exposure.Auto as boolean} onchange={() => edits.pushHistory()} />
+		<Slider
+			label="Exposure"
+			bind:value={edits.pp3.Exposure.Compensation as number}
+			min={-5}
+			max={5}
+			step={0.01}
+			centered
+			ignored={edits.pp3.Exposure.Auto as boolean}
+			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
+		/>
+		<Slider
+			label="Brightness"
+			bind:value={edits.pp3.Exposure.Brightness as number}
+			centered
+			ignored={edits.pp3.Exposure.Auto as boolean}
+			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
+		/>
+		<Slider
+			label="Contrast"
+			bind:value={edits.pp3.Exposure.Contrast as number}
+			centered
+			ignored={edits.pp3.Exposure.Auto as boolean}
+			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
+		/>
+
+		<Slider
+			label="Black Level"
+			bind:value={edits.pp3.Exposure.Black as number}
+			min={-100}
+			max={100}
+			step={0.1}
+			map={(value) => Math.round(-value * (value > 0 ? 163.84 : 327.68))}
+			inverseMap={(value) => -value / (value < 0 ? 163.84 : 327.68)}
+			displayValue={(value) => Number((-value / (value < 0 ? 163.84 : 327.68)).toFixed(1))}
+			resetValue={0}
+			centered
+			ignored={edits.pp3.Exposure.Auto as boolean}
+			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
+		/>
+	
+		{@const shadowsHighlights = edits.pp3['Shadows_&_Highlights']}
+		<Slider
+			label="Highlights"
+			bind:value={shadowsHighlights.Highlights as number}
+			min={0}
+			max={100}
+			step={1}
+			ignored={!shadowsHighlights.Enabled as boolean}
+			onchange={() => { shadowsHighlights.Enabled = true; edits.pushHistory(); }}
+		/>
+		<Slider
+			label="Shadows"
+			bind:value={shadowsHighlights.Shadows as number}
+			min={0}
+			max={100}
+			step={1}
+			ignored={!shadowsHighlights.Enabled as boolean}
+			onchange={() => { shadowsHighlights.Enabled = true; edits.pushHistory(); }}
+		/>
+	
+	</AdjustmentGroup>
+	<AdjustmentGroup title="White Balance" group="whiteBalance">
 		<!-- Select options for: edits.pp3.White_Balance.Setting -->
 		<Select
 			ariaLabel="White Balance"
@@ -79,55 +142,15 @@
 				inverseMap={(y) => map(y, 0.5, 1.5, -100, 100)}
 			/>
 		{/if}
-	</Section>
-	<Section title="Exposure" section="Exposure">
-		<Checkbox label="Auto Exposure" bind:checked={edits.pp3.Exposure.Auto as boolean} onchange={() => edits.pushHistory()} />
-		<Slider
-			label="Exposure"
-			bind:value={edits.pp3.Exposure.Compensation as number}
-			min={-5}
-			max={5}
-			step={0.01}
-			centered
-			ignored={edits.pp3.Exposure.Auto as boolean}
-			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
-		/>
-		<Slider
-			label="Brightness"
-			bind:value={edits.pp3.Exposure.Brightness as number}
-			centered
-			ignored={edits.pp3.Exposure.Auto as boolean}
-			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
-		/>
-		<Slider
-			label="Contrast"
-			bind:value={edits.pp3.Exposure.Contrast as number}
-			centered
-			ignored={edits.pp3.Exposure.Auto as boolean}
-			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
-		/>
+	
+	</AdjustmentGroup>
+	<AdjustmentGroup title="Color" group="color">
 		<Slider
 			label="Saturation"
 			bind:value={edits.pp3.Exposure.Saturation as number}
 			centered
 			onchange={() => edits.pushHistory()}
 		/>
-		<Slider
-			label="Black Level"
-			bind:value={edits.pp3.Exposure.Black as number}
-			min={-100}
-			max={100}
-			step={0.1}
-			map={(value) => Math.round(-value * (value > 0 ? 163.84 : 327.68))}
-			inverseMap={(value) => -value / (value < 0 ? 163.84 : 327.68)}
-			displayValue={(value) => Number((-value / (value < 0 ? 163.84 : 327.68)).toFixed(1))}
-			resetValue={0}
-			centered
-			ignored={edits.pp3.Exposure.Auto as boolean}
-			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
-		/>
-	</Section>
-	<Section title="Vibrance" section="Vibrance">
 		<Slider label="Vibrance (Muted Colors)" bind:value={edits.pp3.Vibrance.Pastels as number} min={-100} max={100} step={1} centered resetValue={0} ignored={!edits.pp3.Vibrance.Enabled as boolean} onchange={() => {
 			if (edits.pp3.Vibrance.PastSatTog) edits.pp3.Vibrance.Saturated = edits.pp3.Vibrance.Pastels;
 			edits.pp3.Vibrance.Enabled = true; edits.pushHistory();
@@ -135,17 +158,16 @@
 		{#if !edits.pp3.Vibrance.PastSatTog}
 			<Slider label="Saturated Colors" bind:value={edits.pp3.Vibrance.Saturated as number} min={-100} max={100} step={1} centered resetValue={0} ignored={!edits.pp3.Vibrance.Enabled as boolean} onchange={() => { edits.pp3.Vibrance.Enabled = true; edits.pushHistory(); }} />
 		{/if}
-	</Section>
-	<Section title="Local Contrast" section="Local_Contrast">
-		<Slider label="Amount" bind:value={edits.pp3.Local_Contrast.Amount as number} min={0} max={1} step={0.01} resetValue={0.2} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
-		<Slider label="Radius" bind:value={edits.pp3.Local_Contrast.Radius as number} min={20} max={200} step={1} resetValue={80} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
-		<Slider label="Darkness" bind:value={edits.pp3.Local_Contrast.Darkness as number} min={0} max={3} step={0.01} resetValue={1} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
-		<Slider label="Lightness" bind:value={edits.pp3.Local_Contrast.Lightness as number} min={0} max={3} step={0.01} resetValue={1} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
-	</Section>
-	<ColorAdjustments />
-	<Section title="Dehaze" section="Dehaze">
+	
+		<ColorAdjustments mode="mixer" />
+	</AdjustmentGroup>
+	<AdjustmentGroup title="Clarity" group="clarity">
+		<Slider label="Local Contrast Amount" bind:value={edits.pp3.Local_Contrast.Amount as number} min={0} max={1} step={0.01} resetValue={0.2} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
+
+
+
 		<Slider
-			label="Amount"
+			label="Dehaze Amount"
 			bind:value={edits.pp3.Dehaze.Strength as number}
 			min={0}
 			max={100}
@@ -154,34 +176,20 @@
 			ignored={!edits.pp3.Dehaze.Enabled as boolean}
 			onchange={() => { edits.pp3.Dehaze.Enabled = true; edits.pushHistory(); }}
 		/>
-	</Section>
-	<Section title="Dynamic Range" section="Shadows_&_Highlights">
-		{@const shadowsHighlights = edits.pp3['Shadows_&_Highlights']}
-		<Slider
-			label="Highlights"
-			bind:value={shadowsHighlights.Highlights as number}
-			min={0}
-			max={100}
-			step={1}
-			ignored={!shadowsHighlights.Enabled as boolean}
-			onchange={() => { shadowsHighlights.Enabled = true; edits.pushHistory(); }}
-		/>
-		<Slider
-			label="Shadows"
-			bind:value={shadowsHighlights.Shadows as number}
-			min={0}
-			max={100}
-			step={1}
-			ignored={!shadowsHighlights.Enabled as boolean}
-			onchange={() => { shadowsHighlights.Enabled = true; edits.pushHistory(); }}
-		/>
-	</Section>
-	<Section title="Sharpening" section="Sharpening" enabledKey="Sharpen_Enabled">
+	
+		<details><summary class="min-h-11 cursor-pointer py-3 text-sm text-neutral-300">Advanced</summary><div class="space-y-3">
+		<Slider label="Radius" bind:value={edits.pp3.Local_Contrast.Radius as number} min={20} max={200} step={1} resetValue={80} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
+		<Slider label="Darkness" bind:value={edits.pp3.Local_Contrast.Darkness as number} min={0} max={3} step={0.01} resetValue={1} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
+		<Slider label="Lightness" bind:value={edits.pp3.Local_Contrast.Lightness as number} min={0} max={3} step={0.01} resetValue={1} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
+		</div></details>
+
+	</AdjustmentGroup>
+	<AdjustmentGroup title="Detail" group="detail">
 		<Slider label="Sharpen Amount" bind:value={edits.pp3.Sharpening.Amount as number} min={0} max={200} step={1} resetValue={50} onchange={() => edits.pushHistory()} />
 		<Slider label="Sharpen Radius" bind:value={edits.pp3.Sharpening.Radius as number} min={0.1} max={5} step={0.1} resetValue={1} onchange={() => edits.pushHistory()} />
-	</Section>
-	{#if edits.pp3?.Film_Simulation}
-		<Section title="Film Simulation" section="Film_Simulation">
+	
+	</AdjustmentGroup>
+	<AdjustmentGroup title="Look" group="look">
 			<Button onclick={() => (showLutPicker = true)}>
 				{#if edits.pp3.Film_Simulation.ClutFilename}
 					{@const path = edits.pp3.Film_Simulation.ClutFilename as string}
@@ -193,8 +201,9 @@
 				{/if}
 			</Button>
 			<Slider label="Strength" bind:value={edits.pp3.Film_Simulation.Strength as number} min={0} max={100} step={1} ignored={!edits.pp3.Film_Simulation.Enabled as boolean} onchange={() => edits.pushHistory()} />
-		</Section>
-	{/if}
+		
+		<ColorAdjustments mode="calibration" />
+	</AdjustmentGroup>
 </section>
 
 <style>

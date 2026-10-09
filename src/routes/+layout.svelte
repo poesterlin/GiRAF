@@ -64,10 +64,6 @@
 	}
 
 	$effect(() => {
-		edits.update(edits.pp3);
-	});
-
-	$effect(() => {
 		const notifications =
 			((data as { notifications?: ServerNotification[] }).notifications as ServerNotification[] | undefined) ?? [];
 		const mapped = notifications.map((notification) => ({

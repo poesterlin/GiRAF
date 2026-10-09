@@ -78,6 +78,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				results.push({
 					name: file.name,
 					status: 'skipped',
+					date: duplicate.date,
 					message: duplicate.importedAt ? 'Already imported' : 'Already in queue',
 					...(duplicate.importedAt ? {} : { id: duplicate.id })
 				});
@@ -116,7 +117,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				.returning();
 
 			console.log(`[UPLOAD] ${file.name} added to DB with ID ${inserted.id}`);
-			results.push({ name: file.name, status: 'success', id: inserted.id });
+			results.push({ name: file.name, status: 'success', id: inserted.id, date: inserted.date });
 		} catch (e) {
 			if (written) await unlink(filePath).catch(() => {});
 			console.error(`[UPLOAD] Failed to upload ${file.name}:`, e);

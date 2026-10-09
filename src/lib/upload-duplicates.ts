@@ -1,7 +1,7 @@
 import { createSHA256 } from 'hash-wasm';
 import { importTiming } from './import-timing';
 
-export type DuplicateResult = { key: string; duplicate: boolean; imported: boolean; id?: number };
+export type DuplicateResult = { key: string; duplicate: boolean; imported: boolean; id?: number; date?: string };
 const fingerprints = new WeakMap<File, Promise<string>>();
 
 export function cacheFileFingerprint(file: File, sha256: string) {

@@ -41,6 +41,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				key: file.key,
 				duplicate: !!existing,
 				imported: !!existing?.importedAt,
+				...(existing ? { date: existing.date } : {}),
 				...(existing && !existing.importedAt ? { id: existing.id } : {})
 			};
 		})

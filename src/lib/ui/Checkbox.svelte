@@ -3,13 +3,14 @@
 		checked?: boolean;
 		disabled?: boolean;
 		label?: string;
+		ariaLabel?: string;
 		id?: string;
 		name?: string;
 		small?: boolean;
 		onchange?: (value: boolean) => void;
 	}
 
-	let { checked = $bindable(false), disabled = false, label = 'Toggle', id = `toggle-${Math.random().toString(36).slice(2, 9)}`, name, small, onchange }: Props = $props();
+	let { checked = $bindable(false), disabled = false, label = 'Toggle', ariaLabel, id = `toggle-${Math.random().toString(36).slice(2, 9)}`, name, small, onchange }: Props = $props();
 
 	function handleChange(e: Event) {
 		const next = (e.target as HTMLInputElement).checked;
@@ -27,9 +28,6 @@
 
 	<!-- Switch wrapper -->
 	<label
-		role="switch"
-		aria-checked={checked}
-		aria-disabled={disabled}
 		class="relative z-10 h-5 w-12 cursor-pointer rounded-full pointer-events-auto
 		transition-colors outline-none select-none focus-visible:ring-2
 		focus-visible:ring-neutral-100/60
@@ -62,6 +60,7 @@
 		<input
 			{id}
 			{name}
+			aria-label={ariaLabel}
 			type="checkbox"
 			class="absolute inset-0 opacity-0 pointer-events-auto"
 			{disabled}
@@ -74,7 +73,7 @@
 </div>
 
 <style>
-	label[role='switch'] {
+	label:has(input) {
 		box-shadow: inset 4px 4px black;
 	}
 

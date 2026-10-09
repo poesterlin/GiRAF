@@ -93,6 +93,6 @@ export async function findImportDuplicate(sha256: string, size: number) {
 	return db.query.importTable.findFirst({
 		where: and(eq(importTable.contentHash, sha256.toLowerCase()), eq(importTable.fileSize, size)),
 		orderBy: [importTable.id],
-		columns: { id: true, importedAt: true }
+		columns: { id: true, importedAt: true, date: true }
 	});
 }

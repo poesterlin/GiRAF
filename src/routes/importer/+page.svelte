@@ -24,14 +24,27 @@
 		uploadPromise?: Promise<number | undefined>;
 		resolveUpload?: (id: number | undefined) => void;
 		assigning?: boolean;
+		assigned?: boolean;
 	};
 	let localItems = $state<ImageItem[]>([]);
+	let duplicateCounts = $state<Record<string, number>>({});
+	function dateKey(date: Date | string) {
+		const value = new Date(date);
+		return new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime().toString();
+	}
+	function countDuplicate(date: Date | string) {
+		const key = dateKey(date);
+		duplicateCounts[key] = (duplicateCounts[key] ?? 0) + 1;
+	}
 	let nextLocalId = -1;
 	let alive = true;
 	let loadedPreviews = $state(new Set<number>());
 	let failedPreviews = $state(new Set<number>());
 	const previewLimit = pLimit(2);
-	let allItems = $derived<ImageItem[]>([...data.items.filter((item) => !localItems.some((local) => local.importId === item.id)), ...localItems]);
+	function compareItems(a: ImageItem, b: ImageItem) {
+		return new Date(b.date).getTime() - new Date(a.date).getTime() || (b.importId ?? b.id) - (a.importId ?? a.id);
+	}
+	let allItems = $derived<ImageItem[]>([...data.items.filter((item) => !localItems.some((local) => local.importId === item.id)), ...localItems].sort(compareItems));
 
 	function removeLocal(id: number) {
 		const item = localItems.find((item) => item.id === id);
@@ -60,7 +73,7 @@
 					}
 					item.url = preview.url;
 					importTiming('preview.ready', staged, { file: file.name });
-					if (preview.capturedAt) item.date = preview.capturedAt;
+					if (preview.capturedAt && item.importId === undefined && !item.assigned) item.date = preview.capturedAt;
 				} catch {
 					const item = localItems.find((item) => item.id === id);
 					if (alive && item) item.previewError = 'Preview unavailable';
@@ -68,7 +81,11 @@
 			});
 		}
 		for (const file of Array.from(files)) {
-			if (localItems.some((item) => item.file?.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified)) continue;
+			const existing = localItems.find((item) => item.file?.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified);
+			if (existing) {
+				countDuplicate(existing.date);
+				continue;
+			}
 			const id = nextLocalId--;
 			let resolveUpload!: (id: number | undefined) => void;
 			const uploadPromise = new Promise<number | undefined>((resolve) => {
@@ -83,15 +100,23 @@
 			undefined,
 			{
 				onFilePrepared: preparePreview,
-				onFileUploaded(file, importId, imported) {
+				onFileDuplicate(file, date) {
+					if (!alive) return;
+					const entry = batch.find((item) => item.file === file)!;
+					const item = localItems.find((item) => item.id === entry.id);
+					countDuplicate(date ?? item?.date ?? entry.date);
+				},
+				onFileUploaded(file, importId, imported, date) {
 					const entry = batch.find((item) => item.file === file)!;
 					const item = localItems.find((item) => item.id === entry.id);
 					if (item) {
 						item.uploading = false;
 						item.importId = importId;
+						item.assigned = imported;
+						if (date) item.date = new Date(date);
 					}
 					entry.resolveUpload?.(imported ? undefined : importId);
-					if (imported && alive) removeLocal(entry.id);
+					if (alive && !imported && importId !== undefined && (data.items.some((queued) => queued.id === importId) || localItems.some((local) => local.id !== entry.id && local.importId === importId))) removeLocal(entry.id);
 				},
 				onFileFailed(file) {
 					const entry = batch.find((item) => item.file === file)!;
@@ -105,6 +130,10 @@
 	// Core State
 	let selectedIds = $state<Set<number>>(new Set());
 	let assigningIds = $state<Set<number>>(new Set());
+	let assignedIds = $derived(new Set(localItems.filter((item) => item.assigned).map((item) => item.id)));
+	function unavailable(id: number) {
+		return assigningIds.has(id) || assignedIds.has(id);
+	}
 	let showModal = $state(false);
 	let sessionName = $state('');
 	let isCreating = $state(false);
@@ -138,17 +167,21 @@
 	let groupedByDate = $derived.by(() => {
 		const groups = new Map<string, ImageItem[]>();
 		allItems.forEach((item) => {
-			const date = new Date(item.date).toLocaleDateString(undefined, {
-				year: 'numeric',
-				month: 'long',
-				day: 'numeric'
-			});
+			const date = dateKey(item.date);
 			if (!groups.has(date)) {
 				groups.set(date, []);
 			}
 			groups.get(date)!.push(item);
 		});
-		return Array.from(groups.entries()).map(([date, images]) => ({ date, images }));
+		for (const key of Object.keys(duplicateCounts)) {
+			if (duplicateCounts[key] && !groups.has(key)) groups.set(key, []);
+		}
+		return Array.from(groups.entries()).sort(([a], [b]) => Number(b) - Number(a)).map(([key, images]) => ({
+			key,
+			date: new Date(Number(key)).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }),
+			images,
+			duplicates: duplicateCounts[key] ?? 0
+		}));
 	});
 
 	// --- Event Handlers ---
@@ -156,7 +189,7 @@
 	function handleTouchStart(event: TouchEvent, id: number, index: number) {
 		longPressTimer = window.setTimeout(() => {
 			longPressTimer = null;
-			if (assigningIds.has(id)) return;
+			if (unavailable(id)) return;
 			inSelectionMode = true;
 			isDragging = true;
 			dragStartIndex = index;
@@ -186,7 +219,7 @@
 			const rangeIds = new Set<number>();
 			for (let i = start; i <= end; i++) {
 				const item = allItems[i];
-				if (item && !assigningIds.has(item.id)) rangeIds.add(item.id);
+				if (item && !unavailable(item.id)) rangeIds.add(item.id);
 			}
 			selectedIds = new Set([...selectedIds, ...rangeIds]);
 		}
@@ -216,7 +249,7 @@
 			suppressClick = false;
 			return;
 		}
-		if (assigningIds.has(id)) return;
+		if (unavailable(id)) return;
 		if (!inSelectionMode) {
 			inSelectionMode = true;
 		}
@@ -225,7 +258,7 @@
 			const start = Math.min(lastSelectedIndex, index);
 			const end = Math.max(lastSelectedIndex, index);
 			for (let i = start; i <= end; i++) {
-				if (!assigningIds.has(allItems[i].id)) selectedIds.add(allItems[i].id);
+				if (!unavailable(allItems[i].id)) selectedIds.add(allItems[i].id);
 			}
 		} else if (selectedIds.has(id)) {
 			selectedIds.delete(id);
@@ -256,12 +289,12 @@
 	}
 
 	function selectAll() {
-		selectedIds = new Set(allItems.filter((item) => !assigningIds.has(item.id)).map((item) => item.id));
+		selectedIds = new Set(allItems.filter((item) => !unavailable(item.id)).map((item) => item.id));
 		inSelectionMode = true;
 	}
 
 	function toggleDateSelection(images: ImageItem[]) {
-		const allIdsInGroup = images.filter((item) => !assigningIds.has(item.id)).map((img) => img.id);
+		const allIdsInGroup = images.filter((item) => !unavailable(item.id)).map((img) => img.id);
 		const allAreSelected = allIdsInGroup.every((id) => selectedIds.has(id));
 
 		if (allAreSelected) {
@@ -348,7 +381,7 @@
 		};
 
 		try {
-			const items = allItems.filter((item) => body.importIds.includes(item.id) && !assigningIds.has(item.id));
+			const items = allItems.filter((item) => body.importIds.includes(item.id) && !unavailable(item.id));
 			const target = importMode === 'new' ? { name: sessionName.trim() } : { sessionId: selectedSessionId! };
 			showModal = false;
 			clearSelection();
@@ -359,8 +392,12 @@
 				(index) => {
 					if (alive) {
 						const item = items[index];
-						if (item.file) removeLocal(item.id);
-						else data.items = data.items.filter((entry) => entry.id !== item.id);
+						const local = localItems.find((entry) => entry.id === item.id);
+						if (local) local.assigned = true;
+						else {
+							localItems.push({ ...item, importId: item.id, assigned: true });
+							data.items = data.items.filter((entry) => entry.id !== item.id);
+						}
 					}
 					void invalidateAll();
 				},
@@ -428,7 +465,7 @@
 		suppressClick = true;
 		const index = Number(card.dataset.index);
 		for (let i = Math.min(mouseStart.index, index); i <= Math.max(mouseStart.index, index); i++) {
-			if (allItems[i] && !assigningIds.has(allItems[i].id)) selectedIds.add(allItems[i].id);
+			if (allItems[i] && !unavailable(allItems[i].id)) selectedIds.add(allItems[i].id);
 		}
 		selectedIds = new Set(selectedIds);
 		inSelectionMode = selectedIds.size > 0;
@@ -564,13 +601,20 @@
 			{/snippet}
 
 			<div class="pb-32" ontouchend={handleTouchEnd} role="presentation">
-				{#if !allItems.length}
+				{#if !groupedByDate.length}
 					{@render empty()}
 				{:else}
-					{#each groupedByDate as group}
+					{#each groupedByDate as group (group.key)}
 						<div class="mb-8 mt-12 flex items-center justify-between">
-							<h2 class="text-2xl font-bold tracking-tight text-neutral-100">{group.date}</h2>
-							<button onclick={() => toggleDateSelection(group.images)} class="text-sm font-bold text-neutral-500 hover:text-neutral-100 transition-colors"> Select All </button>
+							<div class="flex flex-wrap items-center gap-3">
+								<h2 class="text-2xl font-bold tracking-tight text-neutral-100">{group.date}</h2>
+								{#if group.duplicates > 0}
+									<span class="rounded-full bg-neutral-800 px-3 py-1 text-sm font-semibold text-neutral-300" role="status">{group.duplicates} duplicate{group.duplicates === 1 ? '' : 's'}</span>
+								{/if}
+							</div>
+							{#if group.images.length}
+								<button onclick={() => toggleDateSelection(group.images)} class="text-sm font-bold text-neutral-500 hover:text-neutral-100 transition-colors"> Select All </button>
+							{/if}
 						</div>
 						<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
 							{#each group.images as item (item.id)}
@@ -578,7 +622,7 @@
 								<button
 									data-id={item.id}
 									data-index={itemIndex}
-									disabled={assigningIds.has(item.id)}
+									disabled={unavailable(item.id)}
 									class="group relative aspect-[3/2] select-none overflow-hidden rounded-2xl bg-neutral-900 ring-offset-black transition-all"
 									draggable={false}
 									ondragstart={(e) => e.preventDefault()}
@@ -628,7 +672,11 @@
 										</span>
 									{/if}
 
-									{#if item.file && item.importId === undefined}
+									{#if item.assigned}
+										<span class="absolute top-3 left-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white" title="Assigned to a session" aria-label="Assigned to a session" role="img">
+											<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>
+										</span>
+									{:else if item.file && item.importId === undefined}
 										<span
 											class="absolute top-3 left-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white"
 											title={item.uploading ? 'Uploading' : 'Local file — not uploaded'}

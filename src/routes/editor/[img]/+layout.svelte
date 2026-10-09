@@ -5,7 +5,7 @@
 	let { children } = $props();
 
 	$effect(() => {
-		const newPP3 = $state.snapshot(edits.pp3);
+		const newPP3 = $state.snapshot(edits.effectivePP3);
 		untrack(() => edits.updateThrottledPP3(newPP3));
 	});
 

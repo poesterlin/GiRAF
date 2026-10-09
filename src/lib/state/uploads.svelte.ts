@@ -11,7 +11,8 @@ export type { UploadSessionTarget } from '$lib/upload-assignment';
 export type UploadBatchResult = { failedFiles: File[]; assignmentFailed: boolean; sessionId?: number };
 export type UploadOptions = {
 	onFilePrepared?: (original: File, prepared: File) => Promise<void>;
-	onFileUploaded?: (file: File, id?: number, imported?: boolean) => void;
+	onFileUploaded?: (file: File, id?: number, imported?: boolean, date?: string) => void;
+	onFileDuplicate?: (file: File, date?: string) => void;
 	onFileFailed?: (file: File, error: unknown) => void;
 };
 
@@ -83,7 +84,7 @@ class UploadState {
 							const readStarted = performance.now();
 							const source = await prepareUploadSource(file);
 							importTiming('upload.source-ready', readStarted, { file: file.name, bytes: file.size, buffered: source !== file });
-							if (source !== file) previewWork = options.onFilePrepared?.(file, source).catch((error) => console.error('Preview preparation failed', error));
+							previewWork = options.onFilePrepared?.(file, source).catch((error) => console.error('Preview preparation failed', error));
 							this.checking += 1;
 							let check;
 							try {
@@ -97,10 +98,12 @@ class UploadState {
 								this.checking -= 1;
 							}
 							if (check?.duplicate) {
+								options.onFileDuplicate?.(file, check.date);
 								if (!check.imported && check.id !== undefined) await assignFile(file, [check.id]);
-								options.onFileUploaded?.(file, check.id, check.imported);
+								options.onFileUploaded?.(file, check.id, check.imported, check.date);
 								return;
 							}
+							let uploadedDate: string | undefined;
 							const importIds = await new Promise<number[]>((resolve, reject) => {
 								const transferStarted = performance.now();
 								const request = new XMLHttpRequest();
@@ -115,11 +118,15 @@ class UploadState {
 								request.onload = () => {
 									importTiming('upload.response', transferStarted, { file: file.name, status: request.status });
 									try {
-										const payload = JSON.parse(request.responseText) as { message?: string; results?: { status: string; id?: number; message?: string }[] };
+										const payload = JSON.parse(request.responseText) as { message?: string; results?: { status: string; id?: number; message?: string; date?: string }[] };
 										if (request.status < 200 || request.status >= 300) throw new Error(payload.message || `Upload failed (${request.status})`);
 										if (!payload.results?.length || payload.results.some((result) => result.status === 'error')) {
 											throw new Error(payload.results?.find((result) => result.status === 'error')?.message || 'File processing failed');
 										}
+										for (const result of payload.results) {
+											if (result.status === 'skipped') options.onFileDuplicate?.(file, result.date);
+										}
+										uploadedDate = payload.results[0].date;
 										resolve(payload.results.flatMap((result) => (result.id === undefined ? [] : [result.id])));
 									} catch (error) {
 										reject(error);
@@ -134,7 +141,7 @@ class UploadState {
 								importTiming('upload.started', batchStarted, { file: file.name });
 							});
 							await assignFile(file, importIds);
-							options.onFileUploaded?.(file, importIds[0], !importIds.length);
+							options.onFileUploaded?.(file, importIds[0], !importIds.length, uploadedDate);
 						} catch (error) {
 							importTiming('upload.error', batchStarted, { file: file.name, error: String(error) });
 							options.onFileFailed?.(file, error);

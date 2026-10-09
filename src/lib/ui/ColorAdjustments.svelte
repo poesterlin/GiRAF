@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { edits } from '$lib/state/editing.svelte';
-	import Section from './Section.svelte';
+	let { mode }: { mode: 'mixer' | 'calibration' } = $props();
 	import Slider from './Slider.svelte';
 	import { primaryDefaults, gradeToRgb, rgbToGrade } from '$lib/color-controls';
 	const colors = ['Red', 'Orange', 'Yellow', 'Green', 'Cyan', 'Blue', 'Purple', 'Magenta'];
@@ -47,7 +47,8 @@
 	}
 </script>
 
-<Section title="Color Mixer" section="HSV_Equalizer">
+{#if mode === 'mixer'}
+<div class="space-y-3">
 	<label class="text-xs text-neutral-300" for="mixer-color">Color range</label>
 	<select id="mixer-color" bind:value={color} class="rounded-lg border border-neutral-600 bg-neutral-900 p-3 text-neutral-100">
 		{#each colors as name, index}<option value={index}>{name}</option>{/each}
@@ -55,9 +56,11 @@
 	<Slider label="Hue" value={curveValue('HCurve', color)} min={-100} max={100} centered resetValue={0} onchange={(value) => setCurve('HCurve', value)} />
 	<Slider label="Saturation" value={curveValue('SCurve', color)} min={-100} max={100} centered resetValue={0} onchange={(value) => setCurve('SCurve', value)} />
 	<Slider label="Brightness" value={curveValue('VCurve', color)} min={-100} max={100} centered resetValue={0} onchange={(value) => setCurve('VCurve', value)} />
-</Section>
+</div>
 
-<Section title="Calibration" section="Channel_Mixer">
+{:else}
+<div class="space-y-3">
+	<h3 class="text-xs font-semibold uppercase tracking-wider text-neutral-300">Calibration</h3>
 	<div class="grid grid-cols-3 gap-2" role="group" aria-label="Primary color">
 		{#each primaryDefaults as primary, index}
 			<button type="button" class="min-h-12 rounded-xl border px-2 text-sm font-semibold" class:bg-neutral-100={primaryIndex === index} class:text-neutral-950={primaryIndex === index} class:border-neutral-100={primaryIndex === index} class:border-neutral-600={primaryIndex !== index} aria-pressed={primaryIndex === index} onclick={() => (primaryIndex = index)}>{primary.name}</button>
@@ -66,4 +69,6 @@
 	<Slider label="Hue" value={primaryValues.hue} min={-100} max={100} centered resetValue={0} onchange={(value) => setPrimary(value, primaryValues.saturation)} />
 	<Slider label="Saturation" value={primaryValues.saturation} min={-100} max={100} centered resetValue={0} onchange={(value) => setPrimary(primaryValues.hue, value)} />
 	<button type="button" class="min-h-12 rounded-xl border border-neutral-600 text-sm font-semibold hover:bg-neutral-800" onclick={() => setPrimary(0, 0)}>Reset {primaryDefaults[primaryIndex].name}</button>
-</Section>
+</div>
+
+{/if}
