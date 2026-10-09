@@ -45,12 +45,13 @@
 	}
 	let sliderValue = $state(40);
 	const view = $derived({
-		x: Math.max(0, Math.min(dimensions.width - dimensions.width / zoom, center.x - dimensions.width / zoom / 2)),
-		y: Math.max(0, Math.min(dimensions.height - dimensions.height / zoom, center.y - dimensions.height / zoom / 2)),
+		// Leave half a viewport beyond each edge so corner spots can be centred.
+		x: zoom === 1 ? 0 : Math.max(0, Math.min(dimensions.width, center.x)) - dimensions.width / zoom / 2,
+		y: zoom === 1 ? 0 : Math.max(0, Math.min(dimensions.height, center.y)) - dimensions.height / zoom / 2,
 		width: dimensions.width / zoom,
 		height: dimensions.height / zoom
 	});
-	let gesture: { x: number; y: number; cx: number; cy: number; scale: number; moved: boolean; p: { x: number; y: number }; pointer: number } | undefined;
+	let gesture: { x: number; y: number; cx: number; cy: number; scale: number; moved: boolean; p?: { x: number; y: number }; pointer: number } | undefined;
 	const pointers = new Map<number, { x: number; y: number }>();
 	let pinch: { distance: number; zoom: number } | undefined;
 	$effect(() => {
@@ -172,7 +173,6 @@
 			return;
 		}
 		const p = point(event);
-		if (!p) return;
 		const handle = (event.target as Element).closest('[data-spot]');
 		if (handle && !adding) {
 			selected = Number(handle.getAttribute('data-spot'));
@@ -226,7 +226,7 @@
 			gesture = undefined;
 			return;
 		}
-		if (gesture?.pointer === event.pointerId && !gesture.moved && event.type !== 'pointercancel' && adding) {
+		if (gesture?.pointer === event.pointerId && gesture.p && !gesture.moved && event.type !== 'pointercancel' && adding) {
 			const p = gesture.p;
 			if (!target) {
 				target = p;
