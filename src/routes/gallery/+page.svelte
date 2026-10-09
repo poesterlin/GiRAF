@@ -7,6 +7,7 @@
 </script>
 
 <SessionList
+	allowRename
 	{basePath}
 	triageEnabled={data.triageEnabled}
 	next={data.next}

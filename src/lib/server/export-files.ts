@@ -10,7 +10,7 @@ export function makeSessionPath(session: Session): string {
 	return join(process.env.EXPORT_DIR || '/app/export', year.toString(), `${year}-${month}-${day}_${session.name}`);
 }
 
-export function makeOutputPath(image: Image, session: Session): string {
+export function makeOutputPath(image: Pick<Image, 'id' | 'recordedAt'>, session: Session): string {
 	const date = new Date(image.recordedAt);
 	const pad = (value: number) => String(value).padStart(2, '0');
 	const day = `${pad(date.getUTCFullYear() % 100)}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}`;
@@ -23,14 +23,14 @@ export function exportImageId(filename: string): number | undefined {
 	return match ? Number(match[1]) : undefined;
 }
 
-export async function findExportPath(image: Image, session: Session): Promise<string> {
+export async function findExportPath(image: Pick<Image, 'id' | 'recordedAt'>, session: Session): Promise<string> {
 	const path = makeOutputPath(image, session);
 	try { await stat(path); return path; } catch (error) {
 		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 	}
 	try {
 		const names = await readdir(dirname(path));
-		const legacy = names.sort().find((name) => name.endsWith(`_${session.name}.jpg`) && exportImageId(name) === image.id);
+		const legacy = names.sort().find((name) => exportImageId(name) === image.id);
 		return legacy ? join(dirname(path), legacy) : path;
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;

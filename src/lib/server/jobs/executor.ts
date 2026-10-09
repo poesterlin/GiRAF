@@ -9,8 +9,7 @@ import { dirname, join } from 'path';
 
 async function fileExists(path: string) {
 	try {
-		await stat(path);
-		return true;
+		return (await stat(path)).isFile();
 	} catch {
 		return false;
 	}
@@ -174,7 +173,8 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 			}
 
 			await moveExportFile(outputPath, false);
-			const needsExport = !image.lastExportedAt || image.lastExportedAt < image.updatedAt;
+			const existingPath = await findExportPath(image, session);
+			const needsExport = !image.lastExportedAt || image.lastExportedAt < image.updatedAt || !(await fileExists(existingPath));
 			let isReadyForUpload = false;
 
 			if (needsExport) {
@@ -199,16 +199,14 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 				await db.update(imageTable).set({ lastExportedAt: new Date() }).where(eq(imageTable.id, image.id));
 				isReadyForUpload = true;
 			} else {
-				outputPath = await findExportPath(image, session);
-				isReadyForUpload = await fileExists(outputPath);
+				outputPath = existingPath;
+				isReadyForUpload = true;
 			}
 
 			if (isReadyForUpload) {
 				for (const album of albums) {
 					await upsertAlbumImage(album, image, outputPath);
 				}
-			} else if (!needsExport) {
-				console.warn(`[Executor] Image ${image.id} is marked as exported but JPEG is missing at ${outputPath}. Skipping sync.`);
 			}
 		}
 		console.log(`[Executor] Finished export for session: ${sessionId}`);

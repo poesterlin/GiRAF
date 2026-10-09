@@ -1,8 +1,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
-import { sessionTable, snapshotTable } from '$lib/server/db/schema';
-import { desc, eq } from 'drizzle-orm';
+import { imageTable, sessionTable, snapshotTable } from '$lib/server/db/schema';
+import { and, desc, eq, max, sql } from 'drizzle-orm';
+import { findExportPath } from '$lib/server/export-files';
+import { stat } from 'node:fs/promises';
 
 export type ExporterSessionsResponse = {
 	sessions: Array<{
@@ -33,7 +35,7 @@ export const GET: RequestHandler = async ({ url }) => {
 	const sessions = await db.query.sessionTable.findMany({
 		with: {
 			images: {
-				columns: { id: true, filepath: true, lastExportedAt: true },
+				columns: { id: true, filepath: true, lastExportedAt: true, updatedAt: true, recordedAt: true },
 				where: (images, { eq }) => eq(images.isArchived, false),
 				with: {
 					snapshots: {
@@ -52,7 +54,13 @@ export const GET: RequestHandler = async ({ url }) => {
 				}
 			}
 		},
-		orderBy: [desc(sessionTable.startedAt)],
+		orderBy: (sessions) => {
+			const lastEdit = db.select({ date: max(snapshotTable.createdAt) })
+				.from(snapshotTable)
+				.innerJoin(imageTable, eq(imageTable.id, snapshotTable.imageId))
+				.where(and(eq(imageTable.sessionId, sessions.id), eq(imageTable.isArchived, false)));
+			return [sql`${lastEdit} desc nulls last`, desc(sessions.startedAt), desc(sessions.id)];
+		},
 		where: eq(sessionTable.isArchived, false),
 		limit: limit + 1,
 		offset: cursor
@@ -64,18 +72,13 @@ export const GET: RequestHandler = async ({ url }) => {
 		nextCursor = cursor + limit;
 	}
 
-	const sessionsWithStatus = sessions.map((s) => {
-		const imagesWithStatus = s.images.map((img) => {
-			let needsExport = false;
-			if (img.snapshots.length > 0) {
-				if (!img.lastExportedAt) {
-					needsExport = true;
-				} else {
-					needsExport = img.snapshots[0].createdAt > img.lastExportedAt;
-				}
-			}
+	const sessionsWithStatus = await Promise.all(sessions.map(async (s) => {
+		const imagesWithStatus = await Promise.all(s.images.map(async (img) => {
+			const path = await findExportPath(img, s);
+			const exists = await stat(path).then((file) => file.isFile()).catch(() => false);
+			const needsExport = !img.lastExportedAt || img.updatedAt > img.lastExportedAt || !exists;
 			return { ...img, needsExport };
-		});
+		}));
 
 		const hasImagesToExport = imagesWithStatus.some((img) => img.needsExport);
 		const sessionStatus = hasImagesToExport ? 'Updated' : 'Exported';
@@ -86,7 +89,7 @@ export const GET: RequestHandler = async ({ url }) => {
 			albums: s.albums,
 			status: sessionStatus
 		};
-	});
+	}));
 
 	const response = {
 		sessions: sessionsWithStatus,

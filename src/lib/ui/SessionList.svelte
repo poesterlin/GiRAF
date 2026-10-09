@@ -6,6 +6,7 @@
 	import { IconAdjustmentsFilled, IconArchive, IconLayoutGrid, IconTransferIn, IconDeviceFloppy } from '$lib/ui/icons';
 	import type { SessionsResponse } from '../../routes/api/sessions/+server';
 	import { app } from '$lib/state/app.svelte';
+	import Modal from './Modal.svelte';
 
 	type Session = SessionsResponse['sessions'][number];
 	interface Props {
@@ -14,6 +15,7 @@
 		onLoaded: (data: SessionsResponse) => void;
 		basePath?: 'editor' | 'triage';
 		triageEnabled?: boolean;
+		allowRename?: boolean;
 	}
 
 	type ImportJobStatus = 'idle' | 'running' | 'success' | 'error' | 'cancelled';
@@ -22,7 +24,27 @@
 		message?: string;
 	};
 
-	let { sessions, next, onLoaded, basePath = 'editor', triageEnabled = true }: Props = $props();
+	let { sessions, next, onLoaded, basePath = 'editor', triageEnabled = true, allowRename = false }: Props = $props();
+	let renaming = $state<Session | null>(null);
+	let renameValue = $state('');
+	let savingName = $state(false);
+	async function saveName(event: SubmitEvent) {
+		event.preventDefault();
+		if (!renaming || savingName || !renameValue.trim()) return;
+		savingName = true;
+		try {
+			const response = await fetch(`/api/sessions/${renaming.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: renameValue.trim() }) });
+			if (!response.ok) {
+				const result = await response.json();
+				throw new Error(result.message ?? 'Failed to rename session.');
+			}
+			const result = await response.json();
+			sessions = sessions.map((session) => session.id === result.id ? { ...session, name: result.name } : session);
+			renaming = null;
+		} catch (cause) {
+			app.addToast(cause instanceof Error ? cause.message : 'Failed to rename session.', 'error');
+		} finally { savingName = false; }
+	}
 
 	let initialImports = $derived(sessions.filter((s) => s.isImporting).map((s) => s.id));
 
@@ -147,7 +169,14 @@
 		<div class="sticky top-0 z-10 flex items-center justify-between bg-neutral-950/90 py-6 backdrop-blur-md">
 			<div class="flex items-center gap-6 pl-3">
 				<div class="flex flex-col">
-					<h2 class="text-2xl font-bold tracking-tight text-neutral-100">{item.name}</h2>
+					<div class="flex items-center gap-2">
+						<h2 class="text-2xl font-bold tracking-tight text-neutral-100">{item.name}</h2>
+						{#if allowRename}
+							<button type="button" class="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-800 hover:text-white" aria-label={`Rename ${item.name}`} onclick={() => { renaming = item; renameValue = item.name; }}>
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m16 3 5 5-12 12H4v-5Z" /><path d="m14 5 5 5" /></svg>
+							</button>
+						{/if}
+					</div>
 					<p class="text-xs font-medium tracking-widest uppercase text-neutral-500">{formatDate(item.startedAt)} • {item.imageCount} images</p>
 				</div>
 				
@@ -253,6 +282,21 @@
 	</section>
 {/snippet}
 
+{#if renaming}
+	<Modal onClose={() => { if (!savingName) renaming = null; }}>
+		<form onsubmit={saveName} class="space-y-5">
+			<h2 class="text-xl font-semibold text-neutral-100">Rename session</h2>
+			<label class="flex flex-col gap-2 text-sm text-neutral-300">Session name
+				<input required bind:value={renameValue} disabled={savingName} class="min-h-12 rounded-xl border border-neutral-600 bg-neutral-900 px-3 text-neutral-100" />
+			</label>
+			<div class="flex justify-end gap-3">
+				<button type="button" disabled={savingName} class="min-h-12 rounded-xl border border-neutral-600 px-5" onclick={() => (renaming = null)}>Cancel</button>
+				<button type="submit" disabled={savingName || !renameValue.trim()} class="min-h-12 rounded-xl bg-neutral-100 px-5 font-semibold text-neutral-950 disabled:opacity-40">{savingName ? 'Saving…' : 'Save'}</button>
+			</div>
+		</form>
+	</Modal>
+{/if}
+
 {#snippet empty()}
 	<div class="flex h-full flex-col items-center justify-center p-12 text-center">
 		<div class="mb-8 flex h-24 w-24 items-center justify-center rounded-3xl bg-neutral-900 text-neutral-700 shadow-inner ring-1 ring-neutral-800">
@@ -289,4 +333,3 @@
 		loading = false;
 	}}
 ></Scroller>
-
