@@ -35,7 +35,14 @@
 	let zoom = $state(1);
 	let center = $state({ x: 0, y: 0 });
 	let detail = $state<{ x: number; y: number }>();
-	let setting = $state<'radius' | 'feather' | 'opacity'>('radius');
+	let loupeLeft = $state(false);
+	let setting = $state<'radius' | 'feather'>('radius');
+	function avoidFinger(event: PointerEvent) {
+		const rect = svg?.getBoundingClientRect();
+		if (!rect || event.clientY > rect.top + 140) return;
+		if (event.clientX > rect.right - 140) loupeLeft = true;
+		else if (event.clientX < rect.left + 140) loupeLeft = false;
+	}
 	let sliderValue = $state(40);
 	const view = $derived({
 		x: Math.max(0, Math.min(dimensions.width - dimensions.width / zoom, center.x - dimensions.width / zoom / 2)),
@@ -152,6 +159,8 @@
 	}
 	function down(event: PointerEvent) {
 		if (!dimensions.width || !imageUrl || showOriginal || event.button !== 0) return;
+		event.preventDefault();
+		avoidFinger(event);
 		pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 		svg?.setPointerCapture(event.pointerId);
 		if (pointers.size === 2) {
@@ -184,6 +193,7 @@
 		}
 	}
 	function move(event: PointerEvent) {
+		if (pointers.has(event.pointerId)) { event.preventDefault(); avoidFinger(event); }
 		if (pointers.has(event.pointerId)) pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 		if (pinch && pointers.size === 2) {
 			const [a, b] = [...pointers.values()];
@@ -256,7 +266,7 @@
 	}
 </script>
 
-<div class="flex h-full min-h-0 flex-col bg-neutral-950 text-neutral-200 lg:flex-row">
+<div class="retouch-workspace flex h-full min-h-0 select-none flex-col bg-neutral-950 text-neutral-200 lg:flex-row">
 	<div class="relative min-h-0 flex-1 bg-black">
 		{#if dimensions.width && dimensions.height}
 			<svg
@@ -281,6 +291,10 @@
 							<circle data-spot={index} cx={spot.x} cy={spot.y} r={Math.max(spot.radius, hitRadius / zoom)} stroke="none" />
 							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={Math.max(spot.radius, hitRadius / zoom)} stroke="none" />
 							<line x1={spot.x} y1={spot.y} x2={spot.sourceX} y2={spot.sourceY} vector-effect="non-scaling-stroke" stroke-dasharray="4 4" />
+							{#if index === selected && spot.feather > 0}
+								<circle cx={spot.x} cy={spot.y} r={spot.radius * (1 + spot.feather)} stroke-opacity="0.5" stroke-dasharray="2 4" vector-effect="non-scaling-stroke" pointer-events="none" />
+								<circle cx={spot.sourceX} cy={spot.sourceY} r={spot.radius * (1 + spot.feather)} stroke-opacity="0.5" stroke-dasharray="2 4" vector-effect="non-scaling-stroke" pointer-events="none" />
+							{/if}
 							<circle data-spot={index} cx={spot.x} cy={spot.y} r={spot.radius} vector-effect="non-scaling-stroke" />
 							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={spot.radius} stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
 						</g>
@@ -290,7 +304,7 @@
 			</svg>
 		{/if}
 		{#if imageUrl && detail && zoom > 1}
-			<div class="pointer-events-none absolute right-3 top-3 h-24 w-24 overflow-hidden rounded-2xl border border-white/30 bg-black shadow-xl" aria-label="Magnified spot preview">
+			<div class="pointer-events-none absolute top-3 h-24 w-24 overflow-hidden rounded-2xl border border-white/30 bg-black shadow-xl" class:left-3={loupeLeft} class:right-3={!loupeLeft} aria-label="Magnified spot preview">
 				<svg viewBox={`${detail.x - 35} ${detail.y - 35} 70 70`} class="h-full w-full"
 					><image href={imageUrl} width={dimensions.width} height={dimensions.height} /><circle
 						cx={detail.x}
@@ -314,7 +328,7 @@
 				disabled={zoom === 8}
 				onclick={() => focusAt(target ?? active ?? { x: dimensions.width / 2, y: dimensions.height / 2 }, zoom * 1.5)}><IconPlus size={18} /></button
 			>
-			<button class="icon-tool" aria-label="Fit photo" onclick={() => (zoom = 1)}><IconMaximize size={18} /></button>
+			<div class="hidden lg:block"><button class="icon-tool" aria-label="Fit photo" onclick={() => (zoom = 1)}><IconMaximize size={18} /></button></div>
 		</div>
 		{#if loading}<div class="pointer-events-none absolute left-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs" role="status">Updating preview…</div>{/if}
 		{#if renderError}<p role="alert" class="absolute bottom-3 left-3 right-3 rounded-lg bg-black/80 p-3 text-sm">{renderError}</p>{/if}
@@ -363,15 +377,15 @@
 			<button class="tool" aria-pressed={showOriginal} onclick={() => (showOriginal = !showOriginal)}>Before</button>
 		</div>
 		<div class="flex items-center gap-1">
-			{#each ['radius', 'feather', 'opacity'] as key}<button
+			{#each ['radius', 'feather'] as key}<button
 					class="min-h-11 flex-1 rounded-lg px-2 text-xs font-medium"
 					class:bg-neutral-800={setting === key}
 					disabled={!active && key !== 'radius'}
-					onclick={() => (setting = key as typeof setting)}>{key === 'radius' ? 'Size' : key === 'feather' ? 'Feather' : 'Opacity'}</button
+					onclick={() => (setting = key as typeof setting)}>{key === 'radius' ? `Size · ${active?.radius ?? radius}px` : `Feather · ${Math.round((active?.feather ?? 0.5) * 100)}%`}</button
 				>{/each}
 		</div>
 		{#key setting}<Slider
-				label={setting === 'radius' ? 'Size' : setting === 'feather' ? 'Feather' : 'Opacity'}
+				label={setting === 'radius' ? 'Size' : 'Feather'}
 				bind:value={sliderValue}
 				min={setting === 'radius' ? 1 : 0}
 				max={setting === 'radius' ? data.maxRadius : 100}
@@ -407,6 +421,7 @@
 </div>
 
 <style>
+	.retouch-workspace, .retouch-workspace :global(*) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 	.icon-tool {
 		display: flex;
 		align-items: center;
