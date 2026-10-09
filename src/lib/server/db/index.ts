@@ -3,6 +3,7 @@ import { building } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import postgres from 'postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import * as schema from './schema';
 
 type DatabaseSchema = typeof import('./schema');
 let _db: PostgresJsDatabase<DatabaseSchema>;
@@ -12,14 +13,8 @@ async function createDb() {
         throw new Error('DATABASE_URL is not set');
     }
 
-    let schema = undefined;
-
-    if (!building) {
-        schema = await import('./schema');
-    }
-
     const client = postgres(env.DATABASE_URL!);
-    _db = drizzle({ client, logger: false, schema }) as PostgresJsDatabase<DatabaseSchema>;
+    _db = drizzle({ client, logger: false, schema: building ? undefined : schema }) as PostgresJsDatabase<DatabaseSchema>;
 
     if (!building) {
         console.log('Migrating database...');
