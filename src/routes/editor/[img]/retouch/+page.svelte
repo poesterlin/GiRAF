@@ -458,6 +458,10 @@
 				onclick={() => focusAt(target ?? active ?? { x: dimensions.width / 2, y: dimensions.height / 2 }, zoom * 1.5)}><IconPlus size={18} /></button
 			>
 			<div class="hidden lg:block"><button class="icon-tool" aria-label="Fit photo" onclick={() => (zoom = 1)}><IconMaximize size={18} /></button></div>
+			{#if spots.length}
+				<span class="mx-1 h-5 w-px bg-neutral-700" aria-hidden="true"></span>
+				<button class="min-h-11 rounded-full px-3 text-xs font-medium" aria-pressed={showOriginal} class:chosen={showOriginal} onclick={() => (showOriginal = !showOriginal)}>Before</button>
+			{/if}
 		</div>
 		{#if loading}<div class="pointer-events-none absolute left-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs" role="status">Updating preview…</div>{/if}
 		{#if renderError}<p role="alert" class="absolute bottom-3 left-3 right-3 rounded-lg bg-black/80 p-3 text-sm">{renderError}</p>{/if}
@@ -527,7 +531,6 @@
 					}}><IconArrowForwardUp size={20} /></button
 				>
 			{/if}
-			{#if spots.length}<button class="tool" aria-pressed={showOriginal} class:chosen={showOriginal} onclick={() => (showOriginal = !showOriginal)}>Before</button>{/if}
 			{#if edits.hasChanges || saving}<button class="tool chosen ml-auto" disabled={saving} onclick={save}><IconDeviceFloppy size={18} />{saving ? 'Saving…' : 'Save'}</button
 				>{:else if saved}<span class="ml-auto flex items-center gap-1 text-xs text-neutral-400"><IconCheck size={16} />Saved</span>{/if}
 		</div>
