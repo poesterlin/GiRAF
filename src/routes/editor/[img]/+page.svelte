@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { editorFilterQuery, readEditorFilters, hasEditorFilters } from '$lib/editor-filters';
 	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getWorkerInstance } from '$lib';
@@ -30,14 +31,7 @@
 	import FilterModal from '$lib/ui/FilterModal.svelte';
 
 	let { data } = $props();
-	const navigationQuery = $derived.by(() => {
-		const filter = page.url.searchParams.get('filter');
-		if (!filter) return '';
-		const query = new URLSearchParams({ filter });
-		const since = page.url.searchParams.get('uneditedSince');
-		if (filter === 'unedited' && since) query.set('uneditedSince', since);
-		return `?${query}`;
-	});
+	const navigationQuery = $derived(editorFilterQuery(readEditorFilters(page.url.searchParams)));
 	let showLutPicker = $state(false);
 	let showFilterModal = $state(false);
 	let mobileActions: HTMLDetailsElement | undefined;
@@ -449,8 +443,7 @@
 					<div class="mx-2 h-4 w-px bg-neutral-800"></div>
 
 					<Tooltip text="Filter Gallery" position="top">
-						{@const filter = page.url.searchParams.get('filter')}
-						{@const hasFilter = filter !== null && filter !== 'none'}
+						{@const hasFilter = hasEditorFilters(page.url.searchParams)}
 						<button
 							onclick={() => (showFilterModal = true)}
 							class="flex h-9 w-9 items-center justify-center rounded-full transition-all hover:bg-neutral-800"

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { editorFilterQuery, readEditorFilters } from '$lib/editor-filters';
 	import { parsePP3Document } from '$lib/pp3-document';
 	import { restoreGroupedSettings } from '$lib/adjustment-groups';
 	import { browser } from '$app/environment';
@@ -121,14 +122,7 @@
 
 	const tooltipPosition = $derived(isDesktop ? 'right' : 'top');
 	const iconSize = $derived(isDesktop ? 24 : 20);
-	const filterQuery = $derived.by(() => {
-		const filter = page.url.searchParams.get('filter');
-		if (filter === null) return '';
-		const query = new URLSearchParams({ filter });
-		const since = page.url.searchParams.get('uneditedSince');
-		if (filter === 'unedited' && since) query.set('uneditedSince', since);
-		return `?${query}`;
-	});
+	const filterQuery = $derived(editorFilterQuery(readEditorFilters(page.url.searchParams)));
 
 	const keyMap = $derived(
 		new Map<string, () => void>([

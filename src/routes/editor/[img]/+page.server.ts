@@ -2,40 +2,20 @@ import { db } from '$lib/server/db';
 import { imageTable, imageToTagTable, profileTable, snapshotTable } from '$lib/server/db/schema';
 import { error, redirect } from '@sveltejs/kit';
 import { Glob } from 'bun';
-import { and, asc, desc, eq, exists, gt, isNull, lt, notExists, or, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, exists, gt, isNull, lt, notExists, or } from 'drizzle-orm';
 import { join } from 'node:path';
 import { env } from 'node:process';
 import type { PageServerLoad } from './$types';
-
-// [
-// 		{ name: 'All Images', value: 'none' },
-// 		{ name: 'Changed since last export', value: 'changed' },
-// 		{ name: 'No Archived', value: 'archived' },
-// 		{ name: 'Only Archived', value: 'no-archived' },
-// 		{ name: 'Only Unedited', value: 'unedited' },
-// 		{ name: 'Only Edited', value: 'edited' },
-// 	];
-
-const filterMap: Record<string, SQL[]> = {
-	none: [],
-	changed: [or(
-		lt(imageTable.lastExportedAt, imageTable.updatedAt),
-		isNull(imageTable.lastExportedAt)
-	)!],
-	archived: [eq(imageTable.isArchived, true)],
-	'no-archived': [eq(imageTable.isArchived, false)],
-	unedited: [notExists(db.select().from(snapshotTable).where(eq(snapshotTable.imageId, imageTable.id))), eq(imageTable.isArchived, false)],
-	edited: [exists(db.select().from(snapshotTable).where(eq(snapshotTable.imageId, imageTable.id)))]
-};
+import { editorFilterQuery, readEditorFilters } from '$lib/editor-filters';
 
 export const load: PageServerLoad = async ({ params, url }) => {
-	const filter = url.searchParams.get('filter') ?? 'none';
-	const sinceValue = url.searchParams.get('uneditedSince');
-	const uneditedSince = sinceValue ? new Date(sinceValue) : undefined;
-	if (filter === 'unedited' && (!uneditedSince || !Number.isFinite(uneditedSince.getTime()))) {
-		const destination = new URL(url);
-		destination.searchParams.set('uneditedSince', new Date().toISOString());
-		redirect(307, destination.pathname + destination.search);
+	const selectedFilters = readEditorFilters(url.searchParams);
+	if (selectedFilters.edited !== 'any' && selectedFilters.cutoff === 'workflow' && !selectedFilters.since) {
+		const query = new URLSearchParams(editorFilterQuery({ ...selectedFilters, since: new Date().toISOString() }).slice(1));
+		for (const [key, value] of query) url.searchParams.set(key, value);
+		url.searchParams.delete('filter');
+		url.searchParams.delete('uneditedSince');
+		redirect(307, url.pathname + url.search);
 	}
 	const { img } = params;
 	const imageId = Number(img);
@@ -75,16 +55,15 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	}
 
 	const filters = [eq(imageTable.sessionId, image.sessionId)];
-	if (filter === 'unedited' && uneditedSince) {
-		filters.push(
-			notExists(db.select().from(snapshotTable).where(and(
-				eq(snapshotTable.imageId, imageTable.id),
-				lt(snapshotTable.createdAt, uneditedSince)
-			))),
-			eq(imageTable.isArchived, false)
-		);
-	} else {
-		filters.push(...(filterMap[filter] ?? []));
+	if (selectedFilters.archived !== 'any') filters.push(eq(imageTable.isArchived, selectedFilters.archived === 'only'));
+	if (selectedFilters.edited !== 'any') {
+		const edits = db.select().from(snapshotTable).where(and(
+			eq(snapshotTable.imageId, imageTable.id),
+			selectedFilters.cutoff === 'workflow'
+				? lt(snapshotTable.createdAt, new Date(selectedFilters.since!))
+				: or(isNull(imageTable.lastExportedAt), gt(snapshotTable.createdAt, imageTable.lastExportedAt))
+		));
+		filters.push(selectedFilters.edited === 'edited' ? exists(edits) : notExists(edits));
 	}
 
 	// find next image in line
