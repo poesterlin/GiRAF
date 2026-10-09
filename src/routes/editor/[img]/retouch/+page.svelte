@@ -344,13 +344,11 @@
 	}
 </script>
 
-{#snippet pointBadge(x: number, y: number, source: boolean)}
-	<g transform={`translate(${x} ${y}) scale(${hitRadius / zoom / 18})`} pointer-events="none" role="img" aria-label={source ? 'Copy source' : 'Repair target'}>
-		<title>{source ? 'Copy source' : 'Repair target'}</title>
-		<circle r="11" fill="#111" fill-opacity="0.85" stroke="none"/>
-		<g stroke={source ? '#67e8f9' : '#fff'} stroke-width="1.5" fill="none">
-			{#if source}<rect x="-3" y="-3" width="9" height="9" rx="1.5"/><path d="M2-6h-7a1 1 0 0 0-1 1v7"/>
-			{:else}<circle r="6"/><circle r="2" fill="white" stroke="none"/>{/if}
+{#snippet pointBadge(x: number, y: number)}
+	<g transform={`translate(${x} ${y}) scale(${hitRadius / zoom / 22})`} pointer-events="none" role="img" aria-label="Copy source" opacity="0.65">
+		<title>Copy source</title>
+		<g stroke="#a5d6dd" stroke-width="1.25" fill="none">
+			<rect x="-3" y="-3" width="9" height="9" rx="1.5"/><path d="M2-6h-7a1 1 0 0 0-1 1v7"/>
 		</g>
 	</g>
 {/snippet}
@@ -405,13 +403,11 @@
 							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={spot.radius} stroke={index === selected ? '#67e8f9' : '#aaa'} stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
 							{#if index === selected}
 								{@const labelSize = hitRadius / zoom * 0.5}
-								{@render pointBadge(spot.x, spot.y-spot.radius-labelSize*1.5, false)}
-								{@render pointBadge(spot.sourceX, spot.sourceY+spot.radius+labelSize*1.5, true)}
+								{@render pointBadge(spot.sourceX, spot.sourceY+spot.radius+labelSize*1.5)}
 							{/if}
 						</g>
 					{/each}
 					{#if target}<circle cx={target.x} cy={target.y} r={radius} fill="none" stroke="white" stroke-width="2" vector-effect="non-scaling-stroke" />
-						{@render pointBadge(target.x,target.y-radius-hitRadius/zoom*0.75,false)}
 						{#if feather > 0}<circle
 								cx={target.x}
 								cy={target.y}

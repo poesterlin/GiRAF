@@ -10,8 +10,8 @@ bandage tool. The page is `/editor/[image-id]/retouch`.
 3. Adjust size and feathering. Use Before to compare without spot edits.
 4. Save, or return to the editor (pending edits use the existing autosave flow).
 
-The solid white target has a bullseye badge; the dashed cyan source has a copy
-badge. Source suggestions are a simple surrounding-pixel match, not object-aware
+The target is a solid white circle; the dashed cyan source has a small, muted copy
+icon without a background disc. Source suggestions are a simple surrounding-pixel match, not object-aware
 healing. Inspect the result and reposition the source when necessary.
 
 Drag empty photo space to pan; pinch or use −/+ to zoom from 1× to 8×. Desktop Fit
