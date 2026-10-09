@@ -9,9 +9,10 @@ bandage tool. The page is `/editor/[image-id]/retouch`.
 4. Save, or return to the editor (pending edits use the existing autosave flow).
 
 Drag empty photo space to pan; pinch or use −/+ to zoom from 1× to 8×. Desktop Fit
-returns to the whole photo. A magnified inset follows the selected point while
-dragging. Numbered spot buttons select existing corrections. Size and Feather
-tabs use the editor's shared slider to keep mobile controls compact. The feather percentage
+returns to the whole photo. A magnified inset appears while touching a point to
+place or drag it, and hides on release, pan or pinch. The selected spot button
+shows the original target area. Size and Feather use side-by-side shared sliders,
+available before placing the source as well as for existing spots. The feather percentage
 and outer boundary are visible. The magnifier switches corners to avoid a finger.
 RawTherapee 5.13 stores spot opacity but does not apply it in `spot.cc`; no opacity
 control is exposed until the renderer supports it.

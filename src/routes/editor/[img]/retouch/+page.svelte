@@ -31,19 +31,25 @@
 	let showOriginal = $state(false);
 	let alive = true;
 	let radius = $state(40);
+	let feather = $state(0.5);
 	let hitRadius = $state(100);
 	let zoom = $state(1);
 	let center = $state({ x: 0, y: 0 });
 	let detail = $state<{ x: number; y: number }>();
+	let inspecting = $state(false);
 	let loupeLeft = $state(false);
-	let setting = $state<'radius' | 'feather'>('radius');
+	let originalUrl = $state('');
+	const originalConfig = $derived(
+		toBase64(excludePP3(edits.throttledPP3 ?? {}, ['Spot_removal', 'Crop', 'Rotation', 'Perspective', 'Distortion', 'LensProfile', 'Common_Transform']))
+	);
 	function avoidFinger(event: PointerEvent) {
 		const rect = svg?.getBoundingClientRect();
 		if (!rect || event.clientY > rect.top + 140) return;
 		if (event.clientX > rect.right - 140) loupeLeft = true;
 		else if (event.clientX < rect.left + 140) loupeLeft = false;
 	}
-	let sliderValue = $state(40);
+	let sizeValue = $state(40);
+	let featherValue = $state(50);
 	const view = $derived({
 		// Leave half a viewport beyond each edge so corner spots can be centred.
 		x: zoom === 1 ? 0 : Math.max(0, Math.min(dimensions.width, center.x)) - dimensions.width / zoom / 2,
@@ -55,7 +61,8 @@
 	const pointers = new Map<number, { x: number; y: number }>();
 	let pinch: { distance: number; zoom: number } | undefined;
 	$effect(() => {
-		sliderValue = setting === 'radius' ? (active?.radius ?? radius) : (active?.[setting] ?? (setting === 'feather' ? 0.5 : 1)) * 100;
+		sizeValue = active?.radius ?? radius;
+		featherValue = (active?.feather ?? feather) * 100;
 	});
 	function focusAt(p: { x: number; y: number }, level = zoom) {
 		center = { ...p };
@@ -87,13 +94,21 @@
 	$effect(() => {
 		if (!adding && !active) {
 			if (spots.length) selected = Math.min(Math.max(selected, 0), spots.length - 1);
-			else { adding = true; setting = 'radius'; }
+			else {
+				adding = true;
+			}
 		}
-		if (adding) { selected = -1; setting = 'radius'; }
+		if (adding) {
+			selected = -1;
+		}
 		if (!spots.length) showOriginal = false;
 	});
 	function addMode() {
-		adding = true; selected = -1; target = undefined; setting = 'radius'; showOriginal = false; detail = undefined;
+		adding = true;
+		selected = -1;
+		target = undefined;
+		showOriginal = false;
+		detail = undefined;
 	}
 	const editorLink = $derived(`/editor/${data.image.id}${page.url.search}`);
 	$effect(() => {
@@ -150,6 +165,28 @@
 	onDestroy(() => {
 		alive = false;
 		if (imageUrl) URL.revokeObjectURL(imageUrl);
+		if (originalUrl) URL.revokeObjectURL(originalUrl);
+	});
+	$effect(() => {
+		const config = originalConfig;
+		const id = data.image.id;
+		const controller = new AbortController();
+		const timer = setTimeout(async () => {
+			try {
+				const response = await fetch(`/api/images/${id}/edit?config=${encodeURIComponent(config)}`, { signal: controller.signal });
+				if (!response.ok) return;
+				const blob = await response.blob();
+				if (controller.signal.aborted) return;
+				if (originalUrl) URL.revokeObjectURL(originalUrl);
+				originalUrl = URL.createObjectURL(blob);
+			} catch (error) {
+				if (!controller.signal.aborted) console.error('Could not load spot thumbnails', error);
+			}
+		}, 200);
+		return () => {
+			clearTimeout(timer);
+			controller.abort();
+		};
 	});
 	beforeNavigate(() => {
 		if (edits.hasChanges) void edits.snapshot().catch((error) => app.addToast(String(error), 'error'));
@@ -177,6 +214,7 @@
 		pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 		svg?.setPointerCapture(event.pointerId);
 		if (pointers.size === 2) {
+			inspecting = false;
 			const [a, b] = [...pointers.values()];
 			pinch = { distance: Math.hypot(a.x - b.x, a.y - b.y), zoom };
 			gesture = undefined;
@@ -185,6 +223,8 @@
 			return;
 		}
 		const p = point(event);
+		inspecting = !!p;
+		if (p) detail = p;
 		const handle = (event.target as Element).closest('[data-spot]');
 		if (handle && !adding) {
 			selected = Number(handle.getAttribute('data-spot'));
@@ -205,7 +245,10 @@
 		}
 	}
 	function move(event: PointerEvent) {
-		if (pointers.has(event.pointerId)) { event.preventDefault(); avoidFinger(event); }
+		if (pointers.has(event.pointerId)) {
+			event.preventDefault();
+			avoidFinger(event);
+		}
 		if (pointers.has(event.pointerId)) pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 		if (pinch && pointers.size === 2) {
 			const [a, b] = [...pointers.values()];
@@ -216,6 +259,7 @@
 			const dx = event.clientX - gesture.x,
 				dy = event.clientY - gesture.y;
 			if (Math.hypot(dx, dy) > 6) gesture.moved = true;
+			if (gesture.moved) inspecting = false;
 			if (gesture.moved) center = { x: gesture.cx - dx / gesture.scale, y: gesture.cy - dy / gesture.scale };
 			return;
 		}
@@ -232,6 +276,7 @@
 		}
 	}
 	function end(event: PointerEvent) {
+		inspecting = false;
 		pointers.delete(event.pointerId);
 		if (pinch) {
 			if (!pointers.size) pinch = undefined;
@@ -246,7 +291,7 @@
 				focusAt(p, 3);
 			} else {
 				const nextIndex = spots.length;
-				commit([...spots, { x: target.x, y: target.y, sourceX: p.x, sourceY: p.y, radius, feather: 0.5, opacity: 1 }]);
+				commit([...spots, { x: target.x, y: target.y, sourceX: p.x, sourceY: p.y, radius, feather, opacity: 1 }]);
 				selected = nextIndex;
 				detail = target;
 				target = undefined;
@@ -262,6 +307,7 @@
 	function change(key: 'radius' | 'feather' | 'opacity', value: number) {
 		if (!Number.isFinite(value)) return;
 		if (key === 'radius') radius = value;
+		if (key === 'feather') feather = value;
 		if (active) commit(spots.map((s, i) => (i === selected ? { ...s, [key]: value } : s)));
 	}
 	async function save() {
@@ -304,19 +350,52 @@
 							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={Math.max(spot.radius, hitRadius / zoom)} stroke="none" />
 							<line x1={spot.x} y1={spot.y} x2={spot.sourceX} y2={spot.sourceY} vector-effect="non-scaling-stroke" stroke-dasharray="4 4" />
 							{#if index === selected && spot.feather > 0}
-								<circle cx={spot.x} cy={spot.y} r={spot.radius * (1 + spot.feather)} stroke-opacity="0.5" stroke-dasharray="2 4" vector-effect="non-scaling-stroke" pointer-events="none" />
-								<circle cx={spot.sourceX} cy={spot.sourceY} r={spot.radius * (1 + spot.feather)} stroke-opacity="0.5" stroke-dasharray="2 4" vector-effect="non-scaling-stroke" pointer-events="none" />
+								<circle
+									cx={spot.x}
+									cy={spot.y}
+									r={spot.radius * (1 + spot.feather)}
+									stroke-opacity="0.5"
+									stroke-dasharray="2 4"
+									vector-effect="non-scaling-stroke"
+									pointer-events="none"
+								/>
+								<circle
+									cx={spot.sourceX}
+									cy={spot.sourceY}
+									r={spot.radius * (1 + spot.feather)}
+									stroke-opacity="0.5"
+									stroke-dasharray="2 4"
+									vector-effect="non-scaling-stroke"
+									pointer-events="none"
+								/>
 							{/if}
 							<circle data-spot={index} cx={spot.x} cy={spot.y} r={spot.radius} vector-effect="non-scaling-stroke" />
 							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={spot.radius} stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
 						</g>
 					{/each}
-					{#if target}<circle cx={target.x} cy={target.y} r={radius} fill="none" stroke="white" stroke-width="2" vector-effect="non-scaling-stroke" />{/if}
+					{#if target}<circle cx={target.x} cy={target.y} r={radius} fill="none" stroke="white" stroke-width="2" vector-effect="non-scaling-stroke" />
+						{#if feather > 0}<circle
+								cx={target.x}
+								cy={target.y}
+								r={radius * (1 + feather)}
+								fill="none"
+								stroke="white"
+								stroke-opacity="0.5"
+								stroke-dasharray="2 4"
+								vector-effect="non-scaling-stroke"
+								pointer-events="none"
+							/>{/if}
+					{/if}
 				{/if}
 			</svg>
 		{/if}
-		{#if imageUrl && detail && zoom > 1}
-			<div class="pointer-events-none absolute top-3 h-24 w-24 overflow-hidden rounded-2xl border border-white/30 bg-black shadow-xl" class:left-3={loupeLeft} class:right-3={!loupeLeft} aria-label="Magnified spot preview">
+		{#if imageUrl && detail && inspecting}
+			<div
+				class="pointer-events-none absolute top-3 h-24 w-24 overflow-hidden rounded-2xl border border-white/30 bg-black shadow-xl"
+				class:left-3={loupeLeft}
+				class:right-3={!loupeLeft}
+				aria-label="Magnified spot preview"
+			>
 				<svg viewBox={`${detail.x - 35} ${detail.y - 35} 70 70`} class="h-full w-full"
 					><image href={imageUrl} width={dimensions.width} height={dimensions.height} /><circle
 						cx={detail.x}
@@ -351,66 +430,93 @@
 			<a href={editorLink} class="flex min-h-11 items-center px-3 text-sm">Done</a>
 		</div>
 		<div class="flex items-center gap-1" aria-label="Spot selection">
-			<button class="tool shrink-0" class:chosen={adding} aria-label="Add spot" aria-pressed={adding} onclick={addMode}><IconPlus size={18}/></button>
+			<button class="tool shrink-0" class:chosen={adding} aria-label="Add spot" aria-pressed={adding} onclick={addMode}><IconPlus size={18} /></button>
 			<div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" aria-label="Spots">
-				{#each spots as _, i}<button class="icon-tool shrink-0 rounded-full text-xs" class:chosen={!adding && selected === i} aria-label={`Select spot ${i+1}`} aria-pressed={!adding && selected === i} onclick={() => chooseSpot(i)}>{i+1}</button>{/each}
+				{#each spots as spot, i}<button
+						class="icon-tool relative shrink-0 overflow-hidden rounded-full text-xs"
+						class:chosen={!adding && selected === i}
+						class:ring-2={!adding && selected === i}
+						class:ring-white={!adding && selected === i}
+						aria-label={`Select spot ${i + 1}`}
+						aria-pressed={!adding && selected === i}
+						title={`Spot ${i + 1} · original area`}
+						onclick={() => chooseSpot(i)}
+					>
+						{#if !adding && selected === i && originalUrl}
+							{@const extent = Math.max(12, spot.radius * (1 + spot.feather) * 1.3)}
+							<svg class="absolute inset-0 h-full w-full" viewBox={`${spot.x - extent} ${spot.y - extent} ${extent * 2} ${extent * 2}`} aria-hidden="true"
+								><image href={originalUrl} width={dimensions.width} height={dimensions.height} /></svg
+							>
+						{:else}{i + 1}{/if}
+					</button>{/each}
 			</div>
 			{#if target}<button class="tool text-xs" onclick={addMode}>Cancel source</button>{/if}
-			{#if active && !adding}<button class="icon-tool" aria-label="Delete selected spot" onclick={() => { commit(spots.filter((_,i) => i !== selected)); target = undefined; }}><IconTrash size={18}/></button>{/if}
+			{#if active && !adding}<button
+					class="icon-tool"
+					aria-label="Delete selected spot"
+					onclick={() => {
+						commit(spots.filter((_, i) => i !== selected));
+						target = undefined;
+					}}><IconTrash size={18} /></button
+				>{/if}
 		</div>
 		<div class="flex gap-2">
 			{#if edits.canUndo}
-			<button
-				class="tool"
-				disabled={!edits.canUndo}
-				aria-label="Undo"
-				onclick={() => {
-					edits.undo();
-					target = undefined;
-					adding = false; showOriginal = false;
-				}}><IconArrowBackUp size={20} /></button
-			>
+				<button
+					class="tool"
+					disabled={!edits.canUndo}
+					aria-label="Undo"
+					onclick={() => {
+						edits.undo();
+						target = undefined;
+						adding = false;
+						showOriginal = false;
+					}}><IconArrowBackUp size={20} /></button
+				>
 			{/if}
 			{#if edits.canRedo}
-			<button
-				class="tool"
-				disabled={!edits.canRedo}
-				aria-label="Redo"
-				onclick={() => {
-					edits.redo();
-					target = undefined; adding = false; showOriginal = false;
-				}}><IconArrowForwardUp size={20} /></button
-			>
+				<button
+					class="tool"
+					disabled={!edits.canRedo}
+					aria-label="Redo"
+					onclick={() => {
+						edits.redo();
+						target = undefined;
+						adding = false;
+						showOriginal = false;
+					}}><IconArrowForwardUp size={20} /></button
+				>
 			{/if}
 			{#if spots.length}<button class="tool" aria-pressed={showOriginal} class:chosen={showOriginal} onclick={() => (showOriginal = !showOriginal)}>Before</button>{/if}
-			{#if edits.hasChanges || saving}<button class="tool chosen ml-auto" disabled={saving} onclick={save}><IconDeviceFloppy size={18}/>{saving ? 'Saving…' : 'Save'}</button>{:else if saved}<span class="ml-auto flex items-center gap-1 text-xs text-neutral-400"><IconCheck size={16}/>Saved</span>{/if}
+			{#if edits.hasChanges || saving}<button class="tool chosen ml-auto" disabled={saving} onclick={save}><IconDeviceFloppy size={18} />{saving ? 'Saving…' : 'Save'}</button
+				>{:else if saved}<span class="ml-auto flex items-center gap-1 text-xs text-neutral-400"><IconCheck size={16} />Saved</span>{/if}
 		</div>
-		{#if !showOriginal && (active || target)}
-		<div class="flex items-center gap-1">
-			{#each active ? ['radius', 'feather'] : ['radius'] as key}<button
-					class="min-h-11 flex-1 rounded-lg px-2 text-xs font-medium"
-					class:bg-neutral-800={setting === key}
-					disabled={!active && key !== 'radius'}
-					onclick={() => (setting = key as typeof setting)}>{key === 'radius' ? `Size · ${active?.radius ?? radius}px` : `Feather · ${Math.round((active?.feather ?? 0.5) * 100)}%`}</button
-				>{/each}
-		</div>
-		{#key setting}<Slider
-				label={setting === 'radius' ? 'Size' : 'Feather'}
-				bind:value={sliderValue}
-				min={setting === 'radius' ? 1 : 0}
-				max={setting === 'radius' ? data.maxRadius : 100}
-				step={1}
-				precision={0}
-				unit={setting === 'radius' ? 'px' : '%'}
-				resetValue={setting === 'radius' ? Math.min(40, data.maxRadius) : setting === 'feather' ? 50 : 100}
-				onchange={(value) => change(setting, setting === 'radius' ? value : value / 100)}
-			/>{/key}
+		{#if !showOriginal && (active || adding)}
+			<div class="grid grid-cols-2 gap-2">
+				<Slider
+					label="Size"
+					bind:value={sizeValue}
+					min={1}
+					max={data.maxRadius}
+					step={1}
+					precision={0}
+					unit="px"
+					resetValue={Math.min(40, data.maxRadius)}
+					onchange={(value) => change('radius', value)}
+				/>
+				<Slider label="Feather" bind:value={featherValue} min={0} max={100} step={1} precision={0} unit="%" resetValue={50} onchange={(value) => change('feather', value / 100)} />
+			</div>
 		{/if}
 	</aside>
 </div>
 
 <style>
-	.retouch-workspace, .retouch-workspace :global(*) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+	.retouch-workspace,
+	.retouch-workspace :global(*) {
+		-webkit-user-select: none;
+		user-select: none;
+		-webkit-touch-callout: none;
+	}
 	.icon-tool {
 		display: flex;
 		align-items: center;
