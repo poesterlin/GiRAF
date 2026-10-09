@@ -7,6 +7,7 @@
 	import { app } from '$lib/state/app.svelte';
 	import { excludePP3, toBase64 } from '$lib/pp3-utils';
 	import { readSpotRemoval, writeSpotRemoval } from '$lib/spot-removal';
+	import { suggestSpotSource } from '$lib/spot-source';
 	type Spot = { x: number; y: number; sourceX: number; sourceY: number; radius: number; feather: number; opacity: number };
 	import { IconArrowBackUp, IconArrowForwardUp, IconCheck, IconDeviceFloppy } from '$lib/ui/icons';
 	import Slider from '$lib/ui/Slider.svelte';
@@ -39,6 +40,7 @@
 	let inspecting = $state(false);
 	let loupeLeft = $state(false);
 	let originalUrl = $state('');
+	let originalPixels: ImageData | undefined;
 	const originalConfig = $derived(
 		toBase64(excludePP3(edits.throttledPP3 ?? {}, ['Spot_removal', 'Crop', 'Rotation', 'Perspective', 'Distortion', 'LensProfile', 'Common_Transform']))
 	);
@@ -114,7 +116,7 @@
 	$effect(() => {
 		if (!svg || !dimensions.width) return;
 		const observer = new ResizeObserver(() => {
-			hitRadius = 22 / (svg?.getScreenCTM()?.a ?? 1);
+			if (svg) hitRadius = 22 / Math.max(0.001, Math.min(svg.clientWidth / dimensions.width, svg.clientHeight / dimensions.height));
 		});
 		observer.observe(svg);
 		return () => observer.disconnect();
@@ -169,6 +171,7 @@
 	});
 	$effect(() => {
 		const config = originalConfig;
+		originalPixels = undefined;
 		const id = data.image.id;
 		const controller = new AbortController();
 		const timer = setTimeout(async () => {
@@ -179,6 +182,14 @@
 				if (controller.signal.aborted) return;
 				if (originalUrl) URL.revokeObjectURL(originalUrl);
 				originalUrl = URL.createObjectURL(blob);
+				const bitmap = await createImageBitmap(blob);
+				try {
+					if (controller.signal.aborted) return;
+					const canvas = document.createElement('canvas');
+					canvas.width = bitmap.width; canvas.height = bitmap.height;
+					const context = canvas.getContext('2d', { willReadFrequently: true });
+					if (context) { context.drawImage(bitmap,0,0); originalPixels = context.getImageData(0,0,canvas.width,canvas.height); }
+				} finally { bitmap.close(); }
 			} catch (error) {
 				if (!controller.signal.aborted) console.error('Could not load spot thumbnails', error);
 			}
@@ -289,6 +300,15 @@
 				target = p;
 				detail = p;
 				focusAt(p, 3);
+				if (originalPixels) {
+					const sx=originalPixels.width/dimensions.width, sy=originalPixels.height/dimensions.height;
+					const source = suggestSpotSource(originalPixels, {x:p.x*sx,y:p.y*sy}, radius*Math.min(sx,sy), feather, spots.flatMap(s => [{x:s.x*sx,y:s.y*sy,radius:s.radius*(1+s.feather)*Math.max(sx,sy)}, {x:s.sourceX*sx,y:s.sourceY*sy,radius:s.radius*(1+s.feather)*Math.max(sx,sy)}]));
+					if (source) {
+						const index=spots.length;
+						commit([...spots,{x:p.x,y:p.y,sourceX:Math.round(source.x/sx),sourceY:Math.round(source.y/sy),radius,feather,opacity:1}]);
+						selected=index; target=undefined; adding=false;
+					}
+				}
 			} else {
 				const nextIndex = spots.length;
 				commit([...spots, { x: target.x, y: target.y, sourceX: p.x, sourceY: p.y, radius, feather, opacity: 1 }]);
@@ -323,6 +343,17 @@
 		}
 	}
 </script>
+
+{#snippet pointBadge(x: number, y: number, source: boolean)}
+	<g transform={`translate(${x} ${y}) scale(${hitRadius / zoom / 18})`} pointer-events="none" role="img" aria-label={source ? 'Copy source' : 'Repair target'}>
+		<title>{source ? 'Copy source' : 'Repair target'}</title>
+		<circle r="11" fill="#111" fill-opacity="0.85" stroke="none"/>
+		<g stroke={source ? '#67e8f9' : '#fff'} stroke-width="1.5" fill="none">
+			{#if source}<rect x="-3" y="-3" width="9" height="9" rx="1.5"/><path d="M2-6h-7a1 1 0 0 0-1 1v7"/>
+			{:else}<circle r="6"/><circle r="2" fill="white" stroke="none"/>{/if}
+		</g>
+	</g>
+{/snippet}
 
 <div class="retouch-workspace flex h-full min-h-0 select-none flex-col bg-neutral-950 text-neutral-200 lg:flex-row">
 	<div class="relative min-h-0 flex-1 bg-black">
@@ -361,6 +392,7 @@
 								/>
 								<circle
 									cx={spot.sourceX}
+									stroke="#67e8f9"
 									cy={spot.sourceY}
 									r={spot.radius * (1 + spot.feather)}
 									stroke-opacity="0.5"
@@ -370,10 +402,16 @@
 								/>
 							{/if}
 							<circle data-spot={index} cx={spot.x} cy={spot.y} r={spot.radius} vector-effect="non-scaling-stroke" />
-							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={spot.radius} stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
+							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={spot.radius} stroke={index === selected ? '#67e8f9' : '#aaa'} stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
+							{#if index === selected}
+								{@const labelSize = hitRadius / zoom * 0.5}
+								{@render pointBadge(spot.x, spot.y-spot.radius-labelSize*1.5, false)}
+								{@render pointBadge(spot.sourceX, spot.sourceY+spot.radius+labelSize*1.5, true)}
+							{/if}
 						</g>
 					{/each}
 					{#if target}<circle cx={target.x} cy={target.y} r={radius} fill="none" stroke="white" stroke-width="2" vector-effect="non-scaling-stroke" />
+						{@render pointBadge(target.x,target.y-radius-hitRadius/zoom*0.75,false)}
 						{#if feather > 0}<circle
 								cx={target.x}
 								cy={target.y}
@@ -426,12 +464,13 @@
 	</div>
 	<aside class="flex max-h-[50dvh] shrink-0 flex-col gap-2 overflow-y-auto border-t border-neutral-800 p-3 lg:max-h-full lg:w-80 lg:border-l lg:border-t-0 lg:p-5">
 		<div class="flex items-center justify-between">
-			<h1 class="font-semibold">Retouch</h1>
+			<h1 class="sr-only">Retouch</h1>
+			<div class="min-w-0 flex-1">{@render actions()}</div>
 			<a href={editorLink} class="flex min-h-11 items-center px-3 text-sm">Done</a>
 		</div>
-		<div class="flex items-center gap-1" aria-label="Spot selection">
+		<div class="flex items-center gap-1 rounded-2xl bg-neutral-900/70 p-1" aria-label="Spot selection">
 			<button class="tool shrink-0" class:chosen={adding} aria-label="Add spot" aria-pressed={adding} onclick={addMode}><IconPlus size={18} /></button>
-			<div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" aria-label="Spots">
+			<div class="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto p-1" aria-label="Spots">
 				{#each spots as spot, i}<button
 						class="icon-tool relative shrink-0 overflow-hidden rounded-full text-xs"
 						class:chosen={!adding && selected === i}
@@ -443,8 +482,8 @@
 						onclick={() => chooseSpot(i)}
 					>
 						{#if !adding && selected === i && originalUrl}
-							{@const extent = Math.max(12, spot.radius * (1 + spot.feather) * 1.3)}
-							<svg class="absolute inset-0 h-full w-full" viewBox={`${spot.x - extent} ${spot.y - extent} ${extent * 2} ${extent * 2}`} aria-hidden="true"
+							{@const extent = Math.min(dimensions.width / 2, dimensions.height / 2, Math.max(12, spot.radius * (1 + spot.feather) * 1.3))}
+							<svg class="absolute inset-0 h-full w-full bg-black" viewBox={`${Math.max(0,Math.min(dimensions.width-extent*2,spot.x-extent))} ${Math.max(0,Math.min(dimensions.height-extent*2,spot.y-extent))} ${extent * 2} ${extent * 2}`} aria-hidden="true"
 								><image href={originalUrl} width={dimensions.width} height={dimensions.height} /></svg
 							>
 						{:else}{i + 1}{/if}
@@ -460,7 +499,8 @@
 					}}><IconTrash size={18} /></button
 				>{/if}
 		</div>
-		<div class="flex gap-2">
+		{#snippet actions()}
+		<div class="secondary-actions flex items-center gap-1">
 			{#if edits.canUndo}
 				<button
 					class="tool"
@@ -491,6 +531,7 @@
 			{#if edits.hasChanges || saving}<button class="tool chosen ml-auto" disabled={saving} onclick={save}><IconDeviceFloppy size={18} />{saving ? 'Saving…' : 'Save'}</button
 				>{:else if saved}<span class="ml-auto flex items-center gap-1 text-xs text-neutral-400"><IconCheck size={16} />Saved</span>{/if}
 		</div>
+		{/snippet}
 		{#if !showOriginal && (active || adding)}
 			<div class="grid grid-cols-2 gap-2">
 				<Slider
@@ -511,6 +552,8 @@
 </div>
 
 <style>
+	.secondary-actions .tool { background: transparent; padding: 8px; }
+	.secondary-actions .chosen { background: #eee; }
 	.retouch-workspace,
 	.retouch-workspace :global(*) {
 		-webkit-user-select: none;
