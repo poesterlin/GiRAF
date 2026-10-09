@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { createTempDir, runCommand } from "./command-runner";
 import { getFileNameFromPath } from "./utils";
+import { mapSpotRemovalToTarget } from '$lib/spot-removal';
 
 /**
  * uses rawtherapee's pp3 file to edit an image
@@ -210,8 +211,9 @@ export function mapCropToTarget(pp3: PP3, sourceWidth: number, sourceHeight: num
     return pp3;
 }
 
+/** Map preview-TIFF pixel settings (crop and spot removal) to the export TIFF. */
 export async function mapCropFromPreviewToExport(pp3: PP3, previewPath: string | null | undefined, exportPath: string | null | undefined): Promise<PP3> {
-    if (!pp3.Crop || !previewPath || !exportPath) {
+    if ((!pp3.Crop && !pp3.Spot_removal) || !previewPath || !exportPath) {
         return pp3;
     }
 
@@ -227,7 +229,8 @@ export async function mapCropFromPreviewToExport(pp3: PP3, previewPath: string |
         return pp3;
     }
 
-    return mapCropToTarget(pp3, previewDims.width, previewDims.height, exportDims.width, exportDims.height);
+    const mapped = mapSpotRemovalToTarget(pp3, previewDims.width, previewDims.height, exportDims.width, exportDims.height);
+    return mapCropToTarget(mapped, previewDims.width, previewDims.height, exportDims.width, exportDims.height);
 }
 
 export function setWhiteBalance(pp3: PP3, temperature: number | null, green: number | null): PP3 {

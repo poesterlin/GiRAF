@@ -36,6 +36,9 @@ const supportedFields: Record<string, readonly string[]> = {
 /** Capability routing is separate from visual acceptance: ignored tools cannot pass. */
 export function supportsWasmPreview(pp3String: string): boolean {
 	const pp3 = parsePP3(pp3String);
+	// The WASM renderer has no spot-removal implementation, even for otherwise
+	// supported profiles. Never silently show an unretouched local preview.
+	if (pp3.Spot_removal) return false;
 	for (const [chapter, fields] of Object.entries(pp3)) {
 		if (chapter === 'Vibrance' || chapter === 'Local_Contrast' || chapter === 'HSV_Equalizer' || chapter === 'ColorToning' || chapter === 'Channel_Mixer' || chapter === 'Dehaze') {
 			if (fields.Enabled !== false) return false;

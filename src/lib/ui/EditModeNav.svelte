@@ -16,6 +16,7 @@
 	} from '$lib/ui/icons';
 	import { IconFlagFilled } from '@tabler/icons-svelte';
 	import IconDots from '@tabler/icons-svelte/icons/dots';
+	import IconBandage from '@tabler/icons-svelte/icons/bandage';
 	import FlagModal from './FlagModal.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import { edits } from '$lib/state/editing.svelte';
@@ -332,6 +333,9 @@
 	{/if} -->
 
 	<!-- navigation -->
+	{#if (showCrop || showEdit) && !compact}
+		<Tooltip text="Retouch" position={tooltipPosition}><a href="/editor/{img}/retouch{filterQuery}" aria-label="Retouch" class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"><IconBandage size={iconSize}/></a></Tooltip>
+	{/if}
 	{#if showCrop}
 		<Tooltip text="Crop & Rotate" position={tooltipPosition}>
 			<a
@@ -378,7 +382,7 @@
 		>
 			<IconArrowForwardUp size={20} />
 		</button>
-		{#if showFlag || showSnapshots || canLoadLast || showClipboard}
+		{#if showCrop || showEdit || showFlag || showSnapshots || canLoadLast || showClipboard}
 			<div class="relative" bind:this={moreContainer}>
 				<button
 					bind:this={moreButton}
@@ -393,6 +397,7 @@
 				</button>
 				{#if showMore}
 					<div id={moreId} role="group" aria-label="More editing actions" class="absolute right-0 bottom-full z-50 mb-2 max-h-[60dvh] w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950 p-1 text-sm text-neutral-200 shadow-2xl">
+						<a href="/editor/{img}/retouch{filterQuery}" class="more-action" onclick={() => closeMore()}><IconBandage size={20}/>Retouch spots</a>
 						{#if showFlag}
 							<button type="button" class="more-action" onclick={() => { closeMore(true); showFlagModal = true; }}>
 								{#if isFlagged}<IconFlagFilled size={20} />{:else}<IconFlag size={20} />{/if}

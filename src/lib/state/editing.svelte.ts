@@ -187,7 +187,8 @@ class EditingState {
 		await task;
 	}
 
-	pushHistory() {
+	pushHistory(separate = false) {
+		if (separate) this.lastChangeKey = null;
 		const snapshot = structuredClone($state.snapshot(this.pp3));
 		const prev = this.history[this.historyIndex];
 
