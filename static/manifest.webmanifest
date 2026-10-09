@@ -1,0 +1,16 @@
+{
+	"id": "/",
+	"name": "GiRAF RAW Photo Editor",
+	"short_name": "GiRAF",
+	"description": "Import, organize and edit your RAW photos.",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"background_color": "#0a0a0a",
+	"theme_color": "#0a0a0a",
+	"icons": [
+		{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+		{ "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+		{ "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+	]
+}
