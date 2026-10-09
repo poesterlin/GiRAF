@@ -107,7 +107,7 @@
 	}
 
 	$effect(() => {
-		if (!data.hasMatchingImages) return;
+		if (!data.hasMatchingImages || data.editorError) return;
 		const latestSnapshot = data.snapshots[0];
 		const image = data.image;
 		const pp3 = latestSnapshot?.pp3 ?? BasePP3;
@@ -115,7 +115,7 @@
 	});
 
 	$effect(() => {
-		if (!data.hasMatchingImages) {
+		if (!data.hasMatchingImages || data.editorError) {
 			edits.isLoading = false;
 			return;
 		}
@@ -190,6 +190,7 @@
 			return; // Ignore key events when focused on input fields
 		}
 		const normalizedKey = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+		if (data.editorError && normalizedKey !== 'ArrowLeft' && normalizedKey !== 'ArrowRight') return;
 		const action = keyMap.get(normalizedKey);
 		if (action) {
 			event.preventDefault();
@@ -261,6 +262,25 @@
 			<div class="flex flex-wrap justify-center gap-3">
 				<button class="min-h-12 rounded-xl border border-neutral-600 px-5 font-semibold hover:bg-neutral-800" onclick={() => (showFilterModal = true)}>Change filter</button>
 				<a href={`/editor/${data.image.id}?filter=none`} class="flex min-h-12 items-center rounded-xl bg-neutral-100 px-5 font-semibold text-neutral-950 hover:bg-white">Show all photos</a>
+			</div>
+		</div>
+	</div>
+{:else if data.editorError}
+	<div class="flex h-full items-center justify-center overflow-y-auto bg-neutral-950 px-6 py-12 text-center text-neutral-200">
+		<div class="flex max-w-md flex-col items-center gap-5" role="alert">
+			<div class="rounded-full border border-neutral-700 bg-neutral-900 p-5 text-neutral-300">
+				<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3 2 21h20Z" /><path d="M12 9v5m0 3v1" /></svg>
+			</div>
+			<h1 class="text-2xl font-bold">Photo not ready for editing</h1>
+			<p class="text-sm font-semibold text-neutral-300">{data.image.name}</p>
+			<p class="text-neutral-400">{data.editorError}</p>
+			<div class="flex flex-wrap justify-center gap-3">
+				<a href="/gallery" class="flex min-h-12 items-center rounded-xl bg-neutral-100 px-5 font-semibold text-neutral-950">Open Gallery</a>
+				<button type="button" class="min-h-12 rounded-xl border border-neutral-600 px-5 font-semibold hover:bg-neutral-800" onclick={() => invalidateAll()}>Check again</button>
+			</div>
+			<div class="flex gap-3">
+				{#if data.previousImage}<a href={`/editor/${data.previousImage}${navigationQuery}`} class="flex min-h-11 items-center gap-2 rounded-lg px-3 hover:bg-neutral-800"><IconChevronLeft size={20} />Previous</a>{/if}
+				{#if data.nextImage}<a href={`/editor/${data.nextImage}${navigationQuery}`} class="flex min-h-11 items-center gap-2 rounded-lg px-3 hover:bg-neutral-800">Next<IconChevronRight size={20} /></a>{/if}
 			</div>
 		</div>
 	</div>
@@ -474,7 +494,7 @@
 
 {/if}
 
-{#if showLutPicker && data.hasMatchingImages}
+{#if showLutPicker && data.hasMatchingImages && !data.editorError}
 	<LutPicker luts={data.luts} onClose={() => (showLutPicker = false)} imageId={page.params.img!} />
 {/if}
 
@@ -482,7 +502,7 @@
 	<FilterModal onClose={() => (showFilterModal = false)} />
 {/if}
 
-{#if page.url.searchParams.has('snapshot') && data.hasMatchingImages}
+{#if page.url.searchParams.has('snapshot') && data.hasMatchingImages && !data.editorError}
 	<Snapshots snapshots={data.snapshots} profiles={data.profiles} />
 {/if}
 

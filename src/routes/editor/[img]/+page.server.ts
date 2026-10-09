@@ -99,6 +99,9 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		.limit(1);
 
 	return {
+		editorError: !image.tifPath || !(await Bun.file(image.tifPath).exists())
+			? 'This photo has not finished processing. Its editor TIFF is missing. Reprocess the session in Gallery to prepare it for editing.'
+			: null,
 		hasMatchingImages: !!matchingImage,
 		luts,
 		image,

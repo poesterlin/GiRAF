@@ -28,9 +28,29 @@
 	let renaming = $state<Session | null>(null);
 	let renameValue = $state('');
 	let savingName = $state(false);
+	$effect(() => {
+		const exporting = sessions.filter((session) => session.isExporting).map((session) => session.id);
+		if (!allowRename || !exporting.length) return;
+		let active = true;
+		let checking = false;
+		const interval = setInterval(async () => {
+			if (checking) return;
+			checking = true;
+			try {
+				await Promise.all(exporting.map(async (id) => {
+					const response = await fetch(`/api/sessions/${id}/export`);
+					if (!response.ok) return;
+					const state = await response.json();
+					if (active && state.status !== 'running') sessions = sessions.map((session) => session.id === id ? { ...session, isExporting: false } : session);
+				}));
+			} catch (cause) { console.error('Failed to check export status', cause); }
+			finally { checking = false; }
+		}, 2000);
+		return () => { active = false; clearInterval(interval); };
+	});
 	async function saveName(event: SubmitEvent) {
 		event.preventDefault();
-		if (!renaming || savingName || !renameValue.trim()) return;
+		if (!renaming || savingName || !renameValue.trim() || sessions.some((session) => session.id === renaming?.id && session.isExporting)) return;
 		savingName = true;
 		try {
 			const response = await fetch(`/api/sessions/${renaming.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: renameValue.trim() }) });
@@ -102,7 +122,7 @@
 				}
 
 				if (state.status === 'success') {
-					app.addToast('Import completed successfully.', 'success');
+					app.addToast(state.message ?? 'Import completed successfully.', 'success');
 				} else if (state.status === 'cancelled') {
 					app.addToast('Import was cancelled.', 'info');
 				} else if (state.status === 'error') {
@@ -172,7 +192,7 @@
 					<div class="flex items-center gap-2">
 						<h2 class="text-2xl font-bold tracking-tight text-neutral-100">{item.name}</h2>
 						{#if allowRename}
-							<button type="button" class="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-800 hover:text-white" aria-label={`Rename ${item.name}`} onclick={() => { renaming = item; renameValue = item.name; }}>
+							<button type="button" disabled={item.isExporting} title={item.isExporting ? 'Wait for the export to finish' : 'Rename session'} class="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed" aria-label={`Rename ${item.name}`} onclick={() => { renaming = item; renameValue = item.name; }}>
 								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m16 3 5 5-12 12H4v-5Z" /><path d="m14 5 5 5" /></svg>
 							</button>
 						{/if}
@@ -291,7 +311,7 @@
 			</label>
 			<div class="flex justify-end gap-3">
 				<button type="button" disabled={savingName} class="min-h-12 rounded-xl border border-neutral-600 px-5" onclick={() => (renaming = null)}>Cancel</button>
-				<button type="submit" disabled={savingName || !renameValue.trim()} class="min-h-12 rounded-xl bg-neutral-100 px-5 font-semibold text-neutral-950 disabled:opacity-40">{savingName ? 'Saving…' : 'Save'}</button>
+				<button type="submit" disabled={savingName || !renameValue.trim() || sessions.some((session) => session.id === renaming?.id && session.isExporting)} class="min-h-12 rounded-xl bg-neutral-100 px-5 font-semibold text-neutral-950 disabled:opacity-40">{savingName ? 'Saving…' : 'Save'}</button>
 			</div>
 		</form>
 	</Modal>

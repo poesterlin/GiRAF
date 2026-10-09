@@ -51,47 +51,52 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 	});
 
 	console.log(`[Executor] Starting import for session: ${sessionId}`);
+	const failures: string[] = [];
+	let repaired = 0;
 	try {
 		for (const image of images) {
 			if (signal?.aborted) {
 				throw new Error('Aborted');
 			}
 
-			// Skip already imported images
-			if (image.tifPath) {
-				const fileExists = await Bun.file(image.tifPath).exists();
-				if (fileExists) {
-					console.warn(`[Executor] Skipping already imported image: ${image.id}`);
-					continue;
+			try {
+				const usable = async (path: string | null) => path ? stat(path).then((file) => file.isFile() && file.size > 0).catch((cause) => {
+					if (['ENOENT', 'ENOTDIR'].includes((cause as NodeJS.ErrnoException).code ?? '')) return false;
+					throw cause;
+				}) : false;
+				if (!(await usable(image.filepath))) throw new Error('Original RAW file is missing or empty');
+				const needsTiff = !(await usable(image.tifPath)) || image.whiteBalance === null || image.tint === null;
+				const needsPreview = !(await usable(image.previewPath));
+				if (!needsTiff && !needsPreview && image.phash) continue;
+				console.log(`[Executor] Repairing image ${image.id}: ${image.filepath}`);
+				if (needsTiff) {
+					const { pp3, tif } = await generateImportTif(image.filepath, { signal });
+					if (!(await usable(tif))) throw new Error('Generated editor TIFF is missing or empty');
+					// Save the repaired TIFF even if preview extraction subsequently fails.
+					await db.update(imageTable).set({
+						tifPath: tif,
+						whiteBalance: pp3.White_Balance?.Temperature as number,
+						tint: pp3.White_Balance?.Green as number
+					}).where(eq(imageTable.id, image.id));
 				}
+				const previewPath = needsPreview ? '/tmp/' + image.id + '_preview.jpg' : image.previewPath!;
+				if (needsPreview) await exiftool.extractPreview(image.filepath, previewPath, { ignoreMinorErrors: true, forceWrite: true });
+				const jpegData = await readFile(previewPath);
+				const { width, height, data } = decode(jpegData, { useTArray: true });
+				const hash = await bmvbhash({ data, width, height }, 16);
+				await db.update(imageTable).set({ phash: hash, previewPath }).where(eq(imageTable.id, image.id));
+				await stackSimilarImages(image, hash, sessionId);
+				repaired++;
+			} catch (cause) {
+				if (signal?.aborted) throw cause;
+				const message = `${image.name} (ID ${image.id}): ${cause instanceof Error ? cause.message : String(cause)}`;
+				failures.push(message);
+				console.error(`[Executor] ${message}`);
 			}
-
-			console.log(`[Executor] Processing ${image.filepath}`);
-			const { pp3, tif } = await generateImportTif(image.filepath, { signal });
-
-			// Calculate perceptual hash
-			const tempFile = '/tmp/' + image.id + '_preview.jpg';
-			await exiftool.extractPreview(image.filepath, tempFile, { ignoreMinorErrors: true, forceWrite: true });
-			const jpegData = await readFile(tempFile);
-			const { width, height, data } = decode(jpegData, { useTArray: true });
-			const hash = await bmvbhash({ data, width, height }, 16);
-
-			await db
-				.update(imageTable)
-				.set({
-					tifPath: tif,
-					whiteBalance: pp3.White_Balance?.Temperature as number,
-					tint: pp3.White_Balance?.Green as number,
-					phash: hash,
-					previewPath: tempFile
-				})
-				.where(eq(imageTable.id, image.id));
-
-			// Find similar images and stack them
-			await stackSimilarImages(image, hash, sessionId);
 		}
 		console.log(`[Executor] Finished import for session: ${sessionId}.`);
-		return { status: 'success' };
+		if (failures.length) return { status: 'error', message: `Checked ${images.length} photos; repaired ${repaired}; ${failures.length} could not be processed. ${failures.slice(0, 5).join('; ')}` };
+		return { status: 'success', message: `Checked ${images.length} photos; repaired ${repaired}.` };
 	} catch (e: any) {
 		console.error(`[Executor] Failed import for session: ${sessionId}`, e);
 		return { status: 'error', message: e.message };

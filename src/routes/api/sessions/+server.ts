@@ -1,6 +1,7 @@
 import { db } from '$lib/server/db';
 import { imageTable, sessionTable, snapshotTable } from '$lib/server/db/schema';
 import { jobManager } from '$lib/server/jobs/manager';
+import { JobType } from '$lib/server/jobs/types';
 import { buildJSONColumn } from '$lib/server/utils';
 import { json } from '@sveltejs/kit';
 import { and, count, desc, eq, exists, type SQL } from 'drizzle-orm';
@@ -13,6 +14,7 @@ export type SessionsResponse = {
 		startedAt: Date;
 		endedAt: Date | null;
 		isImporting: boolean;
+		isExporting: boolean;
 		imageCount: number;
 		images: Array<{
 			id: number;
@@ -62,7 +64,8 @@ export const GET: RequestHandler = async ({ url }) => {
 	// The dates from the DB are Date objects, need to stringify them.
 	const sessionsWithStringDates = sessions.map((s) => ({
 		...s,
-		isImporting: jobManager.getActiveJobs().some((job) => job === s.id)
+		isImporting: jobManager.getActiveJobType(s.id) === JobType.IMPORT,
+		isExporting: jobManager.getActiveJobType(s.id) === JobType.EXPORT
 	}));
 
 	const response = {
@@ -72,4 +75,3 @@ export const GET: RequestHandler = async ({ url }) => {
 
 	return json(response);
 };
-

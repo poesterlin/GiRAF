@@ -5,6 +5,7 @@ import { db } from '$lib/server/db';
 import { sessionTable } from '$lib/server/db/schema';
 import { makeSessionPath } from '$lib/server/export-files';
 import { jobManager } from '$lib/server/jobs/manager';
+import { JobType } from '$lib/server/jobs/types';
 
 export const PATCH: RequestHandler = async ({ params, request }) => {
 	const body = await request.json().catch(() => error(400, 'Invalid JSON'));
@@ -13,6 +14,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 	const id = Number(params.id);
 	const session = await db.query.sessionTable.findFirst({ where: eq(sessionTable.id, id) });
 	if (!session) error(404, 'Session not found');
+	if (jobManager.getActiveJobType(id) === JobType.EXPORT) error(409, 'Wait for the export to finish before renaming this session.');
 	if (jobManager.getActiveJobs().includes(id)) error(409, 'Wait for session processing to finish before renaming.');
 	const oldPath = makeSessionPath(session);
 	const newPath = makeSessionPath({ ...session, name });
