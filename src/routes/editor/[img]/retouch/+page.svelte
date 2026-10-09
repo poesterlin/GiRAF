@@ -377,7 +377,7 @@
 						<g stroke={index === selected ? '#fff' : '#aaa'} stroke-width="2" fill="transparent">
 							<circle data-spot={index} cx={spot.x} cy={spot.y} r={Math.max(spot.radius, hitRadius / zoom)} stroke="none" />
 							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={Math.max(spot.radius, hitRadius / zoom)} stroke="none" />
-							<line x1={spot.x} y1={spot.y} x2={spot.sourceX} y2={spot.sourceY} vector-effect="non-scaling-stroke" stroke-dasharray="4 4" />
+							<line class:source-flow={index === selected} x1={spot.sourceX} y1={spot.sourceY} x2={spot.x} y2={spot.y} vector-effect="non-scaling-stroke" stroke-dasharray="4 4" pointer-events="none" />
 							{#if index === selected && spot.feather > 0}
 								<circle
 									cx={spot.x}
@@ -551,6 +551,9 @@
 </div>
 
 <style>
+	.source-flow { animation: source-flow 1.2s linear infinite; }
+	@keyframes source-flow { to { stroke-dashoffset: -8; } }
+	@media (prefers-reduced-motion: reduce) { .source-flow { animation: none; } }
 	.secondary-actions .tool { background: transparent; padding: 8px; }
 	.secondary-actions .chosen { background: #eee; }
 	.retouch-workspace,
