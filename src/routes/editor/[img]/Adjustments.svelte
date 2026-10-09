@@ -97,7 +97,7 @@
 		<Slider
 			label="Black Level"
 			bind:value={edits.pp3.Exposure.Black as number}
-			min={-100}
+			min={-50}
 			max={100}
 			step={0.1}
 			map={blackLevelToPP3}

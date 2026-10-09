@@ -282,10 +282,11 @@
 		{#if centered}
 			<div
 				class="
-          pointer-events-none absolute top-1/2 left-1/2 h-8 w-px
+          pointer-events-none absolute top-1/2 h-8 w-px
           -translate-x-1/2 -translate-y-1/2
           bg-neutral-500/60
         "
+				style:left={`${centerPct}%`}
 			></div>
 		{/if}
 
@@ -300,8 +301,8 @@
 			class:duration-100={!isDragging}
 			class:ease-linear={!isDragging}
 			class:rounded-md={!centered}
-			class:rounded-r-md={fillLeftPct === 50}
-			class:rounded-l-md={fillLeftPct < 50}
+			class:rounded-r-md={fillLeftPct === centerPct}
+			class:rounded-l-md={fillLeftPct < centerPct}
 			class:from-neutral-200={ignored}
 			class:to-neutral-300={ignored}
 		></div>

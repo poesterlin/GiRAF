@@ -113,7 +113,7 @@ test('supported edits reuse TIFF bytes and one decoded handle without browser st
 		urls.push(String(input));
 		return new Response(fixtureTiff(16));
 	}) as unknown as typeof fetch;
-	for (const pp3 of ['[Exposure]\nAuto=true', '[Exposure]\nAuto=false\nCompensation=1', '[Exposure]\nAuto=true']) {
+	for (const pp3 of ['[Exposure]\nAuto=true', '[Exposure]\nAuto=false\nCompensation=1\n[Dehaze]\nEnabled=true\nStrength=0\nDepth=25\nSaturation=50\nShowDepthMap=false', '[Exposure]\nAuto=true']) {
 		const result = await worker.refreshImage('200', btoa(pp3));
 		expect(result.error).toBe(false);
 		URL.revokeObjectURL(result.url);

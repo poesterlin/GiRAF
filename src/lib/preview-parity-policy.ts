@@ -40,7 +40,15 @@ export function supportsWasmPreview(pp3String: string): boolean {
 	// supported profiles. Never silently show an unretouched local preview.
 	if (pp3.Spot_removal) return false;
 	for (const [chapter, fields] of Object.entries(pp3)) {
-		if (chapter === 'Vibrance' || chapter === 'Local_Contrast' || chapter === 'HSV_Equalizer' || chapter === 'ColorToning' || chapter === 'Channel_Mixer' || chapter === 'Dehaze') {
+		if (chapter === 'Dehaze') {
+			if (fields.Enabled === false) continue;
+			// Older editor snapshots enable Dehaze at zero strength. That is a
+			// no-op, but depth-map visualization and unknown options are not.
+			if (Object.keys(fields).some((key) => !['Enabled', 'Strength', 'Depth', 'Saturation', 'ShowDepthMap'].includes(key))) return false;
+			if (fields.Strength !== 0 || (fields.ShowDepthMap !== undefined && fields.ShowDepthMap !== false)) return false;
+			continue;
+		}
+		if (chapter === 'Vibrance' || chapter === 'Local_Contrast' || chapter === 'HSV_Equalizer' || chapter === 'ColorToning' || chapter === 'Channel_Mixer') {
 			if (fields.Enabled !== false) return false;
 			continue;
 		}

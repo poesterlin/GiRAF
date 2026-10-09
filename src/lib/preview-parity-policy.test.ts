@@ -51,3 +51,28 @@ test('supported scalar controls and inert default tools remain eligible', () => 
 		)
 	).toBe(true);
 });
+
+test('zero-strength Dehaze in older editor snapshots does not block browser previews', () => {
+	const settings: PP3 = {
+		Exposure: { Enabled: true, Auto: false, Compensation: 1 },
+		Dehaze: { Enabled: true, Strength: 0, Depth: 25, Saturation: 50, ShowDepthMap: false }
+	};
+	expect(supportsWasmPreview(stringifyPP3(settings))).toBe(true);
+	expect(settings.Dehaze.Enabled).toBe(true);
+	settings.Dehaze.Strength = 10;
+	expect(supportsWasmPreview(stringifyPP3(settings))).toBe(false);
+	settings.Dehaze.Enabled = false;
+	expect(supportsWasmPreview(stringifyPP3(settings))).toBe(true);
+});
+
+test('Dehaze depth maps, unknown options and unproven strengths require the reference renderer', () => {
+	const cases: PP3[string][] = [
+		{ Enabled: true, Strength: 0, ShowDepthMap: true },
+		{ Enabled: true, Strength: 0, UnknownOption: true },
+		{ Enabled: true },
+		{ Enabled: true, Strength: false },
+		{ Enabled: true, Strength: -1 },
+		{ Enabled: true, Strength: 'invalid' }
+	];
+	for (const fields of cases) expect(supportsWasmPreview(stringifyPP3({ Dehaze: fields }))).toBe(false);
+});

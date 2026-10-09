@@ -128,6 +128,17 @@ Expanded synthetic verification (28 cases across 8/16-bit RGB) exited 1: normali
 
 This compares bundled WASM against native RawTherapee, bypassing application eligibility routing and server fallback. It deliberately reveals unsupported/approximate preview behavior. A matching baseline alone does not establish slider parity. One synthetic fixture does not establish parity for all imported TIFF encodings, profiles, ICC transforms, dimensions, clipping, or LUTs; use a representative corpus and inspect reports.
 
-The production gate in `src/lib/preview-parity-policy.ts` is currently **false**: production previews use the reference renderer until supported scenarios pass across the full corpus. This harness measures the bundled implementation directly regardless of that gate. An individual passing scenario does not authorize enabling production WASM previews.
+The production gate in `src/lib/preview-parity-policy.ts` is currently **true** for
+the validated subset. Unsupported active tools and unverified TIFF profiles still
+use the reference renderer. Dehaze defaults to disabled in the editor; older
+profiles with enabled Dehaze at exactly zero strength are also eligible, provided
+they contain only recognized Dehaze fields and do not request a depth map.
+RawTherapee 5.13's `ImProcFunctions::dehaze` returns immediately at zero strength,
+so this does not add active Dehaze processing to the WASM renderer. Nonzero
+Dehaze remains reference-only.
+
+The recorded corpus results above use RawTherapee 5.12; the current server uses
+5.13. Those results are not a new parity claim against 5.13. This harness measures
+the bundled implementation directly regardless of application routing.
 
 **RAW development and final export parity are separate questions.** Both inputs here are already-developed TIFFs. RAW demosaicing, camera color transforms, import profile application, full-resolution export, external integrations, and application UI/worker routing are outside this harness. This compares decoded pixels using RGB diagnostics and colorimetric ΔE00, rather than JPEG bytes or a spatial model of human perception.
