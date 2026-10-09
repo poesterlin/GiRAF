@@ -2,7 +2,7 @@ import { assert } from '$lib';
 import { countPP3Properties, diffPP3, parsePP3, type PP3 } from '$lib/pp3-utils';
 import type { Image } from '$lib/server/db/schema';
 import { parsePP3Document, stringifyPP3Document } from '$lib/pp3-document';
-import { createGroupedDocument, restoreGroupedSettings } from '$lib/adjustment-groups';
+import { createGroupedDocument, normalizeDisabledGroups, restoreGroupedSettings } from '$lib/adjustment-groups';
 
 const PREVIEW_UPDATE_INTERVAL = 100;
 
@@ -116,6 +116,7 @@ class EditingState {
 		ensureSectionDefaults(newPp3, 'Dehaze', { Enabled: true, Strength: 0, Depth: 25, Saturation: 50, ShowDepthMap: false });
 		ensureSectionDefaults(newPp3, 'Channel_Mixer', { Enabled: false, Red: '1000;0;0;', Green: '0;1000;0;', Blue: '0;0;1000;' });
 		ensureSectionDefaults(newPp3, 'Film_Simulation', { Enabled: false, ClutFilename: '', Strength: 100 });
+		ensureSectionDefaults(newPp3, 'Sharpening', { Enabled: false, Amount: 50, Radius: 1, Method: 'usm' });
 		ensureSectionDefaults(newPp3, 'White_Balance', { Setting: 'Camera' });
 		setDefault(newPp3.White_Balance, 'Temperature', image.whiteBalance);
 		setDefault(newPp3.White_Balance, 'Green', image.tint);
@@ -124,7 +125,7 @@ class EditingState {
 
 	reset(pp3: string | PP3, image: Image, disabledGroups?: string[]) {
 		const document = typeof pp3 === 'string' ? parsePP3Document(pp3) : { settings: pp3, comments: [] };
-		this.disabledGroups = disabledGroups ?? document.ui?.disabledGroups ?? [];
+		this.disabledGroups = normalizeDisabledGroups(disabledGroups ?? document.ui?.disabledGroups ?? []);
 		this.pp3 = this.preparePP3(restoreGroupedSettings(document), image);
 		this.pushHistory();
 		this.resetPreviewPP3(this.effectivePP3);
@@ -134,7 +135,7 @@ class EditingState {
 		assert(image, 'Image must be provided to initialize editing state');
 		if (this.currentImageId === String(image.id) && (this.hasChangesFor(String(image.id)) || this.pendingSaves.has(String(image.id)))) return;
 		const document = typeof pp3 === 'string' ? parsePP3Document(pp3) : { settings: pp3, comments: [] };
-		this.disabledGroups = document.ui?.disabledGroups ?? [];
+		this.disabledGroups = normalizeDisabledGroups(document.ui?.disabledGroups ?? []);
 		const newPp3 = this.preparePP3(restoreGroupedSettings(document), image);
 
 		const id = image.id.toString();

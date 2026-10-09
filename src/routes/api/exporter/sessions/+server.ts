@@ -5,6 +5,8 @@ import { imageTable, sessionTable, snapshotTable } from '$lib/server/db/schema';
 import { and, desc, eq, max, sql } from 'drizzle-orm';
 import { findExportPath } from '$lib/server/export-files';
 import { stat } from 'node:fs/promises';
+import { jobManager } from '$lib/server/jobs/manager';
+import { JobType, type JobState } from '$lib/server/jobs/types';
 
 export type ExporterSessionsResponse = {
 	sessions: Array<{
@@ -24,6 +26,7 @@ export type ExporterSessionsResponse = {
 			integration: string;
 		}>;
 		status: 'Updated' | 'Exported';
+		exportJob: JobState;
 	}>;
 	next: number | null;
 };
@@ -87,7 +90,8 @@ export const GET: RequestHandler = async ({ url }) => {
 			...s,
 			images: imagesWithStatus.map((img) => ({ id: img.id, filepath: img.filepath, needsExport: img.needsExport })),
 			albums: s.albums,
-			status: sessionStatus
+			status: sessionStatus,
+			exportJob: jobManager.getJobState(s.id, JobType.EXPORT)
 		};
 	}));
 

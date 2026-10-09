@@ -2,13 +2,26 @@ import type { PP3 } from './pp3-utils';
 import type { PP3Document } from './pp3-document';
 
 export const groupNeutralSettings: Record<string, PP3> = {
-	light: { Exposure: { Auto: false, Compensation: 0, Brightness: 0, Contrast: 0, Black: 0, HighlightCompr: 0, HighlightComprThreshold: 0, ShadowCompr: 0 }, 'Shadows_&_Highlights': { Enabled: false } },
+	light: {
+		Exposure: { Auto: false, Compensation: 0, Brightness: 0, Contrast: 0, Black: 0, HighlightCompr: 0, HighlightComprThreshold: 0, ShadowCompr: 0 },
+		'Shadows_&_Highlights': { Enabled: false }
+	},
 	whiteBalance: { White_Balance: { Setting: 'Camera' } },
 	color: { Exposure: { Saturation: 0 }, Vibrance: { Enabled: false }, HSV_Equalizer: { Enabled: false } },
 	clarity: { Local_Contrast: { Enabled: false }, Dehaze: { Enabled: false } },
 	detail: { Sharpening: { Enabled: false } },
-	look: { Film_Simulation: { Enabled: false }, Channel_Mixer: { Enabled: false } }
+	look: { Film_Simulation: { Enabled: false }, Channel_Mixer: { Enabled: false } },
+	exposure: { Exposure: { Auto: false, Compensation: 0, Brightness: 0, Contrast: 0, Black: 0 } },
+	dynamicRange: { Exposure: { HighlightCompr: 0, HighlightComprThreshold: 0, ShadowCompr: 0 }, 'Shadows_&_Highlights': { Enabled: false } },
+	globalColor: { Exposure: { Saturation: 0 }, Vibrance: { Enabled: false } },
+	colorMixer: { HSV_Equalizer: { Enabled: false } },
+	saturation: { Exposure: { Saturation: 0 } }
 };
+
+/** Keep older snapshots' bypass behavior when splitting their groups. */
+export function normalizeDisabledGroups(groups: string[]): string[] {
+	return [...new Set(groups.flatMap((group) => (group === 'light' ? ['exposure', 'dynamicRange'] : group === 'color' ? ['globalColor', 'colorMixer'] : [group])))];
+}
 
 export function createGroupedDocument(settings: PP3, disabledGroups: string[]): PP3Document {
 	const effective = structuredClone(settings);

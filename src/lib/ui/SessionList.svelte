@@ -304,8 +304,8 @@
 
 {#if renaming}
 	<Modal onClose={() => { if (!savingName) renaming = null; }}>
-		<form onsubmit={saveName} class="space-y-5">
-			<h2 class="text-xl font-semibold text-neutral-100">Rename session</h2>
+		<form onsubmit={saveName} class="space-y-5 p-6 sm:p-8">
+			<h2 class="pr-8 text-xl font-semibold text-neutral-100">Rename session</h2>
 			<label class="flex flex-col gap-2 text-sm text-neutral-300">Session name
 				<input required bind:value={renameValue} disabled={savingName} class="min-h-12 rounded-xl border border-neutral-600 bg-neutral-900 px-3 text-neutral-100" />
 			</label>

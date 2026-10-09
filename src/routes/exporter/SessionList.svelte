@@ -22,17 +22,29 @@
 
 	let scroller = $state<Scroller<Session>>();
 	let loading = $state(false);
-	let jobStates = $state<Record<number, 'exporting' | 'cancelling'>>({});
+	let jobStates = $state<Record<number, ExportJobState>>({});
 	let pollingIntervals: Record<number, ReturnType<typeof setInterval>> = {};
 
 	let albumCreateSession = $state<number>();
 	let albumDeleteId = $state<number>();
 
-	type ExportJobStatus = 'idle' | 'running' | 'success' | 'error' | 'cancelled';
+	type ExportJobStatus = 'idle' | 'running' | 'cancelling' | 'success' | 'error' | 'cancelled';
 	type ExportJobState = {
 		status: ExportJobStatus;
 		message?: string;
 	};
+
+	$effect(() => {
+		for (const session of sessions) {
+			if (jobStates[session.id]) continue;
+			jobStates[session.id] = session.exportJob;
+			if (session.exportJob.status === 'running') pollJobStatus(session.id);
+		}
+	});
+
+	function exportState(session: Session) {
+		return jobStates[session.id] ?? session.exportJob;
+	}
 
 	function stopPolling(sessionId: number) {
 		const intervalId = pollingIntervals[sessionId];
@@ -56,23 +68,20 @@
 				}
 
 				stopPolling(sessionId);
-				delete jobStates[sessionId];
+				jobStates[sessionId] = state;
 
-				const session = sessions.find((s) => s.id === sessionId);
 				if (state.status === 'success') {
-					if (session) {
-						session.status = 'Exported';
-					}
 					app.addToast('Export completed successfully.', 'success');
 				} else if (state.status === 'cancelled') {
 					app.addToast('Export was cancelled.', 'info');
 				} else if (state.status === 'error') {
 					app.addToast(state.message ? `Export failed: ${state.message}` : 'Export failed.', 'error');
 				}
+				await invalidateAll();
 			} catch (error) {
 				console.error(`[Polling] Session ${sessionId} export status failed`, error);
 				stopPolling(sessionId);
-				delete jobStates[sessionId];
+				jobStates[sessionId] = { status: 'error', message: 'Unable to check export status. Refresh to check again.' };
 				app.addToast('Failed to check export status.', 'error');
 			}
 		}, 2000);
@@ -81,27 +90,32 @@
 	}
 
 	async function exportSession(sessionId: number) {
-		jobStates[sessionId] = 'exporting';
-		const response = await fetch(`/api/sessions/${sessionId}/export`, { method: 'POST' });
-		if (!response.ok && response.status !== 409) {
-			delete jobStates[sessionId];
+		jobStates[sessionId] = { status: 'running' };
+		try {
+			const response = await fetch(`/api/sessions/${sessionId}/export`, { method: 'POST' });
+			if (!response.ok && response.status !== 409) throw new Error('Failed to start export.');
+			app.addToast(response.status === 409 ? 'Export is already running.' : 'Export started.', 'info');
+			pollJobStatus(sessionId);
+		} catch {
+			jobStates[sessionId] = { status: 'error', message: 'Failed to start export.' };
 			app.addToast('Failed to start export.', 'error');
-			return;
 		}
-		app.addToast(response.status === 409 ? 'Export is already running.' : 'Export started.', 'info');
-		pollJobStatus(sessionId);
 	}
 
 	async function cancelExport(sessionId: number) {
-		jobStates[sessionId] = 'cancelling';
+		jobStates[sessionId] = { status: 'cancelling' };
 		stopPolling(sessionId);
-		const response = await fetch(`/api/sessions/${sessionId}/export`, { method: 'DELETE' });
-		delete jobStates[sessionId];
-		if (!response.ok) {
+		try {
+			const response = await fetch(`/api/sessions/${sessionId}/export`, { method: 'DELETE' });
+			if (!response.ok) throw new Error('Failed to cancel export.');
+			jobStates[sessionId] = { status: 'cancelled' };
+			app.addToast('Export cancellation requested.', 'info');
+			await invalidateAll();
+		} catch {
+			jobStates[sessionId] = { status: 'running' };
+			pollJobStatus(sessionId);
 			app.addToast('Failed to cancel export.', 'error');
-			return;
 		}
-		app.addToast('Export cancellation requested.', 'info');
 	}
 
 	onDestroy(() => {
@@ -121,6 +135,8 @@
 </script>
 
 {#snippet item({ item }: { item: Session })}
+	{@const state = exportState(item)}
+	{@const busy = state.status === 'running' || state.status === 'cancelling'}
 	<div class="group relative mb-6 overflow-hidden rounded-3xl mr-2 border border-neutral-800 bg-neutral-900/40 p-6 transition-all hover:border-neutral-700 hover:bg-neutral-900/60">
 		<div class="flex flex-col gap-8 md:flex-row md:items-center">
 			<div class="flex flex-1 items-start gap-6">
@@ -137,28 +153,10 @@
 					<div class="flex flex-wrap items-center gap-3">
 						<h2 class="text-xl font-bold tracking-tight text-neutral-100">{item.name}</h2>
 
-						{#if jobStates[item.id] === 'exporting'}
-							<span
-								class="inline-flex items-center gap-1.5 rounded-full bg-neutral-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-neutral-100 border border-neutral-300/20"
-							>
-								<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-400"></span>
-								Exporting
-							</span>
-						{:else if item.status === 'Updated'}
-							<span
-								class="inline-flex items-center gap-1.5 rounded-full bg-neutral-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-neutral-100 border border-neutral-300/20"
-							>
-								<span class="h-1.5 w-1.5 rounded-full bg-neutral-400"></span>
-								Changes Pending
-							</span>
-						{:else}
-							<span
-								class="inline-flex items-center gap-1.5 rounded-full bg-neutral-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-neutral-100 border border-neutral-300/20"
-							>
-								<span class="h-1.5 w-1.5 rounded-full bg-neutral-400"></span>
-								Exported
-							</span>
-						{/if}
+						<span class="inline-flex items-center gap-1.5 rounded-full bg-neutral-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-neutral-100 border border-neutral-300/20" role="status">
+							<span class="h-1.5 w-1.5 rounded-full bg-neutral-400" class:animate-pulse={busy}></span>
+							{busy ? state.status === 'cancelling' ? 'Cancelling' : 'Exporting / syncing' : item.status === 'Updated' ? 'Changes Pending' : 'Exported'}
+						</span>
 					</div>
 					<p class="text-sm font-medium text-neutral-500">
 						{item.images.length} images <span class="mx-2 text-neutral-800">•</span> {formatDate(item.startedAt)}
@@ -214,12 +212,13 @@
 					View Details
 				</a> -->
 
-				{#if jobStates[item.id] === 'exporting'}
+				{#if busy}
 					<button
 						onclick={() => cancelExport(item.id)}
+						disabled={state.status === 'cancelling'}
 						class="flex items-center gap-2 rounded-2xl bg-neutral-800 px-6 py-3 text-xs font-bold text-neutral-100 transition-all hover:bg-neutral-700"
 					>
-						Cancel
+						{state.status === 'cancelling' ? 'Cancelling…' : 'Cancel'}
 					</button>
 				{:else if item.status === 'Updated'}
 					<button
