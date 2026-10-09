@@ -4,7 +4,7 @@ import { jobManager } from '$lib/server/jobs/manager';
 import { JobType } from '$lib/server/jobs/types';
 import { buildJSONColumn } from '$lib/server/utils';
 import { json } from '@sveltejs/kit';
-import { and, count, desc, eq, exists, type SQL } from 'drizzle-orm';
+import { count, desc, eq, exists, max, sql, type SQL } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 export type SessionsResponse = {
@@ -51,7 +51,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		)
 		.where(eq(sessionTable.isArchived, false))
 		.groupBy(sessionTable.id)
-		.orderBy(desc(sessionTable.startedAt))
+		.orderBy(sql`${max(imageTable.createdAt)} desc nulls last`, desc(sessionTable.startedAt), desc(sessionTable.id))
 		.limit(limit + 1) // Fetch one extra to check if there's a next page
 		.offset(cursor);
 

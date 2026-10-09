@@ -345,7 +345,7 @@
 		if (loading || !next) return;
 		loading = true;
 
-		const response = await fetch(`/api/sessions?offset=${next}`);
+		const response = await fetch(`/api/sessions?cursor=${next}`);
 		const result = (await response.json()) as SessionsResponse;
 
 		onLoaded(result);
