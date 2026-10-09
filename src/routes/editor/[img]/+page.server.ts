@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { imageTable, imageToTagTable, profileTable, snapshotTable } from '$lib/server/db/schema';
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import { Glob } from 'bun';
 import { and, asc, desc, eq, exists, gt, isNull, lt, notExists, or, type SQL } from 'drizzle-orm';
 import { join } from 'node:path';
@@ -29,6 +29,14 @@ const filterMap: Record<string, SQL[]> = {
 };
 
 export const load: PageServerLoad = async ({ params, url }) => {
+	const filter = url.searchParams.get('filter') ?? 'none';
+	const sinceValue = url.searchParams.get('uneditedSince');
+	const uneditedSince = sinceValue ? new Date(sinceValue) : undefined;
+	if (filter === 'unedited' && (!uneditedSince || !Number.isFinite(uneditedSince.getTime()))) {
+		const destination = new URL(url);
+		destination.searchParams.set('uneditedSince', new Date().toISOString());
+		redirect(307, destination.pathname + destination.search);
+	}
 	const { img } = params;
 	const imageId = Number(img);
 
@@ -67,7 +75,17 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	}
 
 	const filters = [eq(imageTable.sessionId, image.sessionId)];
-	filters.push(...(filterMap[url.searchParams.get('filter') ?? 'none'] ?? []));
+	if (filter === 'unedited' && uneditedSince) {
+		filters.push(
+			notExists(db.select().from(snapshotTable).where(and(
+				eq(snapshotTable.imageId, imageTable.id),
+				lt(snapshotTable.createdAt, uneditedSince)
+			))),
+			eq(imageTable.isArchived, false)
+		);
+	} else {
+		filters.push(...(filterMap[filter] ?? []));
+	}
 
 	// find next image in line
 	const [nextImage] = await db

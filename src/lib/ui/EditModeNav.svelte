@@ -123,7 +123,11 @@
 	const iconSize = $derived(isDesktop ? 24 : 20);
 	const filterQuery = $derived.by(() => {
 		const filter = page.url.searchParams.get('filter');
-		return filter === null ? '' : `?${new URLSearchParams({ filter })}`;
+		if (filter === null) return '';
+		const query = new URLSearchParams({ filter });
+		const since = page.url.searchParams.get('uneditedSince');
+		if (filter === 'unedited' && since) query.set('uneditedSince', since);
+		return `?${query}`;
 	});
 
 	const keyMap = $derived(

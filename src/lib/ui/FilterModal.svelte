@@ -23,6 +23,9 @@
 	function applyFilter(filterValue: string) {
 		const newUrl = new URL(page.url);
 		newUrl.searchParams.set('filter', filterValue);
+		if (filterValue !== 'unedited' || page.url.searchParams.get('filter') !== 'unedited') {
+			newUrl.searchParams.delete('uneditedSince');
+		}
 		goto(newUrl);
 		onClose();
 	}

@@ -30,6 +30,14 @@
 	import FilterModal from '$lib/ui/FilterModal.svelte';
 
 	let { data } = $props();
+	const navigationQuery = $derived.by(() => {
+		const filter = page.url.searchParams.get('filter');
+		if (!filter) return '';
+		const query = new URLSearchParams({ filter });
+		const since = page.url.searchParams.get('uneditedSince');
+		if (filter === 'unedited' && since) query.set('uneditedSince', since);
+		return `?${query}`;
+	});
 	let showLutPicker = $state(false);
 	let showFilterModal = $state(false);
 	let mobileActions: HTMLDetailsElement | undefined;
@@ -163,8 +171,8 @@
 	const keyMap = $derived(
 		new Map<string, () => void>([
 			['s', snapshot],
-			['ArrowRight', () => (data.nextImage ? goto(`/editor/${data.nextImage}?filter=${page.url.searchParams.get('filter')}`) : undefined)],
-			['ArrowLeft', () => (data.previousImage ? goto(`/editor/${data.previousImage}?filter=${page.url.searchParams.get('filter')}`) : undefined)],
+			['ArrowRight', () => (data.nextImage ? goto(`/editor/${data.nextImage}${navigationQuery}`) : undefined)],
+			['ArrowLeft', () => (data.previousImage ? goto(`/editor/${data.previousImage}${navigationQuery}`) : undefined)],
 			['a', () => (data.image.isArchived ? restoreImage() : archiveImage())],
 			['p', () => showPreview()],
 			['r', () => reset()],
@@ -313,12 +321,12 @@
 			aria-label="Photo actions"
 		>
 			{#if data.previousImage}
-				<a href={`/editor/${data.previousImage}?filter=${page.url.searchParams.get('filter')}`} aria-label="Previous image" class="mobile-action"><IconChevronLeft size={20} /></a>
+				<a href={`/editor/${data.previousImage}${navigationQuery}`} aria-label="Previous image" class="mobile-action"><IconChevronLeft size={20} /></a>
 			{:else}
 				<button disabled aria-label="Previous image" class="mobile-action"><IconChevronLeft size={20} /></button>
 			{/if}
 			{#if data.nextImage}
-				<a href={`/editor/${data.nextImage}?filter=${page.url.searchParams.get('filter')}`} aria-label="Next image" class="mobile-action"><IconChevronRight size={20} /></a>
+				<a href={`/editor/${data.nextImage}${navigationQuery}`} aria-label="Next image" class="mobile-action"><IconChevronRight size={20} /></a>
 			{:else}
 				<button disabled aria-label="Next image" class="mobile-action"><IconChevronRight size={20} /></button>
 			{/if}
@@ -389,7 +397,7 @@
 					{#if data.previousImage}
 						<Tooltip text="Previous Image" position="top">
 							<a
-								href={`/editor/${data.previousImage}?filter=${page.url.searchParams.get('filter')}`}
+								href={`/editor/${data.previousImage}${navigationQuery}`}
 								class="flex h-9 w-9 items-center justify-center rounded-full transition-all hover:bg-neutral-800 hover:text-neutral-50"
 								class:nav-flash={flashKey === 'ArrowLeft'}
 							>
@@ -407,7 +415,7 @@
 					{#if data.nextImage}
 						<Tooltip text="Next Image" position="top">
 							<a
-								href={`/editor/${data.nextImage}?filter=${page.url.searchParams.get('filter')}`}
+								href={`/editor/${data.nextImage}${navigationQuery}`}
 								class="flex h-9 w-9 items-center justify-center rounded-full transition-all hover:bg-neutral-800 hover:text-neutral-50"
 								class:nav-flash={flashKey === 'ArrowRight'}
 							>
