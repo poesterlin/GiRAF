@@ -3,10 +3,15 @@
 Open **Retouch spots** from the mobile editor's overflow menu, or the desktop
 bandage tool. The page is `/editor/[image-id]/retouch`.
 
-1. Tap a blemish, then a clean source area.
+1. Tap a blemish. The view zooms to 3× so you can tap a clean source precisely.
 2. Select a spot and drag its solid target circle or dotted source circle.
 3. Adjust size, feathering and opacity. Use Before to compare without spot edits.
 4. Save, or return to the editor (pending edits use the existing autosave flow).
+
+Drag empty photo space to pan; pinch or use −/+ to zoom from 1× to 8×. Fit
+returns to the whole photo. A magnified inset follows the selected point while
+dragging. Numbered spot buttons select existing corrections. Size, Feather and
+Opacity use the editor's shared slider, with tabs to keep mobile controls compact.
 
 Spots are stored in ordered RawTherapee `[Spot removal]` PP3 entries. Coordinates
 use preview TIFF pixels after coarse rotation/flips. Crop, fine rotation and

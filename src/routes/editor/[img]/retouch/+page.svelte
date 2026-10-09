@@ -9,6 +9,11 @@
 	import { readSpotRemoval, writeSpotRemoval } from '$lib/spot-removal';
 	type Spot = { x: number; y: number; sourceX: number; sourceY: number; radius: number; feather: number; opacity: number };
 	import { IconArrowBackUp, IconArrowForwardUp, IconCheck, IconDeviceFloppy } from '$lib/ui/icons';
+	import Slider from '$lib/ui/Slider.svelte';
+	import IconTrash from '@tabler/icons-svelte/icons/trash';
+	import IconPlus from '@tabler/icons-svelte/icons/plus';
+	import IconMinus from '@tabler/icons-svelte/icons/minus';
+	import IconMaximize from '@tabler/icons-svelte/icons/maximize';
 
 	let { data } = $props();
 	let svg = $state<SVGSVGElement>();
@@ -27,6 +32,36 @@
 	let alive = true;
 	let radius = $state(40);
 	let hitRadius = $state(100);
+	let zoom = $state(1);
+	let center = $state({ x: 0, y: 0 });
+	let detail = $state<{ x: number; y: number }>();
+	let setting = $state<'radius' | 'feather' | 'opacity'>('radius');
+	let sliderValue = $state(40);
+	const view = $derived({
+		x: Math.max(0, Math.min(dimensions.width - dimensions.width / zoom, center.x - dimensions.width / zoom / 2)),
+		y: Math.max(0, Math.min(dimensions.height - dimensions.height / zoom, center.y - dimensions.height / zoom / 2)),
+		width: dimensions.width / zoom,
+		height: dimensions.height / zoom
+	});
+	let gesture: { x: number; y: number; cx: number; cy: number; scale: number; moved: boolean; p: { x: number; y: number }; pointer: number } | undefined;
+	const pointers = new Map<number, { x: number; y: number }>();
+	let pinch: { distance: number; zoom: number } | undefined;
+	$effect(() => {
+		sliderValue = setting === 'radius' ? (active?.radius ?? radius) : (active?.[setting] ?? (setting === 'feather' ? 0.5 : 1)) * 100;
+	});
+	function focusAt(p: { x: number; y: number }, level = zoom) {
+		center = { ...p };
+		zoom = Math.max(1, Math.min(8, level));
+	}
+	function chooseSpot(index: number) {
+		selected = index;
+		adding = false;
+		target = undefined;
+		if (spots[index]) {
+			focusAt(spots[index], 3);
+			detail = spots[index];
+		}
+	}
 	const spots = $derived(
 		readSpotRemoval(edits.pp3 ?? {}).entries.map((s) => ({
 			x: s.target.x,
@@ -117,6 +152,16 @@
 	}
 	function down(event: PointerEvent) {
 		if (!dimensions.width || !imageUrl || showOriginal || event.button !== 0) return;
+		pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+		svg?.setPointerCapture(event.pointerId);
+		if (pointers.size === 2) {
+			const [a, b] = [...pointers.values()];
+			pinch = { distance: Math.hypot(a.x - b.x, a.y - b.y), zoom };
+			gesture = undefined;
+			drag = undefined;
+			draft = undefined;
+			return;
+		}
 		const p = point(event);
 		if (!p) return;
 		const handle = (event.target as Element).closest('[data-spot]');
@@ -125,21 +170,37 @@
 			draft = spots.map((s) => ({ ...s }));
 			drag = { index: selected, source: handle.getAttribute('data-source') === 'true', pointer: event.pointerId };
 			svg?.setPointerCapture(event.pointerId);
-		} else if (adding) {
-			if (!target) target = p;
-			else {
-				const nextIndex = spots.length;
-				commit([...spots, { x: target.x, y: target.y, sourceX: p.x, sourceY: p.y, radius, feather: 0.5, opacity: 1 }]);
-				selected = nextIndex;
-				target = undefined;
-				adding = false;
-			}
+		} else {
+			gesture = {
+				x: event.clientX,
+				y: event.clientY,
+				cx: view.x + view.width / 2,
+				cy: view.y + view.height / 2,
+				scale: svg?.getScreenCTM()?.a ?? 1,
+				moved: false,
+				p,
+				pointer: event.pointerId
+			};
 		}
 	}
 	function move(event: PointerEvent) {
+		if (pointers.has(event.pointerId)) pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+		if (pinch && pointers.size === 2) {
+			const [a, b] = [...pointers.values()];
+			zoom = Math.max(1, Math.min(8, (pinch.zoom * Math.hypot(a.x - b.x, a.y - b.y)) / Math.max(1, pinch.distance)));
+			return;
+		}
+		if (gesture && gesture.pointer === event.pointerId) {
+			const dx = event.clientX - gesture.x,
+				dy = event.clientY - gesture.y;
+			if (Math.hypot(dx, dy) > 6) gesture.moved = true;
+			if (gesture.moved) center = { x: gesture.cx - dx / gesture.scale, y: gesture.cy - dy / gesture.scale };
+			return;
+		}
 		if (!drag || drag.pointer !== event.pointerId || !draft) return;
 		const p = point(event);
 		if (!p) return;
+		detail = p;
 		if (drag.source) {
 			draft[drag.index].sourceX = p.x;
 			draft[drag.index].sourceY = p.y;
@@ -149,8 +210,29 @@
 		}
 	}
 	function end(event: PointerEvent) {
-		if (!drag || drag.pointer !== event.pointerId) return;
-		if (draft && event.type !== 'pointercancel') commit(draft);
+		pointers.delete(event.pointerId);
+		if (pinch) {
+			if (!pointers.size) pinch = undefined;
+			gesture = undefined;
+			return;
+		}
+		if (gesture?.pointer === event.pointerId && !gesture.moved && event.type !== 'pointercancel' && adding) {
+			const p = gesture.p;
+			if (!target) {
+				target = p;
+				detail = p;
+				focusAt(p, 3);
+			} else {
+				const nextIndex = spots.length;
+				commit([...spots, { x: target.x, y: target.y, sourceX: p.x, sourceY: p.y, radius, feather: 0.5, opacity: 1 }]);
+				selected = nextIndex;
+				detail = target;
+				target = undefined;
+				adding = false;
+			}
+		}
+		gesture = undefined;
+		if (drag?.pointer === event.pointerId && draft && event.type !== 'pointercancel') commit(draft);
 		drag = undefined;
 		draft = undefined;
 		if (svg?.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
@@ -179,7 +261,7 @@
 		{#if dimensions.width && dimensions.height}
 			<svg
 				bind:this={svg}
-				viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+				viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
 				class="h-full w-full touch-none"
 				role="img"
 				aria-label="Spot retouching: tap a blemish, then a clean source area"
@@ -187,13 +269,17 @@
 				onpointermove={move}
 				onpointerup={end}
 				onpointercancel={end}
+				onwheel={(event) => {
+					event.preventDefault();
+					focusAt({ x: view.x + view.width / 2, y: view.y + view.height / 2 }, zoom * (event.deltaY < 0 ? 1.2 : 1 / 1.2));
+				}}
 			>
 				{#if imageUrl}<image href={imageUrl} width={dimensions.width} height={dimensions.height} />{/if}
 				{#if !showOriginal}
 					{#each visible as spot, index}
 						<g stroke={index === selected ? '#fff' : '#aaa'} stroke-width="2" fill="transparent">
-							<circle data-spot={index} cx={spot.x} cy={spot.y} r={Math.max(spot.radius, hitRadius)} stroke="none" />
-							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={Math.max(spot.radius, hitRadius)} stroke="none" />
+							<circle data-spot={index} cx={spot.x} cy={spot.y} r={Math.max(spot.radius, hitRadius / zoom)} stroke="none" />
+							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={Math.max(spot.radius, hitRadius / zoom)} stroke="none" />
 							<line x1={spot.x} y1={spot.y} x2={spot.sourceX} y2={spot.sourceY} vector-effect="non-scaling-stroke" stroke-dasharray="4 4" />
 							<circle data-spot={index} cx={spot.x} cy={spot.y} r={spot.radius} vector-effect="non-scaling-stroke" />
 							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={spot.radius} stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
@@ -203,6 +289,33 @@
 				{/if}
 			</svg>
 		{/if}
+		{#if imageUrl && detail && zoom > 1}
+			<div class="pointer-events-none absolute right-3 top-3 h-24 w-24 overflow-hidden rounded-2xl border border-white/30 bg-black shadow-xl" aria-label="Magnified spot preview">
+				<svg viewBox={`${detail.x - 35} ${detail.y - 35} 70 70`} class="h-full w-full"
+					><image href={imageUrl} width={dimensions.width} height={dimensions.height} /><circle
+						cx={detail.x}
+						cy={detail.y}
+						r="2"
+						fill="none"
+						stroke="white"
+						stroke-width="0.6"
+					/></svg
+				>
+			</div>
+		{/if}
+		<div class="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center rounded-full border border-neutral-700 bg-black/80 p-1 shadow-xl">
+			<button class="icon-tool" aria-label="Zoom out" disabled={zoom === 1} onclick={() => focusAt({ x: view.x + view.width / 2, y: view.y + view.height / 2 }, zoom / 1.5)}
+				><IconMinus size={18} /></button
+			>
+			<span class="min-w-10 text-center text-xs tabular-nums">{zoom.toFixed(1)}×</span>
+			<button
+				class="icon-tool"
+				aria-label="Zoom in"
+				disabled={zoom === 8}
+				onclick={() => focusAt(target ?? active ?? { x: dimensions.width / 2, y: dimensions.height / 2 }, zoom * 1.5)}><IconPlus size={18} /></button
+			>
+			<button class="icon-tool" aria-label="Fit photo" onclick={() => (zoom = 1)}><IconMaximize size={18} /></button>
+		</div>
 		{#if loading}<div class="pointer-events-none absolute left-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs" role="status">Updating preview…</div>{/if}
 		{#if renderError}<p role="alert" class="absolute bottom-3 left-3 right-3 rounded-lg bg-black/80 p-3 text-sm">{renderError}</p>{/if}
 	</div>
@@ -211,18 +324,22 @@
 			<h1 class="font-semibold">Retouch</h1>
 			<a href={editorLink} class="flex min-h-11 items-center px-3 text-sm">Done</a>
 		</div>
-		<p class="text-xs text-neutral-400">
-			{adding ? (target ? 'Now tap a clean source area.' : 'Tap the spot you want to remove.') : 'Drag the solid target or dotted source circle.'} Crop, straightening and lens corrections
-			are hidden for precise placement.
+		<p class="text-xs text-neutral-400" aria-live="polite">
+			{adding ? (target ? '2 · Tap a clean source. Drag to pan.' : '1 · Tap the blemish to zoom in.') : 'Drag either circle · pinch to zoom'}
 		</p>
 		<div class="flex gap-2">
 			<button
 				class="tool flex-1"
 				class:chosen={adding}
 				onclick={() => {
-					adding = !adding;
+					adding = !target;
 					target = undefined;
-				}}>Add spot</button
+					selected = -1;
+					setting = 'radius';
+					zoom = 1;
+				}}
+			>
+				<IconPlus size={18} /> {target ? 'Cancel' : 'Spot'}</button
 			>
 			<button
 				class="tool"
@@ -245,61 +362,44 @@
 			>
 			<button class="tool" aria-pressed={showOriginal} onclick={() => (showOriginal = !showOriginal)}>Before</button>
 		</div>
-		{#if spots.length}<select
-				aria-label="Selected spot"
-				class="min-h-11 rounded-lg bg-neutral-800 px-3"
-				value={selected}
-				onchange={(e) => {
-					selected = Number(e.currentTarget.value);
-					adding = false;
-					target = undefined;
-				}}
-				><option value={-1}>Select spot ({spots.length})</option>{#each spots as _, i}<option value={i}>Spot {i + 1}</option>{/each}</select
-			>{/if}
-		<label class="control"
-			>Size <input
-				aria-label="Spot radius"
-				type="range"
-				min="2"
-				max={data.maxRadius}
-				step="1"
-				value={active?.radius ?? radius}
-				onchange={(e) => change('radius', Number(e.currentTarget.value))}
-			/><span>{active?.radius ?? radius}px</span></label
-		>
-		{#if active}
-			<label class="control"
-				>Feather <input
-					aria-label="Feather"
-					type="range"
-					min="0"
-					max="1"
-					step="0.05"
-					value={active.feather}
-					onchange={(e) => change('feather', Number(e.currentTarget.value))}
-				/></label
-			>
-			<label class="control"
-				>Opacity <input
-					aria-label="Opacity"
-					type="range"
-					min="0"
-					max="1"
-					step="0.05"
-					value={active.opacity}
-					onchange={(e) => change('opacity', Number(e.currentTarget.value))}
-				/></label
-			>
-		{/if}
+		<div class="flex items-center gap-1">
+			{#each ['radius', 'feather', 'opacity'] as key}<button
+					class="min-h-11 flex-1 rounded-lg px-2 text-xs font-medium"
+					class:bg-neutral-800={setting === key}
+					disabled={!active && key !== 'radius'}
+					onclick={() => (setting = key as typeof setting)}>{key === 'radius' ? 'Size' : key === 'feather' ? 'Feather' : 'Opacity'}</button
+				>{/each}
+		</div>
+		{#key setting}<Slider
+				label={setting === 'radius' ? 'Size' : setting === 'feather' ? 'Feather' : 'Opacity'}
+				bind:value={sliderValue}
+				min={setting === 'radius' ? 1 : 0}
+				max={setting === 'radius' ? data.maxRadius : 100}
+				step={1}
+				precision={0}
+				unit={setting === 'radius' ? 'px' : '%'}
+				resetValue={setting === 'radius' ? Math.min(40, data.maxRadius) : setting === 'feather' ? 50 : 100}
+				onchange={(value) => change(setting, setting === 'radius' ? value : value / 100)}
+			/>{/key}
 		<div class="flex gap-2">
+			<div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" aria-label="Spots">
+				{#each spots as _, i}<button
+						class="icon-tool shrink-0 rounded-full text-xs"
+						class:chosen={selected === i}
+						aria-label={`Select spot ${i + 1}`}
+						aria-pressed={selected === i}
+						onclick={() => chooseSpot(i)}>{i + 1}</button
+					>{/each}
+			</div>
 			<button
-				class="tool flex-1"
+				class="tool"
+				aria-label="Delete selected spot"
 				disabled={!active}
 				onclick={() => {
 					commit(spots.filter((_, i) => i !== selected));
 					selected = -1;
-				}}>Delete spot</button
-			><button class="tool chosen flex-1" disabled={saving} onclick={save}
+				}}><IconTrash size={18} /></button
+			><button class="tool chosen" disabled={saving} onclick={save}
 				>{#if saved}<IconCheck size={18} />{:else}<IconDeviceFloppy size={18} />{/if}{saving ? 'Saving…' : saved ? 'Saved' : 'Save'}</button
 			>
 		</div>
@@ -307,6 +407,16 @@
 </div>
 
 <style>
+	.icon-tool {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 44px;
+		min-height: 44px;
+	}
+	button:disabled {
+		opacity: 0.3;
+	}
 	.tool {
 		display: flex;
 		align-items: center;
