@@ -153,21 +153,17 @@
 		{/key}
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Color" group="globalColor">
-		<AdjustmentSubsection title="Saturation" group="saturation">
 		<Slider
 			label="Saturation"
 			bind:value={edits.pp3.Exposure.Saturation as number}
 			centered
 			onchange={() => edits.pushHistory()}
 		/>
-		</AdjustmentSubsection>
-		<AdjustmentSubsection title="Muted Saturation" section="Vibrance">
 		<Slider label="Muted Saturation" bind:value={edits.pp3.Vibrance.Pastels as number} min={-100} max={100} step={1} centered resetValue={0} ignored={!edits.pp3.Vibrance.Enabled as boolean} onchange={() => {
 			edits.pp3.Vibrance.PastSatTog = false;
 			edits.pp3.Vibrance.Saturated = 0;
 			edits.pp3.Vibrance.Enabled = true; edits.pushHistory();
 		}} />
-		</AdjustmentSubsection>
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Color Mixer" group="colorMixer">
 		<ColorAdjustments mode="mixer" />

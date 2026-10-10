@@ -51,6 +51,7 @@
 		actionVersion += 1;
 	});
 	let beforeImage = $derived(apiPath + `/edit?preview&config=${toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
+	let savedImage = $derived(apiPath + `/edit?preview&config=${toBase64(edits.lastSavedDocument || data.snapshots[0]?.pp3 || data.image.importBaseline || BasePP3)}`);
 	let flashKey = $state<string | null>(null);
 	let flashTimer: number | null = null;
 
@@ -289,7 +290,7 @@
 	<!-- Image Preview Section -->
 	<div class="relative min-h-0 flex-1 overflow-hidden bg-neutral-900 shadow-inner">
 		<div class="flex h-full items-center justify-center p-2 sm:p-2">
-			<BeforeAfter {beforeImage} imageId={data.image.id} afterImage={sampleImageId === String(data.image.id) ? sampleImage : ''} />
+			<BeforeAfter {beforeImage} {savedImage} isLoading={edits.isLoading} imageId={data.image.id} afterImage={sampleImageId === String(data.image.id) ? sampleImage : ''} />
 		</div>
 
 		<!-- Desktop Left Nav -->
