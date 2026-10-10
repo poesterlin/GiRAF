@@ -1,7 +1,7 @@
 import ImportPP3 from '$lib/assets/import.pp3?raw';
 import { parsePP3, stringifyPP3, type PP3 } from "$lib/pp3-utils";
 import { exiftool } from "exiftool-vendored";
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { createTempDir, runCommand } from "./command-runner";
 import { getFileNameFromPath } from "./utils";
@@ -51,7 +51,12 @@ export async function editImage(imagePath: string, pp3: string, options: { allow
 
     console.log(`Running command: ${command.join(" ")}`);
 
-    await runCommand(command, { signal: options.signal });
+    try {
+        await runCommand(command, { signal: options.signal });
+    } catch (error) {
+        await rm(tempDir, { recursive: true, force: true });
+        throw error;
+    }
 
 
     if (options.recordedAt) {
@@ -124,7 +129,7 @@ export async function generateImportTif(imagePath: string, options: { signal?: A
 export async function generateExportTif(imagePath: string, options: { signal?: AbortSignal } = {}) {
     const start = performance.now();
 
-    const name = getFileNameFromPath(imagePath) + '-export-tiff';
+    const name = getFileNameFromPath(imagePath) + '-export-tiff-' + randomUUID();
     const outDir = await createTempDir(name);
 
     // Parse import PP3 and disable resize for full-resolution output
@@ -146,7 +151,12 @@ export async function generateExportTif(imagePath: string, options: { signal?: A
 
     console.log(`Running command: ${command.join(" ")}`);
 
-    await runCommand(command, { signal: options.signal });
+    try {
+        await runCommand(command, { signal: options.signal });
+    } catch (error) {
+        await rm(outDir, { recursive: true, force: true });
+        throw error;
+    }
 
     const outputName = basename(imagePath, extname(imagePath)) + ".tif";
     const end = performance.now();

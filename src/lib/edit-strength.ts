@@ -25,7 +25,8 @@ export function scaleEditSettings(settings: PP3, percent: number, whiteBalance: 
 		Dehaze: ['Strength'],
 		PCVignette: ['Strength'],
 		Film_Simulation: ['Strength'],
-		Sharpening: ['Amount']
+		Sharpening: ['Amount'],
+		Directional_Pyramid_Denoising: ['Luma', 'Chroma']
 	};
 	// These PP3 fields are read with Glib::KeyFile::get_integer by RawTherapee.
 	const integerAmounts: Record<string, readonly string[]> = {
@@ -95,7 +96,7 @@ export function scaleEditSettings(settings: PP3, percent: number, whiteBalance: 
 	if (strength === 0) {
 		if (result.Exposure) result.Exposure.Auto = false;
 		if (wb) wb.Setting = 'Camera';
-		for (const chapter of ['Shadows_&_Highlights', 'Vibrance', 'Local_Contrast', 'Dehaze', 'PCVignette', 'Film_Simulation', 'Sharpening', 'HSV_Equalizer', 'Channel_Mixer']) {
+		for (const chapter of ['Shadows_&_Highlights', 'Vibrance', 'Local_Contrast', 'Dehaze', 'PCVignette', 'Film_Simulation', 'Sharpening', 'Directional_Pyramid_Denoising', 'HSV_Equalizer', 'Channel_Mixer']) {
 			if (result[chapter]) result[chapter].Enabled = false;
 		}
 	}

@@ -7,11 +7,12 @@
 		children: Snippet;
 		onClose: () => void;
 		class?: string;
+		showCloseButton?: boolean;
 	}
 
 	let dialog: HTMLDialogElement;
 
-	let { children, onClose, ...rest }: Props = $props();
+	let { children, onClose, showCloseButton = true, ...rest }: Props = $props();
 
 	onMount(() => {
 		dialog.showModal();
@@ -52,13 +53,16 @@
 	onkeydown={trapFocus}
 	onclose={handleClose}
 >
+	{#if showCloseButton}
 	<button
 		autofocus
-		class="focus:ring-opacity-50 absolute top-3 right-3 z-10 rounded-full p-2 text-gray-500 hover:bg-gray-200 focus:ring-2 focus:ring-gray-400 focus:outline-none"
+		class="focus:ring-opacity-50 absolute top-3 right-3 z-20 flex min-h-11 min-w-11 items-center justify-center rounded-full p-2 text-gray-400 hover:bg-neutral-800 hover:text-white focus:ring-2 focus:ring-gray-400 focus:outline-none"
+		aria-label="Close dialog"
 		onclick={handleClose}
 	>
 		<IconX></IconX>
 	</button>
+	{/if}
 
 	{@render children()}
 </dialog>

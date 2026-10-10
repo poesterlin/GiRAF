@@ -122,6 +122,9 @@ class EditingState {
 		ensureSectionDefaults(newPp3, 'Channel_Mixer', { Enabled: false, Red: '1000;0;0;', Green: '0;1000;0;', Blue: '0;0;1000;' });
 		ensureSectionDefaults(newPp3, 'Film_Simulation', { Enabled: false, ClutFilename: '', Strength: 100 });
 		ensureSectionDefaults(newPp3, 'Sharpening', { Enabled: false, Amount: 50, Radius: 1, Method: 'usm' });
+		ensureSectionDefaults(newPp3, 'Directional_Pyramid_Denoising', {
+			Enabled: false, Luma: 0, Ldetail: 0, Chroma: 0, Method: 'Lab', LMethod: 'SLI', CMethod: 'MAN', C2Method: 'MANU', AutoGain: true, Gamma: 1.7
+		});
 		ensureSectionDefaults(newPp3, 'White_Balance', { Setting: 'Camera' });
 		setDefault(newPp3.White_Balance, 'Temperature', image.whiteBalance);
 		setDefault(newPp3.White_Balance, 'Green', image.tint);

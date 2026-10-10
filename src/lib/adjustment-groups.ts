@@ -10,6 +10,7 @@ export const groupNeutralSettings: Record<string, PP3> = {
 	color: { Exposure: { Saturation: 0 }, Vibrance: { Enabled: false }, HSV_Equalizer: { Enabled: false } },
 	clarity: { Local_Contrast: { Enabled: false }, Dehaze: { Enabled: false } },
 	detail: { Sharpening: { Enabled: false } },
+	noiseReduction: { Directional_Pyramid_Denoising: { Enabled: false } },
 	vignette: { PCVignette: { Enabled: false } },
 	toneCurve: { Exposure: { Curve2: '0;' } },
 	look: { Film_Simulation: { Enabled: false }, Channel_Mixer: { Enabled: false } },

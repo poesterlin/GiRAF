@@ -21,6 +21,18 @@ const settings: PP3 = {
 	Spot_removal: { Enabled: true, Spots: '100;100;200;200;20;0.5;1;' }
 };
 
+test('noise reduction strength and bypass survive snapshot round trips', () => {
+	const original: PP3 = { Directional_Pyramid_Denoising: { Enabled: true, Luma: 60, Chroma: 40, Ldetail: 25, LMethod: 'SLI', CMethod: 'MAN', C2Method: 'MANU' } };
+	const scaled = scaleEditSettings(original, 50).Directional_Pyramid_Denoising;
+	expect(scaled.Luma).toBe(30);
+	expect(scaled.Chroma).toBe(20);
+	expect(scaled.Ldetail).toBe(25);
+	expect(scaleEditSettings(original, 0).Directional_Pyramid_Denoising.Enabled).toBe(false);
+	const serialized = stringifyPP3Document(createEditDocument(original, ['noiseReduction'], 50));
+	expect(parsePP3(serialized).Directional_Pyramid_Denoising.Enabled).toBe(false);
+	expect(restoreGroupedSettings(parsePP3Document(serialized))).toEqual(original);
+});
+
 test('half strength scales amounts but preserves shape controls, geometry and retouching', () => {
 	const original = structuredClone(settings);
 	const scaled = scaleEditSettings(settings, 50, { temperature: 4000, green: 1 });

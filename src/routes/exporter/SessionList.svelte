@@ -137,11 +137,11 @@
 {#snippet item({ item }: { item: Session })}
 	{@const state = exportState(item)}
 	{@const busy = state.status === 'running' || state.status === 'cancelling'}
-	<div class="group relative mb-6 overflow-hidden rounded-3xl mr-2 border border-neutral-800 bg-neutral-900/40 p-6 transition-all hover:border-neutral-700 hover:bg-neutral-900/60">
-		<div class="flex flex-col gap-8 md:flex-row md:items-center">
-			<div class="flex flex-1 items-start gap-6">
+	<div class="group relative mb-3 overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 sm:mr-2 sm:mb-6 sm:rounded-3xl sm:p-6 transition-all hover:border-neutral-700 hover:bg-neutral-900/60">
+		<div class="flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
+			<div class="flex min-w-0 flex-1 items-start gap-3 sm:gap-6">
 				{#if item.images.length > 0}
-					<a href="/exporter/{item.id}" class="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl ring-offset-black transition-all group-hover:ring-2 group-hover:ring-neutral-700">
+					<a href="/exporter/{item.id}" class="relative h-16 w-16 sm:h-24 sm:w-24 shrink-0 overflow-hidden rounded-xl sm:rounded-2xl ring-offset-black transition-all group-hover:ring-2 group-hover:ring-neutral-700">
 						<img
 							src="/api/images/{item.images[0].id}/preview"
 							alt={`${item.name} thumbnail`}
@@ -149,17 +149,17 @@
 						/>
 					</a>
 				{/if}
-				<div class="flex flex-col gap-2">
-					<div class="flex flex-wrap items-center gap-3">
-						<h2 class="text-xl font-bold tracking-tight text-neutral-100">{item.name}</h2>
+				<div class="flex min-w-0 flex-col gap-2">
+					<div class="flex flex-wrap items-center gap-2 sm:gap-3">
+						<h2 class="w-full break-words text-lg sm:w-auto sm:text-xl font-bold tracking-tight text-neutral-100"><a href="/exporter/{item.id}">{item.name}</a></h2>
 
 						<span class="inline-flex items-center gap-1.5 rounded-full bg-neutral-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-neutral-100 border border-neutral-300/20" role="status">
 							<span class="h-1.5 w-1.5 rounded-full bg-neutral-400" class:animate-pulse={busy}></span>
-							{busy ? state.status === 'cancelling' ? 'Cancelling' : 'Exporting / syncing' : item.status === 'Updated' ? 'Changes Pending' : 'Exported'}
+							{busy ? state.status === 'cancelling' ? 'Cancelling' : 'Exporting' : item.status === 'Updated' ? 'Changes Pending' : 'Exported'}
 						</span>
 					</div>
-					<p class="text-sm font-medium text-neutral-500">
-						{item.images.length} images <span class="mx-2 text-neutral-800">•</span> {formatDate(item.startedAt)}
+					<p class="flex flex-wrap gap-x-2 gap-y-1 text-xs sm:text-sm font-medium text-neutral-400">
+						<span>{item.images.length} images</span><span aria-hidden="true" class="text-neutral-600">·</span><span>{formatDate(item.startedAt)}</span>
 					</p>
 					
 					<div class="mt-2 flex items-center gap-3">
@@ -172,7 +172,7 @@
 										<a
 											href="/api/integrations/{integration}/albums/{album.id}"
 											target="_blank"
-											class="flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-800/50 p-1.5 text-neutral-100 transition-all hover:bg-neutral-800 hover:scale-110"
+											class="flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-neutral-800/50 p-2 sm:p-1.5 text-neutral-100 transition-all hover:bg-neutral-800 hover:scale-110"
 										>
 											{@html img}
 										</a>
@@ -193,7 +193,7 @@
 								<Tooltip text="Create Album on {integration}" position="top">
 									<button
 										onclick={() => (albumCreateSession = item.id)}
-										class="flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-800/30 p-1.5 text-neutral-500 opacity-50 transition-all hover:bg-neutral-800 hover:text-neutral-100 hover:opacity-100 hover:scale-110"
+										class="flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-neutral-800/30 p-2 sm:p-1.5 text-neutral-500 opacity-50 transition-all hover:bg-neutral-800 hover:text-neutral-100 hover:opacity-100 hover:scale-110"
 									>
 										{@html img}
 									</button>
@@ -204,7 +204,7 @@
 				</div>
 			</div>
 
-			<div class="flex items-center gap-3 shrink-0">
+			<div class="flex items-center justify-end gap-3 border-t border-neutral-800 pt-3 md:border-0 md:pt-0 shrink-0">
 				<!-- <a
 					href="/exporter/{item.id}"
 					class="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/50 px-5 py-3 text-xs font-bold text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100"

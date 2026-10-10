@@ -2,7 +2,7 @@
 	import { editorFilterQuery, readEditorFilters, hasEditorFilters } from '$lib/editor-filters';
 	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getWorkerInstance } from '$lib';
+	import { getPreviewDevice, loadEditorPreview } from '$lib/editor-preview';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
 	import { filterPP3, toBase64 } from '$lib/pp3-utils';
 	import { edits } from '$lib/state/editing.svelte';
@@ -120,46 +120,28 @@
 			edits.isLoading = false;
 			return;
 		}
-		const worker = getWorkerInstance();
-		let active = true;
+		const controller = new AbortController();
 		edits.isLoading = true;
 		const imageId = page.params.img!;
 		const config = toBase64(edits.throttledPP3);
-		let timeout: ReturnType<typeof setTimeout>;
-		let timedOut = false;
-		const render = worker.refreshImage(imageId, config).then((result) => {
-			if (timedOut && result?.url.startsWith('blob:')) URL.revokeObjectURL(result.url);
-			return result;
-		});
-		const fallback = new Promise<{ url: string; error: boolean }>((resolve) => {
-			timeout = setTimeout(() => {
-				timedOut = true;
-				resolve({ url: `/api/images/${imageId}/edit?config=${encodeURIComponent(config)}`, error: false });
-			}, 15000);
-		});
-		Promise.race([render, fallback])
-			.finally(() => clearTimeout(timeout))
-			.then((result) => {
-				if (!active) {
-					if (result?.url.startsWith('blob:')) URL.revokeObjectURL(result.url);
-					return;
-				}
-				if (result) {
-					if (sampleImage.startsWith('blob:')) URL.revokeObjectURL(sampleImage);
-					sampleImage = result.url;
-					sampleImageId = imageId;
-					edits.isFaulty = result.error;
-					edits.isLoading = false;
-				}
+		void loadEditorPreview(imageId, config, getPreviewDevice(), controller.signal, (url) => {
+			if (sampleImage.startsWith('blob:')) URL.revokeObjectURL(sampleImage);
+			sampleImage = url;
+			sampleImageId = imageId;
+			edits.isFaulty = false;
+			edits.isLoading = false;
+		})
+			.then(() => {
+				if (!controller.signal.aborted) edits.isLoading = false;
 			})
 			.catch((error) => {
-				if (!active) return;
+				if (controller.signal.aborted) return;
 				console.error('Error refreshing image:', error);
 				edits.isFaulty = true;
 				edits.isLoading = false;
 			});
 		return () => {
-			active = false;
+			controller.abort();
 		};
 	});
 

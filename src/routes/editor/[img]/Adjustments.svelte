@@ -188,6 +188,25 @@
 		</div></details>
 		</AdjustmentSubsection>
 	</AdjustmentGroup>
+	<AdjustmentGroup title="Noise Reduction" group="noiseReduction">
+		{@const denoise = edits.pp3.Directional_Pyramid_Denoising}
+		<Slider label="Luminance" bind:value={denoise.Luma as number} min={0} max={100} step={1} resetValue={0} ignored={!denoise.Enabled as boolean} onchange={() => {
+			denoise.LMethod = 'SLI';
+			denoise.Enabled = true;
+			edits.pushHistory();
+		}} />
+		<Slider label="Colour noise" bind:value={denoise.Chroma as number} min={0} max={100} step={1} resetValue={0} ignored={!denoise.Enabled as boolean} onchange={() => {
+			denoise.CMethod = 'MAN';
+			denoise.C2Method = 'MANU';
+			denoise.Enabled = true;
+			edits.pushHistory();
+		}} />
+		<Slider label="Detail recovery" bind:value={denoise.Ldetail as number} min={0} max={100} step={1} resetValue={0} ignored={!denoise.Enabled as boolean} onchange={() => {
+			denoise.LMethod = 'SLI';
+			denoise.Enabled = true;
+			edits.pushHistory();
+		}} />
+	</AdjustmentGroup>
 	<AdjustmentGroup title="Sharpening" group="detail">
 		<Slider label="Amount" bind:value={edits.pp3.Sharpening.Amount as number} min={0} max={200} step={1} resetValue={50} onchange={() => { edits.pp3.Sharpening.Enabled = true; edits.pushHistory(); }} />
 		<Slider label="Radius" bind:value={edits.pp3.Sharpening.Radius as number} min={0.1} max={5} step={0.1} resetValue={1} onchange={() => { edits.pp3.Sharpening.Enabled = true; edits.pushHistory(); }} />
