@@ -31,8 +31,9 @@ still recover; if refinement fails, the successful quick preview is retained
 Network information is browser-dependent; missing hints are marked unknown.
 Events contain no PP3 profiles, LUT paths, image names, or image pixels.
 
-Tracking is fire-and-forget. A bounded queue waits up to 30 seconds for the
-deferred Umami script, and analytics failures do not affect preview rendering.
+Events are written locally with `console.debug('[preview] <event>', metrics)`.
+Enable Debug/Verbose messages in browser developer tools to see them. There is
+no analytics script, network reporting, deferred queue, or retry timer.
 
 ## Additional diagnostics (analyticsVersion=2)
 

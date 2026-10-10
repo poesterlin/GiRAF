@@ -8,6 +8,7 @@
 
 <SessionList
 	allowRename
+	editedThumbnails
 	{basePath}
 	triageEnabled={data.triageEnabled}
 	next={data.next}

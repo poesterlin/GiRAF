@@ -1,7 +1,4 @@
 export type PreviewMetrics = Record<string, string | number | boolean>;
-type Umami = { track: (name: string, data: PreviewMetrics) => unknown };
-const pending: { name: string; data: PreviewMetrics; created: number }[] = [];
-let timer: ReturnType<typeof setTimeout> | undefined;
 
 export function previewContext(): PreviewMetrics {
 	if (typeof window === 'undefined') return {};
@@ -21,24 +18,10 @@ export function previewContext(): PreviewMetrics {
 	};
 }
 
-function flush() {
-	timer = undefined;
-	const umami = (window as Window & { umami?: Umami }).umami;
-	while (pending.length && (umami || Date.now() - pending[0].created > 30_000)) {
-		const event = pending.shift()!;
-		if (umami) {
-			try { Promise.resolve(umami.track(event.name, event.data)).catch(() => {}); } catch { /* Analytics must not affect rendering. */ }
-		}
-	}
-	if (pending.length) timer = setTimeout(flush, 500);
-}
-
-/** Fire-and-forget; never puts analytics requests on the preview's critical path. */
+/** Local diagnostics only; no network requests or deferred event queue. */
 export function trackPreview(name: string, data: PreviewMetrics) {
 	if (typeof window === 'undefined') return;
-	pending.push({ name, data: { ...previewContext(), ...data }, created: Date.now() });
-	if (pending.length > 32) pending.shift();
-	if (!timer) flush();
+	console.debug(`[preview] ${name}`, { ...previewContext(), ...data });
 }
 
 export function readServerTimings(header: string | null): PreviewMetrics {

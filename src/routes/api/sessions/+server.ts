@@ -20,6 +20,7 @@ export type SessionsResponse = {
 			id: number;
 			version: number;
 			hasSnapshot: boolean;
+			snapshotId: number | null;
 			isArchived: boolean;
 		}>;
 	}>;
@@ -42,6 +43,7 @@ export const GET: RequestHandler = async ({ url }) => {
 				version: imageTable.version,
 				isArchived: imageTable.isArchived,
 				hasSnapshot: exists(db.select().from(snapshotTable).where(eq(snapshotTable.imageId, imageTable.id))) as SQL<boolean>,
+				snapshotId: sql<number | null>`(select ${snapshotTable.id} from ${snapshotTable} where ${snapshotTable.imageId} = ${imageTable.id} order by ${snapshotTable.createdAt} desc, ${snapshotTable.id} desc limit 1)`,
 			}, [imageTable.recordedAt])
 		})
 		.from(sessionTable)

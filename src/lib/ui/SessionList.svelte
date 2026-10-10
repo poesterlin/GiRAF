@@ -16,6 +16,7 @@
 		basePath?: 'editor' | 'triage';
 		triageEnabled?: boolean;
 		allowRename?: boolean;
+		editedThumbnails?: boolean;
 	}
 
 	type ImportJobStatus = 'idle' | 'running' | 'success' | 'error' | 'cancelled';
@@ -24,7 +25,7 @@
 		message?: string;
 	};
 
-	let { sessions, next, onLoaded, basePath = 'editor', triageEnabled = true, allowRename = false }: Props = $props();
+	let { sessions, next, onLoaded, basePath = 'editor', triageEnabled = true, allowRename = false, editedThumbnails = false }: Props = $props();
 	let renaming = $state<Session | null>(null);
 	let renameValue = $state('');
 	let savingName = $state(false);
@@ -279,7 +280,7 @@
 					class="group relative block aspect-[3/2] overflow-hidden rounded-xl bg-neutral-900 shadow-lg ring-1 ring-neutral-800 transition-all hover:shadow-2xl hover:ring-neutral-600"
 				>
 					<img
-						src="/api/images/{preview.id}/preview?version={preview.version}"
+						src={editedThumbnails && preview.snapshotId ? `/api/images/${preview.id}/edited-thumbnail?snapshot=${preview.snapshotId}&version=${preview.version}` : `/api/images/${preview.id}/preview?version=${preview.version}`}
 						alt=""
 						loading="lazy"
 						class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"

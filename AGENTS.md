@@ -132,7 +132,7 @@ Commands are executed via `runCommand()` in `src/lib/server/command-runner.ts`:
 
 `src/lib/editor-preview.ts` fetches quick and final server-rendered JPEGs and decodes them before publishing. Final previews probe the browser cache, then the server JPEG cache; cache hits bypass settling and cache-only probes never start a RAW render. Cache misses retain the settling delay. Constrained devices/connections skip refinement after a successful quick preview. A failed quick preview can recover at final quality, and a failed refinement retains the successful quick preview.
 
-`src/lib/preview-analytics.ts` reports preview timing, response reuse, cache lookups, refinement skips, and paint opportunities to Umami without blocking rendering. See `docs/preview-analytics.md` for event fields and cache timing attribution.
+`src/lib/preview-analytics.ts` reports preview timing, response reuse, cache lookups, refinement skips, and paint opportunities to the browser debug console only. See `docs/preview-analytics.md` for event fields and cache timing attribution.
 
 Importer local thumbnails use the separate native browser image/embedded-thumbnail path in `src/lib/local-photo-preview.ts` and `src/lib/local-preview.worker.ts`.
 

@@ -2,6 +2,7 @@ import { db } from '$lib/server/db';
 import { imageTable, snapshotTable } from '$lib/server/db/schema';
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
+import { queueEditedThumbnail } from '$lib/server/edited-thumbnail';
 
 export const GET: RequestHandler = async ({ params }) => {
 	const imageId = Number(params.id);
@@ -32,6 +33,7 @@ export const POST: RequestHandler = async ({ request, params }) => {
 		.returning();
 
 	await db.update(imageTable).set({ updatedAt: new Date() }).where(and(eq(imageTable.id, imageId)));
+	queueEditedThumbnail(image, newSnapshot);
 
 	return json(newSnapshot, { status: 201 });
 };
