@@ -4,7 +4,7 @@
 	import { restoreGroupedSettings } from '$lib/adjustment-groups';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
-	import { countPP3Properties, diffPP3, parsePP3, stringifyPP3 } from '$lib/pp3-utils';
+	import { parsePP3 } from '$lib/pp3-utils';
 	import {
 		IconAdjustmentsHorizontal,
 		IconArrowBackUp,
@@ -52,7 +52,7 @@
 	let isDesktop = $state(false);
 	const moreId = $props.id();
 	const compact = $derived(showHistory && !isDesktop);
-	const canLoadLast = $derived(showLast && edits.lastSavedPP3 && countPP3Properties(diffPP3(edits.lastSavedPP3, edits.pp3)) > 0);
+	const canLoadLast = $derived(showLast && edits.lastSavedPP3 && edits.hasChanges);
 
 	function closeMore(restoreFocus = false) {
 		showMore = false;
@@ -81,7 +81,7 @@
 	let pasteVersion = 0;
 	let showCropChoice = $state(false);
 	let rememberCropChoice = $state(false);
-	let pendingPaste: { pp3: PP3; imageId: string; version: number; groups: string[] } | undefined;
+	let pendingPaste: { pp3: PP3; imageId: string; version: number; groups: string[]; editStrength: number } | undefined;
 	const cropPreferenceKey = 'giraf_paste_crop';
 	function cancelPaste() {
 		pasteVersion += 1;
@@ -91,12 +91,12 @@
 	beforeNavigate(cancelPaste);
 	onDestroy(cancelPaste);
 
-	function applyPaste(pp3: PP3, includeCrop: boolean, groups: string[] = []) {
+	function applyPaste(pp3: PP3, includeCrop: boolean, groups: string[] = [], editStrength = 100) {
 		if (!includeCrop) {
 			if (edits.pp3.Crop) pp3.Crop = structuredClone($state.snapshot(edits.pp3.Crop));
 			else delete pp3.Crop;
 		}
-		edits.reset(pp3, page.data.image, groups);
+		edits.reset(pp3, page.data.image, groups, editStrength);
 		pastedConfig = true;
 		setTimeout(() => (pastedConfig = false), 2000);
 	}
@@ -107,7 +107,7 @@
 			else localStorage.removeItem(cropPreferenceKey);
 		} catch { /* Device storage may be unavailable. */ }
 		if (pendingPaste && pendingPaste.version === pasteVersion && pendingPaste.imageId === edits.currentImageId) {
-			applyPaste(pendingPaste.pp3, includeCrop, pendingPaste.groups);
+			applyPaste(pendingPaste.pp3, includeCrop, pendingPaste.groups, pendingPaste.editStrength);
 		}
 		pendingPaste = undefined;
 		showCropChoice = false;
@@ -267,11 +267,12 @@
 			const document = parsePP3Document(pp3Text);
 			const pp3 = restoreGroupedSettings(document);
 			const groups = document.ui?.disabledGroups ?? [];
+			const editStrength = document.ui?.editStrength ?? 100;
 			if (pp3.Crop && pp3.Crop.Enabled !== false && Number(pp3.Crop.W) > 0 && Number(pp3.Crop.H) > 0) {
 				let preference: string | null = null;
 				try { preference = localStorage.getItem(cropPreferenceKey); } catch { /* Ask each time. */ }
 				if (preference === 'include' || preference === 'exclude') {
-					applyPaste(pp3, preference === 'include', groups);
+					applyPaste(pp3, preference === 'include', groups, editStrength);
 					app.addToast(preference === 'include' ? 'Settings pasted including crop.' : 'Settings pasted keeping the current crop.', 'info', {
 						label: 'Edit crop preference',
 						run: () => {
@@ -281,11 +282,11 @@
 						}
 					});
 				} else {
-					pendingPaste = { pp3, imageId, version, groups };
+					pendingPaste = { pp3, imageId, version, groups, editStrength };
 					rememberCropChoice = false;
 					showCropChoice = true;
 				}
-			} else applyPaste(pp3, true, groups);
+			} else applyPaste(pp3, true, groups, editStrength);
 		} catch {
 			pastedConfig = false;
 		}
@@ -448,7 +449,7 @@
 	{/if}
 
 	<!-- last version -->
-	{#if showLast && edits.lastSavedPP3 && countPP3Properties(diffPP3(edits.lastSavedPP3, edits.pp3)) > 0}
+	{#if canLoadLast}
 		<Tooltip text="Load Last Saved Version" position={tooltipPosition}>
 			<button
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"

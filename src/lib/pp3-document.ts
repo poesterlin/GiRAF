@@ -4,6 +4,7 @@ import { parsePP3, stringifyPP3, type PP3 } from './pp3-utils';
 export interface PP3UiMetadata {
 	disabledGroups: string[];
 	savedValues: PP3;
+	editStrength?: number;
 }
 
 export interface PP3Document {
@@ -25,6 +26,9 @@ function validateMetadata(value: unknown): asserts value is PP3UiMetadata {
 		value.disabledGroups.some((group) => typeof group !== 'string' || !group.trim()) ||
 		new Set(value.disabledGroups).size !== value.disabledGroups.length || !isRecord(value.savedValues)) {
 		throw new Error('Invalid GiRAF UI metadata');
+	}
+	if (value.editStrength !== undefined && (typeof value.editStrength !== 'number' || !Number.isFinite(value.editStrength) || value.editStrength < 0 || value.editStrength > 100)) {
+		throw new Error('Invalid GiRAF edit strength');
 	}
 	for (const section of Object.values(value.savedValues)) {
 		if (!isRecord(section) || Object.values(section).some((setting) =>

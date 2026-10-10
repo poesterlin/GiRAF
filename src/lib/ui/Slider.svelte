@@ -18,6 +18,7 @@
 		precision?: number;
 		resetValue?: number;
 		displayValue?: (value: number) => number;
+		compact?: boolean;
 	}
 
 	let {
@@ -36,6 +37,7 @@
 		map = (n) => n,
 		inverseMap = (n) => n,
 		displayValue = (n) => n,
+		compact = false,
 	}: Props = $props();
 
 	let wrapperRef: HTMLDivElement;
@@ -245,9 +247,11 @@
 	<div
 		bind:this={wrapperRef}
 		class="
-      relative h-14 w-full cursor-grab touch-pan-y rounded-md
+      relative w-full cursor-grab touch-pan-y rounded-md
       select-none active:cursor-grabbing no-touch-callout
     "
+		class:h-12={compact}
+		class:h-14={!compact}
 		oncontextmenu={(e) => e.preventDefault()}
 		onpointerdown={handlePointerDown}
 		onpointermove={handlePointerMove}
@@ -261,12 +265,8 @@
 
 		<!-- Track background + ring -->
 		<div
-			class="
-        absolute inset-0 overflow-hidden rounded-md
-        bg-neutral-900/90 ring-neutral-700
-        transition-colors
-      "
-			class:ring-1={!ignored}
+			class="absolute overflow-hidden transition-colors {compact ? 'inset-x-0 bottom-1 h-1.5 rounded-full bg-neutral-800' : 'inset-0 rounded-md bg-neutral-900/90 ring-neutral-700'}"
+			class:ring-1={!ignored && !compact}
 		></div>
 
 		<!-- Focus/drag visual ring overlay -->
@@ -293,14 +293,19 @@
 		<!-- Fill (light grayscale so text inverts over it) -->
 		<div
 			class="
-        absolute top-0 bottom-0 bg-gradient-to-r
+        absolute bg-gradient-to-r
         from-neutral-300 to-neutral-100
       "
+			class:top-0={!compact}
+			class:bottom-0={!compact}
+			class:bottom-1={compact}
+			class:h-1.5={compact}
+			class:rounded-full={compact}
 			style={`left:${fillLeftPct}%;width:${fillWidthPct}%;`}
 			class:transition-[width,left]={!isDragging}
 			class:duration-100={!isDragging}
 			class:ease-linear={!isDragging}
-			class:rounded-md={!centered}
+			class:rounded-md={!centered && !compact}
 			class:rounded-r-md={fillLeftPct === centerPct}
 			class:rounded-l-md={fillLeftPct < centerPct}
 			class:from-neutral-200={ignored}
@@ -309,15 +314,15 @@
 
 		<!-- In-track text (white + difference => invert over fill) -->
 		<div
-			class="
-        pointer-events-none absolute inset-0 flex items-center
-        justify-between px-4 text-xs text-white
-        mix-blend-difference sm:text-sm
-      "
+			class="pointer-events-none absolute flex items-center justify-between text-xs {compact ? 'inset-x-0 top-1 text-neutral-300' : 'inset-0 px-4 text-white mix-blend-difference sm:text-sm'}"
 		>
 			<span class="font-medium">{label}</span>
 			<span class="tabular-nums">{formatNumber(displayValue(value))}{unit}</span>
 		</div>
+
+		{#if compact}
+			<span class="pointer-events-none absolute bottom-px h-3 w-3 -translate-x-1/2 rounded-full bg-neutral-100 ring-2 ring-neutral-900" style:left={`clamp(6px, ${pct}%, calc(100% - 6px))`} aria-hidden="true"></span>
+		{/if}
 
 		<input
 			bind:this={sliderRef}

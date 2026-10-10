@@ -40,6 +40,9 @@
 </script>
 
 <section class="control-section" data-adjustment-sections>
+	<div class="mb-4 px-1">
+		<Slider compact label="Edit strength" bind:value={edits.editStrength} min={0} max={100} step={1} precision={0} unit="%" resetValue={100} onchange={() => edits.pushHistory()} />
+	</div>
 	<AdjustmentGroup title="White Balance" group="whiteBalance">
 		<Select
 			ariaLabel="White Balance"

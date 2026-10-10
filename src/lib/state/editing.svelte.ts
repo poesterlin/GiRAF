@@ -2,18 +2,22 @@ import { assert } from '$lib';
 import { countPP3Properties, diffPP3, parsePP3, type PP3 } from '$lib/pp3-utils';
 import type { Image } from '$lib/server/db/schema';
 import { parsePP3Document, stringifyPP3Document } from '$lib/pp3-document';
-import { createGroupedDocument, normalizeDisabledGroups, restoreGroupedSettings } from '$lib/adjustment-groups';
+import { normalizeDisabledGroups, restoreGroupedSettings } from '$lib/adjustment-groups';
+import { createEditDocument, normalizeEditStrength, type StrengthWhiteBalance } from '$lib/edit-strength';
+import { lutPreviewSettings } from '$lib/lut-preview';
 
 const PREVIEW_UPDATE_INTERVAL = 100;
 
-type EditState = { settings: PP3; disabledGroups: string[] };
+type EditState = { settings: PP3; disabledGroups: string[]; editStrength: number };
 
 class EditingState {
 	public currentImageId = $state<string | null>(null);
 	private baselines = $state<Record<string, EditState>>({});
 	public pp3 = $state<PP3>() as PP3;
 	public disabledGroups = $state<string[]>([]);
-	public effectivePP3 = $derived(this.pp3 ? createGroupedDocument($state.snapshot(this.pp3), [...this.disabledGroups]).settings : {});
+	public editStrength = $state(100);
+	private strengthWhiteBalance = $state<StrengthWhiteBalance>({});
+	public effectivePP3 = $derived(this.pp3 ? createEditDocument($state.snapshot(this.pp3), [...this.disabledGroups], this.editStrength, this.strengthWhiteBalance).settings : {});
 	public throttledPP3 = $state<PP3>({});
 	public updateThrottledPP3 = (pp3: PP3) => {
 		if (!pp3) return;
@@ -33,7 +37,7 @@ class EditingState {
 	public lastSavedPP3 = $derived(this.currentImageId ? this.baselines[this.currentImageId]?.settings : undefined);
 	public lastSavedDocument = $derived.by(() => {
 		const saved = this.currentImageId ? this.baselines[this.currentImageId] : undefined;
-		return saved ? stringifyPP3Document(createGroupedDocument($state.snapshot(saved.settings), [...saved.disabledGroups])) : '';
+		return saved ? stringifyPP3Document(createEditDocument($state.snapshot(saved.settings), [...saved.disabledGroups], saved.editStrength, this.strengthWhiteBalance)) : '';
 	});
 	public isLoading = $state(false);
 	public isFaulty = $state(false);
@@ -124,9 +128,11 @@ class EditingState {
 		return newPp3;
 	}
 
-	reset(pp3: string | PP3, image: Image, disabledGroups?: string[]) {
+	reset(pp3: string | PP3, image: Image, disabledGroups?: string[], editStrength?: number) {
 		const document = typeof pp3 === 'string' ? parsePP3Document(pp3) : { settings: pp3, comments: [] };
 		this.disabledGroups = normalizeDisabledGroups(disabledGroups ?? document.ui?.disabledGroups ?? []);
+		this.editStrength = normalizeEditStrength(editStrength ?? document.ui?.editStrength ?? 100);
+		this.strengthWhiteBalance = { temperature: image.whiteBalance, green: image.tint };
 		this.pp3 = this.preparePP3(restoreGroupedSettings(document), image);
 		this.pushHistory();
 		this.resetPreviewPP3(this.effectivePP3);
@@ -137,6 +143,8 @@ class EditingState {
 		if (this.currentImageId === String(image.id) && (this.hasChangesFor(String(image.id)) || this.pendingSaves.has(String(image.id)))) return;
 		const document = typeof pp3 === 'string' ? parsePP3Document(pp3) : { settings: pp3, comments: [] };
 		this.disabledGroups = normalizeDisabledGroups(document.ui?.disabledGroups ?? []);
+		this.editStrength = document.ui?.editStrength ?? 100;
+		this.strengthWhiteBalance = { temperature: image.whiteBalance, green: image.tint };
 		const newPp3 = this.preparePP3(restoreGroupedSettings(document), image);
 
 		const id = image.id.toString();
@@ -157,7 +165,11 @@ class EditingState {
 	}
 
 	serialize() {
-		return stringifyPP3Document(createGroupedDocument($state.snapshot(this.pp3), [...this.disabledGroups]));
+		return stringifyPP3Document(createEditDocument($state.snapshot(this.pp3), [...this.disabledGroups], this.editStrength, this.strengthWhiteBalance));
+	}
+
+	previewWithLut(path: string) {
+		return lutPreviewSettings($state.snapshot(this.pp3), [...this.disabledGroups], path, this.editStrength, this.strengthWhiteBalance);
 	}
 
 	get canUndo() {
@@ -177,7 +189,7 @@ class EditingState {
 		}
 
 		const saved = this.captureState();
-		const serialized = stringifyPP3Document(createGroupedDocument(saved.settings, saved.disabledGroups));
+		const serialized = stringifyPP3Document(createEditDocument(saved.settings, saved.disabledGroups, saved.editStrength, this.strengthWhiteBalance));
 		this.pendingSaves.set(id, (this.pendingSaves.get(id) ?? 0) + 1);
 		const task = this.saveQueue
 			.catch(() => {})
@@ -221,9 +233,11 @@ class EditingState {
 		const changedCount = countPP3Properties(diff);
 
 		const groupsChanged = JSON.stringify(prev?.disabledGroups ?? []) !== JSON.stringify(snapshot.disabledGroups);
-		if (changedCount === 0 && !groupsChanged) return;
+		const strengthChanged = prev?.editStrength !== snapshot.editStrength;
+		if (changedCount === 0 && !groupsChanged && !strengthChanged) return;
 
 		let changeKey: string | null = null;
+		if (strengthChanged && changedCount === 0 && !groupsChanged) changeKey = 'editStrength';
 		if (changedCount === 1) {
 			for (const section in diff) {
 				for (const key in diff[section]) {
@@ -263,6 +277,7 @@ class EditingState {
 		const baseline = this.baselines[imageId];
 		if (!baseline) return false;
 		return (
+			baseline.editStrength !== this.editStrength ||
 			JSON.stringify(baseline.disabledGroups) !== JSON.stringify(this.disabledGroups) ||
 			countPP3Properties(diffPP3(baseline.settings, this.pp3)) > 0 ||
 			countPP3Properties(diffPP3(this.pp3, baseline.settings)) > 0
@@ -270,12 +285,13 @@ class EditingState {
 	}
 
 	private captureState(): EditState {
-		return { settings: structuredClone($state.snapshot(this.pp3)), disabledGroups: [...this.disabledGroups] };
+		return { settings: structuredClone($state.snapshot(this.pp3)), disabledGroups: [...this.disabledGroups], editStrength: this.editStrength };
 	}
 
 	private applyHistorySnapshot(state: EditState) {
 		const next = structuredClone($state.snapshot(state.settings));
 		this.disabledGroups = [...state.disabledGroups];
+		this.editStrength = state.editStrength;
 		if (!this.pp3) {
 			this.pp3 = next;
 			return;

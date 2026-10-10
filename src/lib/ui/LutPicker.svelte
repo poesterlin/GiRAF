@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { uniqueArray } from '$lib';
 	import { setLut } from '$lib/pp3-utils';
-	import { lutPreviewSettings, lutPreviewUrl } from '$lib/lut-preview';
+	import { lutPreviewUrl } from '$lib/lut-preview';
 	import { edits } from '$lib/state/editing.svelte';
 	import { IconCheck, IconStar } from './icons';
 	import { lutFavourites } from '$lib/state/lut-favourites.svelte';
@@ -23,9 +23,7 @@
 	const currentName = luts.find((lut) => lut.path === currentPath)?.name ?? currentPath.split('/').pop()?.replace(/\.png$/i, '') ?? '';
 	const currentPreview = lutPreviewUrl(imageId, $state.snapshot(edits.effectivePP3));
 	// Keep the comparison stable while thumbnails arrive.
-	const settings = $state.snapshot(edits.pp3);
-	const disabledGroups = [...edits.disabledGroups];
-	const previews = luts.map((lut) => ({ ...lut, src: lutPreviewUrl(imageId, lutPreviewSettings(settings, disabledGroups, lut.path)) }));
+	const previews = luts.map((lut) => ({ ...lut, src: lutPreviewUrl(imageId, edits.previewWithLut(lut.path)) }));
 	const tags = uniqueArray(luts.flatMap((lut) => lut.tags)).sort((a, b) => a.localeCompare(b));
 	const filteredLuts = $derived(previews.filter((lut) =>
 		`${lut.name} ${lut.tags.join(' ')}`.toLowerCase().includes(search.trim().toLowerCase()) &&
