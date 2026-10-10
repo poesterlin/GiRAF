@@ -13,8 +13,6 @@
     "format": "prettier --write .",
     "lint": "prettier --check . && eslint .",
     "test": "bun test",
-    "preview:parity": "bun scripts/preview-parity/index.ts",
-    "wasm:build": "bun scripts/build-wasm.ts",
     "licenses:generate": "bunx --bun license-checker --production --excludePrivatePackages --out src/lib/assets/THIRD_PARTY_LICENSES.txt",
     "db:start": "docker compose up",
     "db:push": "drizzle-kit push",
@@ -49,6 +47,7 @@
     "vite": "^7.3.1"
   },
   "dependencies": {
+    "@noble/hashes": "^2.4.0",
     "@sveltejs/adapter-node": "^5.5.2",
     "@tabler/icons-svelte": "^3.36.1",
     "@types/archiver": "^6.0.4",
@@ -58,7 +57,6 @@
     "comlink": "^4.4.2",
     "drizzle-orm": "^0.40.1",
     "exiftool-vendored": "^30.5.0",
-    "hash-wasm": "^4.12.0",
     "jpeg-js": "^0.4.4",
     "p-limit": "^7.3.0",
     "postgres": "^3.4.9",

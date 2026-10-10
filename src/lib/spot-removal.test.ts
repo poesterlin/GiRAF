@@ -1,6 +1,5 @@
 import { expect, test } from 'bun:test';
 import { parsePP3, stringifyPP3 } from './pp3-utils';
-import { supportsWasmPreview } from './preview-parity-policy';
 import { mapSpotRemovalToTarget, readSpotRemoval, writeSpotRemoval } from './spot-removal';
 
 // Seven doubles in RT's source/target/radius/feather/opacity order, including
@@ -93,10 +92,4 @@ test('honours RT radius limits and rejects non-finite writes', () => {
 	for (const size of [0, -1, NaN, Infinity]) {
 		expect(mapSpotRemovalToTarget(pp3, size, 500, 6000, 3000)).toBe(pp3);
 	}
-});
-
-test('spot profiles always route to the reference renderer', () => {
-	expect(supportsWasmPreview(profile)).toBe(false);
-	expect(supportsWasmPreview('[Spot removal]\nEnabled=false')).toBe(false);
-	expect(supportsWasmPreview('[Exposure]\nCompensation=0.5')).toBe(true);
 });

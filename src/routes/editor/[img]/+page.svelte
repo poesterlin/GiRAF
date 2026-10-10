@@ -141,7 +141,7 @@
 				edits.isLoading = false;
 			});
 		return () => {
-			controller.abort();
+			controller.abort('edit-or-navigation');
 		};
 	});
 

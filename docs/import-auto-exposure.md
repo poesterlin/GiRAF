@@ -1,8 +1,12 @@
 # Import auto-exposure baseline
 
 New editor TIFFs receive a stored `image.import_baseline` PP3 profile. Analysis
-uses the browser renderer's TIFF histogram and auto-exposure calculation, after
-RAW-stage processing, avoiding reuse of already-baked RAW exposure values.
+uses native Sharp/libvips TIFF decoding and a server-side JavaScript port of
+RawTherapee 5.12's histogram auto-exposure calculation, after RAW-stage
+processing, avoiding reuse of already-baked RAW exposure values. RGB8 samples
+are expanded to RGB16; all channels contribute to an 8,192-bin inverse-sRGB
+histogram. The scalar calculation retains its octiles, 0.02% clipping, float32
+rounding and integer slider values rather than substituting a luminance heuristic.
 
 The baseline contains resolved Exposure compensation, brightness, contrast,
 black level, highlight compression and its threshold, with Auto disabled.
@@ -16,12 +20,13 @@ exposure values from this baseline, with Auto disabled. It records one undo step
 and preserves other adjustments. For older images without a stored baseline,
 the button restores the client profile's original automatic exposure behavior.
 
-Analysis runs in a separate Bun process to isolate the retained-image WASM
-instance from concurrent imports and browser previews. The production image
-includes the analysis script and uses the matching deployed WASM artifacts.
+Analysis runs in a separate Bun process. The production image includes both
+analysis scripts and Sharp's native runtime dependency. Import cancellation
+terminates the child, and a 60-second wall-clock deadline bounds decoding plus
+histogram work. TIFFs are limited to 1 GiB and 64 megapixels (at most 384 MiB of
+decoded RGB16 samples); native pixel decoding also has a 45-second timeout.
+Unsupported TIFF colour models and malformed files fail explicitly.
 
-Native tests compare Auto-on output with resolved manual output byte for byte
-on RGB8, RGB16 and compressed RGB16 fixtures, including repeated clipping
-settings. `bun run wasm:build` verifies this before installing artifacts.
-`RT_WASM_SKIP_BUILD=1 bun run wasm:build` verifies and installs artifacts already
-built with the cached builder when Docker Hub is unavailable.
+Run `bun test scripts/auto-exposure.test.ts` for native TIFF decoding, histogram
+and resolved-slider regression tests. Existing stored baselines are not
+recalculated by this replacement.

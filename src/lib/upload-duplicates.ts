@@ -1,4 +1,5 @@
-import { createSHA256 } from 'hash-wasm';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 import { importTiming } from './import-timing';
 
 export type DuplicateResult = { key: string; duplicate: boolean; imported: boolean; id?: number; date?: string };
@@ -14,8 +15,7 @@ export function fingerprintFile(file: File): Promise<string> {
 	const cached = fingerprints.get(file);
 	if (cached) return cached;
 	const result = (async () => {
-		const hash = await createSHA256();
-		hash.init();
+		const hash = sha256.create();
 		// File providers can impose seconds of latency on every slice read.
 		// Keep memory bounded while avoiding dozens of reads per typical RAW.
 		const chunkSize = 16 * 1024 * 1024;
@@ -42,7 +42,7 @@ export function fingerprintFile(file: File): Promise<string> {
 				});
 			}
 		}
-		return hash.digest('hex');
+		return bytesToHex(hash.digest());
 	})();
 	fingerprints.set(file, result);
 	void result.catch(() => fingerprints.delete(file));

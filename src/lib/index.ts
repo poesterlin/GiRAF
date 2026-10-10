@@ -1,7 +1,3 @@
-import type { ImageWorker } from "./worker";
-import Worker from '$lib/worker?worker';
-import { wrap } from 'comlink';
-
 // place files you want to import through the `$lib` alias in this folder.
 export function throttle<T extends (...args: any[]) => void>(
     func: T,
@@ -47,18 +43,6 @@ export function uniqueArray<T>(array: T[]): T[] {
     return Array.from(new Set(array));
 }
 
-
-let workerInstance: ImageWorker | null = null;
-
-export function getWorkerInstance(): ImageWorker {
-    if (workerInstance) {
-        return workerInstance;
-    }
-
-    const instance = new Worker();
-    workerInstance = wrap<ImageWorker>(instance);
-    return workerInstance;
-}
 
 export function clamp(v: number, lo: number, hi: number) {
     return Math.min(hi, Math.max(lo, v));

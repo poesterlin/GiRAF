@@ -6,7 +6,7 @@ describe('editor preview budgets', () => {
 		expect(previewDevice({ width: 390, cores: 8 })).toBe('mobile');
 		expect(previewDevice({ width: 820 })).toBe('tablet');
 		expect(previewDevice({ width: 1440 })).toBe('desktop');
-		for (const constraint of [{ saveData: true }, { memory: 2 }, { cores: 2 }, { connection: '2g' }]) {
+		for (const constraint of [{ saveData: true }, { memory: 2 }, { cores: 2 }, { connection: '2g' }, { connection: '3g' }, { connectionType: 'cellular' }]) {
 			expect(previewDevice({ width: 1440, ...constraint })).toBe('constrained');
 		}
 	});

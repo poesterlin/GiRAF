@@ -11,8 +11,14 @@ import { eq } from 'drizzle-orm';
 const refinements = new Map<string, AbortController>();
 
 export const GET: RequestHandler = async ({ params, url, request }) => {
+	const requestStarted = performance.now();
+	const incomingRequestId = request.headers.get('X-Preview-Request');
+	const requestId = incomingRequestId && /^[a-f0-9-]{36}$/.test(incomingRequestId) ? incomingRequestId : crypto.randomUUID();
+	const diagnostics: Record<string, string | number | boolean> = { requestId, stage: url.searchParams.get('stage') || 'legacy', outcome: 'error' };
 	const id = Number(params.id);
 	const stage = url.searchParams.get('stage');
+	const cacheOnly = stage === 'final' && url.searchParams.get('cacheOnly') === '1';
+	diagnostics.cacheOnly = cacheOnly;
 	const client = request.headers.get('X-Preview-Client');
 	const clientKey = client && /^[a-f0-9-]{36}$/.test(client) ? client : null;
 	// Prioritize the next normal preview even if a client disconnect isn't
@@ -22,6 +28,7 @@ export const GET: RequestHandler = async ({ params, url, request }) => {
 	const image = await db.query.imageTable.findFirst({
 		where: eq(imageTable.id, id)
 	});
+	const databaseMs = performance.now() - requestStarted;
 
 	if (!image) {
 		error(404, 'Image not found');
@@ -39,28 +46,48 @@ export const GET: RequestHandler = async ({ params, url, request }) => {
 		}
 
 		if (stage === 'quick' || stage === 'final') {
-			const refinement = stage === 'final' ? new AbortController() : null;
+			const refinement = stage === 'final' && !cacheOnly ? new AbortController() : null;
 			if (clientKey && refinement) {
 				refinements.get(clientKey)?.abort();
 				refinements.set(clientKey, refinement);
 			}
 			try {
 				const signal = refinement ? AbortSignal.any([request.signal, refinement.signal]) : request.signal;
-				const jpeg = await editorPreview(image.tifPath, image.filepath, pp3String, url.searchParams.get('device'), stage, signal);
-				return new Response(new Uint8Array(jpeg), { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=3600' } });
+				const result = await editorPreview(image.tifPath, image.filepath, pp3String, url.searchParams.get('device'), stage, signal, cacheOnly);
+				if (!result) {
+					diagnostics.outcome = 'cache-miss';
+					return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store', 'X-Preview-Request': requestId } });
+				}
+				const timings = { database: databaseMs, ...result.timings, request: performance.now() - requestStarted };
+				Object.assign(diagnostics, timings, { outcome: 'success', jpegCache: result.cacheHit, sourceCache: result.sourceCache, bytes: result.jpeg.byteLength });
+				return new Response(new Uint8Array(result.jpeg), { headers: {
+					'Content-Type': 'image/jpeg', 'Cache-Control': cacheOnly ? 'no-store' : 'private, max-age=3600',
+					'Server-Timing': Object.entries(timings).map(([name, duration]) => `${name};dur=${duration.toFixed(1)}`).join(', '),
+					'X-Preview-Cache': result.cacheHit ? 'hit' : 'miss',
+					'X-Preview-Request': requestId,
+					'X-Preview-Source-Cache': result.sourceCache
+				} });
 			} finally {
 				if (clientKey && refinements.get(clientKey) === refinement) refinements.delete(clientKey);
 			}
 		}
+		const renderStarted = performance.now();
 		const output = await editImage(image.tifPath, pp3String, {
 			allowConcurrent: isPreview,
 			quality: 85
 		});
-		return respondWithFile(output);
+		const response = await respondWithFile(output);
+		diagnostics.outcome = 'success';
+		response.headers.set('X-Preview-Request', requestId);
+		response.headers.set('Server-Timing', `database;dur=${databaseMs.toFixed(1)}, render;dur=${(performance.now() - renderStarted).toFixed(1)}, request;dur=${(performance.now() - requestStarted).toFixed(1)}`);
+		return response;
 	} catch (err) {
+		diagnostics.outcome = request.signal.aborted || (err instanceof Error && err.name === 'AbortError') ? 'cancelled' : 'error';
 		console.error('Error editing image:', err);
 		error(400, {
 			message: 'Failed to edit image'
 		});
+	} finally {
+		console.info('[preview-render]', JSON.stringify({ ...diagnostics, elapsedMs: Math.round(performance.now() - requestStarted) }));
 	}
 };

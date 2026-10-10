@@ -53,7 +53,10 @@ function remove(key: string) {
 }
 
 /** Keep the initial reference render unchanged; refine only once edits settle. */
-export async function editorPreview(path: string, rawPath: string, pp3: string, device: string | null, stage: PreviewStage, signal: AbortSignal) {
+export async function editorPreview(path: string, rawPath: string, pp3: string, device: string | null, stage: PreviewStage, signal: AbortSignal, cacheOnly = false) {
+	const started = performance.now();
+	const timings = { source: 0, mapping: 0, render: 0, read: 0, total: 0 };
+	let sourceCache = 'unused';
 	signal.throwIfAborted();
 	const source = await stat(path);
 	const { quality, size } = previewQuality(device, stage);
@@ -63,6 +66,9 @@ export async function editorPreview(path: string, rawPath: string, pp3: string, 
 		if (entry.expires <= Date.now()) remove(key);
 	}
 	let jpeg = renders.get(key)?.jpeg;
+	// Cache probes must never prepare a source or start a RawTherapee process.
+	if (cacheOnly && !jpeg) return null;
+	const cacheHit = !!jpeg;
 	if (jpeg) {
 		const entry = renders.get(key)!;
 		renders.delete(key);
@@ -74,15 +80,25 @@ export async function editorPreview(path: string, rawPath: string, pp3: string, 
 			let input = path;
 			let profile = pp3;
 			if (stage === 'final' && size > 1000) {
+				const sourceStarted = performance.now();
+				const sourceKey = `${rawPath}:${rawSource!.mtimeMs}:${rawSource!.size}`;
+				sourceCache = fullSources.has(sourceKey) ? 'hit' : 'miss';
 				fullSource = await acquireSource(rawPath, signal);
+				timings.source = performance.now() - sourceStarted;
 				input = fullSource.path;
+				const mappingStarted = performance.now();
 				const settings = await mapCropFromPreviewToExport(parsePP3(pp3), path, input);
+				timings.mapping = performance.now() - mappingStarted;
 				signal.throwIfAborted();
 				settings.Resize = { Enabled: true, AppliesTo: 'Cropped area', Method: 'Lanczos', DataSpecified: 3, Width: size, Height: size, LongEdge: size, ShortEdge: size, AllowUpscaling: false };
 				profile = stringifyPP3(settings);
 			}
+			const renderStarted = performance.now();
 			output = await editImage(input, profile, { quality, signal });
+			timings.render = performance.now() - renderStarted;
+			const readStarted = performance.now();
 			jpeg = Buffer.from(await Bun.file(output).arrayBuffer());
+			timings.read = performance.now() - readStarted;
 			signal.throwIfAborted();
 			if (jpeg.byteLength <= MAX_CACHE_BYTES) {
 				remove(key);
@@ -100,5 +116,6 @@ export async function editorPreview(path: string, rawPath: string, pp3: string, 
 		}
 	}
 	signal.throwIfAborted();
-	return jpeg;
+	timings.total = performance.now() - started;
+	return { jpeg, timings, cacheHit, sourceCache };
 }

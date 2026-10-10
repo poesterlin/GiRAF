@@ -1,8 +1,8 @@
 export type PreviewDevice = 'mobile' | 'tablet' | 'desktop' | 'constrained';
 export type PreviewStage = 'quick' | 'final';
 
-export function previewDevice(hints: { width: number; memory?: number; cores?: number; saveData?: boolean; connection?: string }): PreviewDevice {
-	if (hints.saveData || (hints.memory !== undefined && hints.memory <= 2) || (hints.cores !== undefined && hints.cores <= 2) || ['slow-2g', '2g'].includes(hints.connection ?? '')) return 'constrained';
+export function previewDevice(hints: { width: number; memory?: number; cores?: number; saveData?: boolean; connection?: string; connectionType?: string }): PreviewDevice {
+	if (hints.saveData || hints.connectionType === 'cellular' || (hints.memory !== undefined && hints.memory <= 2) || (hints.cores !== undefined && hints.cores <= 2) || ['slow-2g', '2g', '3g'].includes(hints.connection ?? '')) return 'constrained';
 	if (hints.width < 640) return 'mobile';
 	if (hints.width < 1024) return 'tablet';
 	return 'desktop';

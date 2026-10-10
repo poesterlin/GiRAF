@@ -1,7 +1,5 @@
 import { expect, test } from 'bun:test';
 import { defaultLevels, levelsFromCurve, levelsToCurve, midpoint, moveLevel } from './levels';
-import { supportsWasmPreview } from './preview-parity-policy';
-import { stringifyPP3 } from './pp3-utils';
 
 test('levels survive PP3 save/reload at both gamma extremes and tight endpoints', () => {
 	expect(levelsFromCurve(levelsToCurve(defaultLevels))).toEqual(defaultLevels);
@@ -33,11 +31,4 @@ test('unrelated imported tone curves are not treated as levels', () => {
 	for (const curve of ['1;0;0;1;1;', '2;0.25;0.5;0.75;0;0;0;0;', 'garbage']) {
 		expect(levelsFromCurve(curve)).toBeNull();
 	}
-});
-
-test('active levels use reference rendering and reset restores browser eligibility', () => {
-	const settings = { Exposure: { Auto: false, Curve2: levelsToCurve({ black: 20, white: 230, gamma: 1.2 }) } };
-	expect(supportsWasmPreview(stringifyPP3(settings))).toBe(false);
-	settings.Exposure.Curve2 = levelsToCurve(defaultLevels);
-	expect(supportsWasmPreview(stringifyPP3(settings))).toBe(true);
 });
