@@ -193,7 +193,7 @@
 	</div>
 	<div class="absolute top-4 right-4 z-30 flex flex-col items-center gap-2">
 		<div class="rounded-full border border-neutral-700/50 bg-neutral-100 px-3 py-1 text-[10px] font-bold tracking-widest uppercase text-neutral-950 backdrop-blur-md transition-opacity group-hover:opacity-100 sm:opacity-0">
-			{showingEdited ? 'Edited' : 'Loading edits…'}
+			Edited
 		</div>
 		{#if isLoading}
 			<div in:fade={{ duration: 200, delay: 200 }} role="status" aria-label="Updating edited preview" class="rounded-full bg-neutral-950/40 p-1.5 backdrop-blur-md">
