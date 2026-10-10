@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { blackLevelFromPP3, blackLevelToPP3 } from './black-level';
 
-test('black level caps negative adjustment at minus fifty and strengthens positive adjustment', () => {
+test('black level mapping preserves existing adjustment strengths', () => {
 	expect(blackLevelToPP3(-50)).toBe(2486);
 	expect(blackLevelToPP3(100)).toBe(-32768);
 	expect(blackLevelToPP3(0)).toBe(0);

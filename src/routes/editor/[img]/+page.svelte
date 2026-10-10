@@ -110,7 +110,7 @@
 		if (!data.hasMatchingImages || data.editorError) return;
 		const latestSnapshot = data.snapshots[0];
 		const image = data.image;
-		const pp3 = latestSnapshot?.pp3 ?? BasePP3;
+		const pp3 = latestSnapshot?.pp3 ?? image.importBaseline ?? BasePP3;
 		untrack(() => edits.initialize(pp3, image));
 	});
 
@@ -225,7 +225,7 @@
 			}
 			if (version !== actionVersion || imageId !== edits.currentImageId) return;
 
-			edits.reset(BasePP3, data.image);
+			edits.reset(data.image.importBaseline ?? BasePP3, data.image);
 			await edits.snapshot();
 			if (version !== actionVersion || imageId !== edits.currentImageId) return;
 
@@ -341,9 +341,9 @@
 		</div>
 
 		<!-- Scrollable Controls -->
-		<div class="min-h-0 flex-1 overflow-y-auto px-3 py-2 lg:px-6 lg:py-4 custom-scrollbar">
+		<div data-adjustment-scroll class="min-h-0 flex-1 overflow-y-auto px-3 py-2 lg:px-6 lg:py-4 custom-scrollbar">
 			{#if edits.pp3}
-				<Adjustments {data} bind:showLutPicker />
+				<Adjustments {data} bind:showLutPicker previewSrc={sampleImageId === String(data.image.id) && !edits.isFaulty ? sampleImage : ''} />
 			{/if}
 		</div>
 
@@ -365,12 +365,12 @@
 			<button onclick={() => (showFilterModal = true)} aria-label="Filter gallery" class="mobile-action"><IconFilter size={20} /></button>
 			<button
 				onclick={snapshot}
-				class="ml-auto flex min-h-11 items-center justify-center gap-2 rounded-xl bg-neutral-100 px-4 text-sm font-semibold text-neutral-950"
+				class="relative ml-auto flex min-h-11 w-24 shrink-0 items-center justify-center gap-2 rounded-xl bg-neutral-100 px-3 text-sm font-semibold text-neutral-950"
 				aria-label="Save edits"
 			>
 				{#if snapshotSaved}<IconCheck size={18} />{:else}<IconDeviceFloppy size={18} />{/if}
 				{snapshotSaved ? 'Saved' : 'Save'}
-				{#if edits.hasChanges}<span class="h-1.5 w-1.5 rounded-full bg-neutral-600" aria-label="Unsaved changes"></span>{/if}
+				{#if edits.hasChanges}<span class="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-neutral-600" aria-label="Unsaved changes"></span>{/if}
 			</button>
 			<details bind:this={mobileActions} class="relative">
 				<summary class="mobile-action list-none cursor-pointer" aria-label="More photo actions"
@@ -408,17 +408,15 @@
 					{/if}
 				</Button>
 
-				<Button onclick={snapshot} flash={flashKey === 's'} class="justify-center bg-neutral-100 hover:bg-neutral-200 border-none py-2 lg:py-2.5">
+				<Button onclick={snapshot} flash={flashKey === 's'} class="relative justify-center bg-neutral-100 hover:bg-neutral-200 border-none py-2 lg:py-2.5">
 					<span class="text-xs lg:text-sm">Save Edits</span>
 					{#if snapshotSaved}
 						<IconCheck size={16} />
 					{:else}
-						<div class="relative">
-							<IconDeviceFloppy size={16} />
-							{#if edits.hasChanges}
-								<span class="absolute -top-0.5 -right-0.5 block h-1.5 w-1.5 rounded-full bg-neutral-800"></span>
-							{/if}
-						</div>
+						<IconDeviceFloppy size={16} />
+					{/if}
+					{#if edits.hasChanges}
+						<span class="absolute top-2 right-2 block h-1.5 w-1.5 rounded-full bg-neutral-800" aria-label="Unsaved changes"></span>
 					{/if}
 				</Button>
 			</div>

@@ -137,6 +137,41 @@ RawTherapee 5.13's `ImProcFunctions::dehaze` returns immediately at zero strengt
 so this does not add active Dehaze processing to the WASM renderer. Nonzero
 Dehaze remains reference-only.
 
+Enabled Vibrance is also eligible when Pastels and Saturated are explicitly zero
+and the skin-tone curve is absent or `0;` (identity), with only recognized fields.
+RawTherapee 5.13 returns before processing in this neutral case. Active Vibrance
+and custom skin-tone curves remain reference-only.
+
+The browser starts WASM initialization, TIFF download/profile validation and
+required LUT loading concurrently to reduce cold-preview waiting time.
+
+## Calibration extension (RawTherapee 5.13)
+
+The lightweight renderer now parses Channel Mixer rows and applies them in
+linear working RGB before highlight/exposure and shadow/tone processing. Browser
+routing accepts recognized fields with complete three-integer rows, where each
+coefficient differs from the identity matrix by at most 100 (PP3 units).
+Disabled calibration remains eligible regardless of its stored matrix.
+
+Validation with RT 5.13 and its RTv4 sRGB profile:
+
+- Initial baseline/mixer/combined/disabled corpus: **15/15 passed**.
+- Moderate Calibration UI adjustments (each primary, ±20 hue or saturation and
+  combined +20/+20) across RGB8, RGB16 and compressed RGB16: **45/45 passed**.
+- Expanded diagnostic corpus: **135/144 passed**. Six failures were extreme red
+  primary saturation adjustments, which remain reference-only. Three failures
+  were the pre-existing +3 EV exposure scenario; this is an unresolved RT 5.13
+  parity limitation, not a regression proven to originate in Calibration.
+
+Reports: `/tmp/opencode/wasm-mixer-parity/report.html`,
+`/tmp/opencode/wasm-calibration-moderate/report.html`, and
+`/tmp/opencode/wasm-calibration-expanded/report.html`.
+These are perceptual corpus checks, not a universal equivalence guarantee.
+
+Active Vibrance requires Lab-space processing and skin-protection behavior;
+Color Mixer requires RT's flat-curve engine. Local Contrast, Dehaze and other
+spatial tools additionally need neighborhood filters. These remain reference-only.
+
 The recorded corpus results above use RawTherapee 5.12; the current server uses
 5.13. Those results are not a new parity claim against 5.13. This harness measures
 the bundled implementation directly regardless of application routing.

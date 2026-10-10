@@ -114,6 +114,7 @@ class EditingState {
 		});
 		ensureSectionDefaults(newPp3, 'HSV_Equalizer', { Enabled: false, HCurve: '0;', SCurve: '0;', VCurve: '0;' });
 		ensureSectionDefaults(newPp3, 'Dehaze', { Enabled: false, Strength: 0, Depth: 25, Saturation: 50, ShowDepthMap: false });
+		ensureSectionDefaults(newPp3, 'PCVignette', { Enabled: false, Strength: 0, Feather: 50, Roundness: 50 });
 		ensureSectionDefaults(newPp3, 'Channel_Mixer', { Enabled: false, Red: '1000;0;0;', Green: '0;1000;0;', Blue: '0;0;1000;' });
 		ensureSectionDefaults(newPp3, 'Film_Simulation', { Enabled: false, ClutFilename: '', Strength: 100 });
 		ensureSectionDefaults(newPp3, 'Sharpening', { Enabled: false, Amount: 50, Radius: 1, Method: 'usm' });

@@ -84,3 +84,11 @@ test('nested saturation bypass and parent Color restore remembered values', () =
 	expect(restored.Exposure.Saturation).toBe(25);
 	expect(restored.Vibrance.Enabled).toBe(false);
 });
+test('Tone Curve bypass preserves its points and leaves other exposure settings unchanged', () => {
+	const settings = { Exposure: { Auto: false, Compensation: 1, Curve: '0;', Curve2: '1;0;0;0.5;0.7;1;1;' } };
+	const document = createGroupedDocument(settings, ['toneCurve']);
+	expect(document.settings.Exposure.Curve2).toBe('0;');
+	expect(document.settings.Exposure.Compensation).toBe(1);
+	expect(document.settings.Exposure.Curve).toBe('0;');
+	expect(restoreGroupedSettings(document)).toEqual(settings);
+});

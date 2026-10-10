@@ -13,7 +13,7 @@
 		IconLayoutGrid,
 		IconFlag,
 		IconAdjustmentsHorizontal,
-		IconArchive,
+		IconFileExport,
 		IconBell,
 		IconUser
 	} from '$lib/ui/icons';
@@ -235,7 +235,7 @@
 				class:text-neutral-400={!exporterActive}
 				class:hover:text-neutral-100={!exporterActive}
 			>
-				<IconArchive size={18} />
+				<IconFileExport size={18} />
 				<span class="hidden md:block">Export</span>
 			</a>
 		</nav>

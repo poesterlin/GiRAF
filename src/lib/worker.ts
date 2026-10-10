@@ -198,19 +198,18 @@ async function getClutData(clutPath: string): Promise<ClutOptions> {
 
 async function refreshImageWasm(imageId: string, config: string): Promise<{ url: string; error: boolean }> {
 	console.log(`[worker] refreshImageWasm: imageId=${imageId}`);
-	const Module = await getRtWasm();
-	const tiffData = await getTiffData(imageId);
-	if (!(await supportsTiffColor(tiffData))) throw new Error('TIFF color profile requires reference rendering');
-
 	const pp3String = fromBase64(config);
-
-	// Check if PP3 has a Film Simulation CLUT
-	let clut: ClutOptions | undefined;
 	const clutPath = getRequiredClutPath(pp3String);
-	if (clutPath) {
-		// A missing LUT must use the reference renderer, never a LUT-free image.
-		clut = await getClutData(clutPath);
-	}
+	// Initialization, source download/profile validation and LUT loading are
+	// independent. Start them together rather than adding their latencies.
+	const [Module, tiffData, clut] = await Promise.all([
+		getRtWasm(),
+		getTiffData(imageId).then(async (data) => {
+			if (!(await supportsTiffColor(data))) throw new Error('TIFF color profile requires reference rendering');
+			return data;
+		}),
+		clutPath ? getClutData(clutPath) : Promise.resolve(undefined)
+	]);
 
 	const t0 = performance.now();
 	const jpegData = wasmTiffToJpegWithPp3(Module, tiffData, pp3String, 85, clut);

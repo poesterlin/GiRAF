@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { map } from '$lib';
-	import { filterPP3, setLut, toBase64 } from '$lib/pp3-utils';
+	import { filterPP3, parsePP3, setLut, toBase64 } from '$lib/pp3-utils';
+	import ClientPP3 from '$lib/assets/client.pp3?raw';
 	import type { Image, Snapshot } from '$lib/server/db/schema';
 	import { edits } from '$lib/state/editing.svelte';
 	import Button from '$lib/ui/Button.svelte';
-	import Checkbox from '$lib/ui/Checkbox.svelte';
 	import AdjustmentGroup from '$lib/ui/AdjustmentGroup.svelte';
+	import Histogram from '$lib/ui/Histogram.svelte';
 	import Select from '$lib/ui/Select.svelte';
 	import Slider from '$lib/ui/Slider.svelte';
 	import ColorAdjustments from '$lib/ui/ColorAdjustments.svelte';
@@ -15,11 +16,21 @@
 	interface Props {
 		data: { image: Image; snapshots: Snapshot[] };
 		showLutPicker: boolean;
+		previewSrc: string;
 	}
 
-	let { data, showLutPicker = $bindable() }: Props = $props();
+	let { data, showLutPicker = $bindable(), previewSrc }: Props = $props();
 
 	let apiPath = $derived(`/api/images/${data.image?.id}`);
+
+	function resetExposure() {
+		const defaults = parsePP3(data.image.importBaseline ?? ClientPP3).Exposure;
+		for (const field of ['Auto', 'Compensation', 'Brightness', 'Contrast', 'Black', 'HighlightCompr', 'HighlightComprThreshold']) {
+			edits.pp3.Exposure[field] = defaults[field];
+		}
+		edits.pp3.Exposure.Enabled = true;
+		edits.pushHistory(true);
+	}
 
 	function lutPathToName(path: string) {
 		// Convert the LUT path to a user-friendly name
@@ -68,7 +79,7 @@
 		{/if}
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Light" group="exposure">
-		<Checkbox label="Auto Exposure" bind:checked={edits.pp3.Exposure.Auto as boolean} onchange={() => edits.pushHistory()} />
+		<Button onclick={resetExposure} title="Restore the image’s original auto-exposure defaults">Reset exposure to defaults</Button>
 		<Slider
 			label="Exposure"
 			bind:value={edits.pp3.Exposure.Compensation as number}
@@ -97,7 +108,7 @@
 		<Slider
 			label="Black Level"
 			bind:value={edits.pp3.Exposure.Black as number}
-			min={-50}
+			min={-100}
 			max={100}
 			step={0.1}
 			map={blackLevelToPP3}
@@ -131,6 +142,11 @@
 			onchange={() => { shadowsHighlights.Enabled = true; edits.pushHistory(); }}
 		/>
 	
+	</AdjustmentGroup>
+	<AdjustmentGroup title="Tone Curve" group="toneCurve">
+		{#key data.image.id}
+			<Histogram src={previewSrc} pending={edits.isLoading} />
+		{/key}
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Color" group="globalColor">
 		<AdjustmentSubsection title="Saturation" group="saturation">
@@ -180,6 +196,11 @@
 		<Slider label="Amount" bind:value={edits.pp3.Sharpening.Amount as number} min={0} max={200} step={1} resetValue={50} onchange={() => { edits.pp3.Sharpening.Enabled = true; edits.pushHistory(); }} />
 		<Slider label="Radius" bind:value={edits.pp3.Sharpening.Radius as number} min={0.1} max={5} step={0.1} resetValue={1} onchange={() => { edits.pp3.Sharpening.Enabled = true; edits.pushHistory(); }} />
 	
+	</AdjustmentGroup>
+	<AdjustmentGroup title="Vignette" group="vignette">
+		<Slider label="Strength" bind:value={edits.pp3.PCVignette.Strength as number} min={-6} max={6} step={0.01} precision={2} centered resetValue={0} map={(value) => -value} inverseMap={(value) => -value} displayValue={(value) => -value} ignored={!edits.pp3.PCVignette.Enabled as boolean} onchange={() => { edits.pp3.PCVignette.Enabled = edits.pp3.PCVignette.Strength !== 0; edits.pushHistory(); }} />
+		<Slider label="Feather" bind:value={edits.pp3.PCVignette.Feather as number} min={0} max={100} step={1} resetValue={50} ignored={!edits.pp3.PCVignette.Enabled as boolean} onchange={() => edits.pushHistory()} />
+		<Slider label="Roundness" bind:value={edits.pp3.PCVignette.Roundness as number} min={0} max={100} step={1} resetValue={50} ignored={!edits.pp3.PCVignette.Enabled as boolean} onchange={() => edits.pushHistory()} />
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Look" group="look">
 		<AdjustmentSubsection title="LUT" section="Film_Simulation">

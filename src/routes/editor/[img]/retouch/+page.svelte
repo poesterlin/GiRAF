@@ -124,7 +124,7 @@
 
 	$effect(() => {
 		const image = data.image;
-		const pp3 = data.snapshots[0]?.pp3 ?? BasePP3;
+		const pp3 = data.snapshots[0]?.pp3 ?? data.image.importBaseline ?? BasePP3;
 		untrack(() => {
 			edits.initialize(pp3, image);
 			radius = Math.min(radius, data.maxRadius);

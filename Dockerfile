@@ -120,6 +120,7 @@ RUN mkdir -p /app/import
 
 # Copy the single compiled executable from the 'build' stage
 COPY --from=build /app/build/ build/
+COPY --from=build /app/scripts/resolve-auto-exposure.ts scripts/resolve-auto-exposure.ts
 
 # Include app license in the runtime image
 COPY --from=build /app/LICENSE /app/LICENSE

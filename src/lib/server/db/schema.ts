@@ -19,6 +19,7 @@ export const imageTable = pgTable('image', {
 	filepath: text('filename').notNull(),
 	previewPath: text('preview_path'),
 	tifPath: text('tiff_path'),
+	importBaseline: text('import_baseline'),
 	createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
 	updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
 	sessionId: integer('session_id')

@@ -23,6 +23,7 @@ const options = {
 	'min-psnr': { type: 'string' },
 	'max-p99': { type: 'string' },
 	mode: { type: 'string' },
+	scenario: { type: 'string', multiple: true },
 	'max-mean-delta-e00': { type: 'string' },
 	'max-p95-delta-e00': { type: 'string' },
 	'max-fraction-above-10': { type: 'string' },
@@ -144,6 +145,7 @@ try {
 		const metadata = await sharp(input).metadata();
 		if (!['tiff', 'tif'].includes(metadata.format ?? '')) throw new Error(`Not a TIFF: ${input}`);
 		for (const { name, pp3 } of buildScenarios(base, metadata.width!, metadata.height!, args.lut ? join(out, 'lut.png') : undefined)) {
+			if (args.scenario?.length && !args.scenario.includes(name)) continue;
 			const directory = `${index}-${name}`,
 				dir = join(out, directory);
 			const record: any = { name: `${input}: ${name}`, directory, pass: false, errors: [] };

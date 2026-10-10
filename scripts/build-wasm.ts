@@ -20,6 +20,7 @@ if (![repository, 'git@github.com:poesterlin/rt-wasm', 'ssh://git@github.com/poe
 }
 const commit = await git('rev-parse', 'HEAD');
 const dirty = !!(await git('status', '--porcelain', '--untracked-files=no'));
+if (process.env.RT_WASM_SKIP_BUILD !== '1') {
 const child = Bun.spawn(['bash', 'build.sh'], {
 	cwd: source,
 	stdout: 'inherit',
@@ -27,6 +28,7 @@ const child = Bun.spawn(['bash', 'build.sh'], {
 	env: { ...process.env, RT_WASM_ENABLE_RTENGINE: process.env.RT_WASM_ENABLE_RTENGINE ?? 'OFF', RT_WASM_RTENGINE_FALLBACK: 'OFF' }
 });
 if ((await child.exited) !== 0) throw new Error('rt-wasm build failed; editor artifacts were not replaced');
+}
 
 const build = join(source, 'build');
 const wasm = await readFile(join(build, 'rt-wasm.wasm'));
@@ -42,6 +44,7 @@ const required = [
 	'_get_output_size',
 	'_free_output',
 	'_load_tiff_image',
+	'_resolve_tiff_auto_exposure',
 	'_render_tiff_image',
 	'_release_tiff_image'
 ];

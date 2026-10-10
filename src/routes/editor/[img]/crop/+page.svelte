@@ -57,7 +57,7 @@
 	$effect(() => {
 		const latestSnapshot = data.snapshots[0];
 		const image = data.image;
-		const pp3 = latestSnapshot?.pp3 ?? BasePP3;
+		const pp3 = latestSnapshot?.pp3 ?? image.importBaseline ?? BasePP3;
 		untrack(() => edits.initialize(pp3, image));
 	});
 

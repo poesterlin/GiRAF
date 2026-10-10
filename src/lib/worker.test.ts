@@ -9,8 +9,10 @@ mock.module('comlink', () => ({
 	}
 }));
 let nativeModule: ReturnType<typeof fakeModule> | null = null;
+let runtimeReady: Promise<void> | undefined;
 mock.module('./wasm-module', () => ({
 	getRtWasm: async () => {
+		await runtimeReady;
 		if (!nativeModule) throw new Error('Native runtime unavailable');
 		return nativeModule;
 	}
@@ -103,6 +105,31 @@ test('queued intermediate edits are discarded while the current render completes
 	expect(results[0].error).toBe(false);
 	expect(results[2].error).toBe(false);
 	for (const result of results) if (result.url.startsWith('blob:')) URL.revokeObjectURL(result.url);
+});
+
+test('TIFF download starts while the WASM runtime is still initializing', async () => {
+	nativeModule = fakeModule();
+	let releaseRuntime!: () => void;
+	runtimeReady = new Promise<void>((resolve) => { releaseRuntime = resolve; });
+	let downloaded = false;
+	globalThis.fetch = mock(async () => {
+		downloaded = true;
+		return new Response(fixtureTiff(16));
+	}) as unknown as typeof fetch;
+	const render = worker.refreshImage('parallel-init', btoa('[Exposure]\nAuto=true'));
+	try {
+		// Flush promise continuations without relying on wall-clock timing.
+		for (let i = 0; i < 10; i++) await Promise.resolve();
+		expect(downloaded).toBe(true);
+		expect(nativeModule.renders).toBe(0);
+	} finally {
+		releaseRuntime();
+		runtimeReady = undefined;
+	}
+	const result = await render;
+	expect(result.error).toBe(false);
+	expect(nativeModule.renders).toBe(1);
+	if (result.url.startsWith('blob:')) URL.revokeObjectURL(result.url);
 });
 
 test('supported edits reuse TIFF bytes and one decoded handle without browser storage', async () => {

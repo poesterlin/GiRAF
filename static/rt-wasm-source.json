@@ -1,16 +1,16 @@
 {
   "repository": "https://github.com/poesterlin/rt-wasm",
   "commit": "84b8cc08a04bdb0139d6e7421ad2e0d67309742c",
-  "dirty": false,
+  "dirty": true,
   "engine": "OFF",
   "artifacts": [
     {
       "file": "rt-wasm.js",
-      "sha256": "447ea7081902993929cf4296e6ab7571030c177f61e58b59fcadba41c2cb7fd7"
+      "sha256": "5a7a1873de1f94308c9cd6007f3c41b65a5c956fe52cfff6fe0c4b80ef7ed7cc"
     },
     {
       "file": "rt-wasm.wasm",
-      "sha256": "45db58f8c531343a8ceff8b1e57395831822a38b72b119a98b634da8eaff9134"
+      "sha256": "fc646087cad1ce0ddfd2a815803991a67cf9cc8aaa9fbb175d77115624b2763c"
     },
     {
       "file": "rt-wasm.worker.js",

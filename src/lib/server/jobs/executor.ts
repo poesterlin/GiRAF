@@ -20,6 +20,7 @@ import { integrations } from '../integrations';
 import { exiftool } from 'exiftool-vendored';
 import { assert } from '$lib';
 import { makeOutputPath, moveExportFile, findExportPath } from '../export-files';
+import { calculateImportBaseline } from '../auto-exposure';
 export { makeOutputPath, makeSessionPath } from '../export-files';
 
 const SIMILARITY_THRESHOLD = 45; // Hamming distance threshold for considering images similar
@@ -75,6 +76,7 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 					// Save the repaired TIFF even if preview extraction subsequently fails.
 					await db.update(imageTable).set({
 						tifPath: tif,
+						importBaseline: await calculateImportBaseline(tif, signal),
 						whiteBalance: pp3.White_Balance?.Temperature as number,
 						tint: pp3.White_Balance?.Green as number
 					}).where(eq(imageTable.id, image.id));
@@ -189,7 +191,7 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 					orderBy: desc(snapshotTable.createdAt)
 				});
 
-				const pp3 = parsePP3(edit?.pp3 ?? '');
+				const pp3 = parsePP3(edit?.pp3 ?? image.importBaseline ?? '');
 				await ensureDir(outputPath);
 
 				// Two-step pipeline: RAW → full-res TIFF → JPEG

@@ -48,7 +48,29 @@ export function supportsWasmPreview(pp3String: string): boolean {
 			if (fields.Strength !== 0 || (fields.ShowDepthMap !== undefined && fields.ShowDepthMap !== false)) return false;
 			continue;
 		}
-		if (chapter === 'Vibrance' || chapter === 'Local_Contrast' || chapter === 'HSV_Equalizer' || chapter === 'ColorToning' || chapter === 'Channel_Mixer') {
+		if (chapter === 'Vibrance') {
+			if (fields.Enabled === false) continue;
+			// RT returns before processing when both controls and the skin curve
+			// are neutral. Require explicit zeroes and a known identity curve.
+			if (Object.keys(fields).some((key) => !['Enabled', 'Pastels', 'Saturated', 'PSThreshold', 'ProtectSkins', 'AvoidColorShift', 'PastSatTog', 'SkinTonesCurve'].includes(key))) return false;
+			if (fields.Pastels !== 0 || fields.Saturated !== 0) return false;
+			if (fields.SkinTonesCurve !== undefined && !['0', '0;'].includes(String(fields.SkinTonesCurve).trim())) return false;
+			continue;
+		}
+		if (chapter === 'Channel_Mixer') {
+			if (fields.Enabled === false) continue;
+			if (fields.Enabled !== true || (pp3.Version?.Version !== undefined && Number(pp3.Version.Version) < 338)) return false;
+			if (Object.keys(fields).some((key) => !['Enabled', 'Red', 'Green', 'Blue'].includes(key))) return false;
+			// The moderate calibration subset passed the RT 5.13 corpus. Extreme
+			// matrices expose output-gamut differences and remain reference-only.
+			for (const [row, key] of ['Red', 'Green', 'Blue'].entries()) {
+				if (typeof fields[key] !== 'string' || !/^[-+]?\d+;[-+]?\d+;[-+]?\d+;?$/.test(fields[key] as string)) return false;
+				const values = String(fields[key]).split(';').slice(0, 3).map(Number);
+				if (values.some((value, column) => Math.abs(value - (row === column ? 1000 : 0)) > 100)) return false;
+			}
+			continue;
+		}
+		if (chapter === 'Local_Contrast' || chapter === 'HSV_Equalizer' || chapter === 'ColorToning' || chapter === 'PCVignette') {
 			if (fields.Enabled !== false) return false;
 			continue;
 		}

@@ -6,6 +6,16 @@ test('verified native output is enabled with separate capability routing', () =>
 	expect(WASM_PREVIEW_PARITY_VERIFIED).toBe(true);
 });
 
+test('moderate channel calibration is eligible; extreme or malformed matrices require reference processing', () => {
+	const mixer = { Enabled: true, Red: '1100;-50;-50;', Green: '0;1000;0;', Blue: '0;0;1000;' };
+	expect(supportsWasmPreview(stringifyPP3({ Channel_Mixer: mixer }))).toBe(true);
+	for (const Red of ['1200;-100;-100;', 'NaN;0;0;', '1000;0;', '1000;0;0;1;', '1000oops;0;0;', '1000.5;0;0;']) {
+		expect(supportsWasmPreview(stringifyPP3({ Channel_Mixer: { ...mixer, Red } }))).toBe(false);
+	}
+	expect(supportsWasmPreview(stringifyPP3({ Channel_Mixer: { ...mixer, Unknown: true } }))).toBe(false);
+	expect(supportsWasmPreview('[Channel Mixer]\nEnabled=true')).toBe(false);
+});
+
 test('LUT selection respects its chapter, enabled flag, and strength', () => {
 	expect(getRequiredClutPath('[Other]\nClutFilename=/wrong.png')).toBeNull();
 	expect(getRequiredClutPath('[Film Simulation]\nEnabled=false\nClutFilename=/disabled.png')).toBeNull();
@@ -52,6 +62,15 @@ test('supported scalar controls and inert default tools remain eligible', () => 
 	).toBe(true);
 });
 
+test('disabled vignette preserves browser previews while active vignette uses reference rendering', () => {
+	const settings = { PCVignette: { Enabled: false, Strength: 1, Feather: 50, Roundness: 50 } };
+	expect(supportsWasmPreview(stringifyPP3(settings))).toBe(true);
+	settings.PCVignette.Enabled = true;
+	expect(supportsWasmPreview(stringifyPP3(settings))).toBe(false);
+	settings.PCVignette.Strength = -1;
+	expect(supportsWasmPreview(stringifyPP3(settings))).toBe(false);
+});
+
 test('zero-strength Dehaze in older editor snapshots does not block browser previews', () => {
 	const settings: PP3 = {
 		Exposure: { Enabled: true, Auto: false, Compensation: 1 },
@@ -75,4 +94,17 @@ test('Dehaze depth maps, unknown options and unproven strengths require the refe
 		{ Enabled: true, Strength: 'invalid' }
 	];
 	for (const fields of cases) expect(supportsWasmPreview(stringifyPP3({ Dehaze: fields }))).toBe(false);
+});
+
+test('neutral Vibrance is eligible but active controls, skin curves and unknown options are not', () => {
+	const neutral = { Enabled: true, Pastels: 0, Saturated: 0, SkinTonesCurve: '0;', ProtectSkins: true, AvoidColorShift: true };
+	expect(supportsWasmPreview(stringifyPP3({ Vibrance: neutral }))).toBe(true);
+	const changes: PP3[string][] = [
+		{ Pastels: 20 }, { Saturated: -10 }, { SkinTonesCurve: '1;0;0;1;0.8;' },
+		{ UnknownOption: true }, { Pastels: false }
+	];
+	for (const change of changes) {
+		expect(supportsWasmPreview(stringifyPP3({ Vibrance: { ...neutral, ...change } }))).toBe(false);
+	}
+	expect(supportsWasmPreview('[Vibrance]\nEnabled=true')).toBe(false);
 });

@@ -38,7 +38,7 @@ export const GET: RequestHandler = async ({ params }) => {
         orderBy: desc(snapshotTable.createdAt)
     });
 
-    const pp3 = parsePP3(edit?.pp3 ?? '');
+    const pp3 = parsePP3(edit?.pp3 ?? image.importBaseline ?? '');
 
     console.log(`[Render] Processing ${image.filepath}`);
     assert(env.TMP_DIR, 'TMP_DIR not set in env');

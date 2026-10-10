@@ -42,10 +42,21 @@
 		});
 	}
 
+	function handleToggle(event: Event) {
+		const details = event.currentTarget as HTMLDetailsElement;
+		if (!details.open) return;
+		const scroller = details.closest<HTMLElement>('[data-adjustment-scroll]');
+		if (!scroller) return;
+		// Leave enough trailing space for even the last short section to reach the top.
+		scroller.style.paddingBottom = `${Math.max(16, scroller.clientHeight - details.offsetHeight)}px`;
+		const top = scroller.scrollTop + details.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+		scroller.scrollTo({ top: Math.max(0, top), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+	}
+
 </script>
 
 <div class="relative mb-1">
-	<details class="">
+	<details class="" ontoggle={handleToggle}>
 		<summary onclick={handleSummaryClick} class="mb-1 flex cursor-pointer items-center rounded-lg bg-neutral-800 px-4 py-2 pr-14 select-none">
 			<IconChevronRight class="mr-2 shrink-0" />
 			<span class="font-medium text-zinc-300 select-none">{title}</span>
