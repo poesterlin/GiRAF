@@ -6,6 +6,7 @@ import { basename, extname, join } from "node:path";
 import { createTempDir, runCommand } from "./command-runner";
 import { getFileNameFromPath } from "./utils";
 import { mapSpotRemovalToTarget } from '$lib/spot-removal';
+import { randomUUID } from 'node:crypto';
 
 /**
  * uses rawtherapee's pp3 file to edit an image
@@ -18,11 +19,8 @@ import { mapSpotRemovalToTarget } from '$lib/spot-removal';
 export async function editImage(imagePath: string, pp3: string, options: { allowConcurrent?: boolean, signal?: AbortSignal, outputPath?: string, recordedAt?: Date, quality?: number } = {}): Promise<string> {
     const start = performance.now();
 
-    let name = getFileNameFromPath(imagePath);
-
-    if (options.allowConcurrent) {
-        name += `-${Date.now()}`;
-    }
+    // Each render owns its profile and output, including simultaneous LUT previews.
+    const name = `${getFileNameFromPath(imagePath)}-${randomUUID()}`;
 
     const tempDir = await createTempDir(name);
 

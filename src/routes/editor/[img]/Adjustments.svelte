@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { map } from '$lib';
-	import { filterPP3, parsePP3, setLut, toBase64 } from '$lib/pp3-utils';
+	import { parsePP3 } from '$lib/pp3-utils';
+	import { lutPreviewUrl } from '$lib/lut-preview';
 	import ClientPP3 from '$lib/assets/client.pp3?raw';
 	import type { Image, Snapshot } from '$lib/server/db/schema';
 	import { edits } from '$lib/state/editing.svelte';
 	import Button from '$lib/ui/Button.svelte';
+	import LutFavouriteButton from '$lib/ui/LutFavouriteButton.svelte';
 	import AdjustmentGroup from '$lib/ui/AdjustmentGroup.svelte';
 	import Histogram from '$lib/ui/Histogram.svelte';
 	import Select from '$lib/ui/Select.svelte';
@@ -21,7 +23,6 @@
 
 	let { data, showLutPicker = $bindable(), previewSrc }: Props = $props();
 
-	let apiPath = $derived(`/api/images/${data.image?.id}`);
 
 	function resetExposure() {
 		const defaults = parsePP3(data.image.importBaseline ?? ClientPP3).Exposure;
@@ -204,16 +205,18 @@
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Look" group="look">
 		<AdjustmentSubsection title="LUT" section="Film_Simulation">
-			<Button onclick={() => (showLutPicker = true)}>
-				{#if edits.pp3.Film_Simulation.ClutFilename}
-					{@const path = edits.pp3.Film_Simulation.ClutFilename as string}
-					{@const onlyTransformsAndLut = setLut(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']), path)}
-					<img src="{apiPath}/edit?preview&config={toBase64(onlyTransformsAndLut)}" alt="" class="rounded-md" loading="lazy" />
-					<b class="mt-2 block truncate">{lutPathToName(edits.pp3.Film_Simulation.ClutFilename as string)}</b>
-				{:else}
-					Select LUT
-				{/if}
-			</Button>
+			{#if edits.pp3.Film_Simulation.ClutFilename}
+				{@const path = edits.pp3.Film_Simulation.ClutFilename as string}
+				<div class="relative">
+				<Button onclick={() => (showLutPicker = true)} class="w-full flex-col">
+					<img src={lutPreviewUrl(String(data.image.id), edits.effectivePP3)} alt="" class="h-32 w-full rounded-md object-contain" loading="lazy" />
+					<b class="mt-2 block w-full truncate">{lutPathToName(edits.pp3.Film_Simulation.ClutFilename as string)}</b>
+				</Button>
+				<LutFavouriteButton {path} name={lutPathToName(path) ?? path} class="absolute top-1 left-1" />
+				</div>
+			{:else}
+				<Button onclick={() => (showLutPicker = true)}>Select LUT</Button>
+			{/if}
 			<Slider label="Strength" bind:value={edits.pp3.Film_Simulation.Strength as number} min={0} max={100} step={1} ignored={!edits.pp3.Film_Simulation.Enabled as boolean} onchange={() => edits.pushHistory()} />
 		</AdjustmentSubsection>
 		<AdjustmentSubsection title="Calibration" section="Channel_Mixer">
