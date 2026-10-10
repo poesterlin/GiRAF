@@ -1,11 +1,15 @@
 import { expect, test } from 'bun:test';
 import { curveDragSensitivity, curveSamples, identityPoints, moveCurvePoint, readToneCurve, writeToneCurve } from './tone-curve';
 
-test('relative dragging becomes less sensitive farther from the diagonal on either side', () => {
+test('touch dragging becomes finer away from the diagonal while mouse movement stays direct', () => {
 	expect(curveDragSensitivity({ x: 0.5, y: 0.5 })).toBe(0.35);
 	expect(curveDragSensitivity({ x: 0.25, y: 0.75 })).toBeCloseTo(0.35 / 25);
 	expect(curveDragSensitivity({ x: 0.75, y: 0.25 })).toBeCloseTo(0.35 / 25);
 	expect(curveDragSensitivity({ x: 0, y: 1 })).toBeCloseTo(0.35 / 81);
+	for (const point of [{ x: 0.5, y: 0.5 }, { x: 0.25, y: 0.75 }, { x: 0, y: 1 }]) {
+		expect(curveDragSensitivity(point, 'mouse')).toBe(1);
+		expect(curveDragSensitivity(point, 'touch')).toBe(curveDragSensitivity(point));
+	}
 });
 
 test('tone curve points survive PP3 serialization and identity resets', () => {

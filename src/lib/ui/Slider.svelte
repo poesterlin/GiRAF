@@ -275,7 +275,7 @@
         pointer-events-none absolute inset-0 rounded-md
         ring-2 ring-neutral-200/80 transition-opacity
       "
-			class:opacity-0={!isFocused && !isDragging}
+			class:opacity-0={!isFocused && (!isDragging || compact)}
 		></div>
 
 		<!-- Center mark (only in centered mode) -->

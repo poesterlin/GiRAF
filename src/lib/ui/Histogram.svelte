@@ -43,7 +43,7 @@
 		target.focus({ preventScroll: true });
 		pointer = event.pointerId;
 		const rect = graph.getBoundingClientRect();
-		gesture = { x: event.clientX, y: event.clientY, point: { ...points[index] }, points: points.map((p) => ({ ...p })), index, width: rect.width, height: rect.height, dragging: false, sensitivity: curveDragSensitivity(points[index]) };
+		gesture = { x: event.clientX, y: event.clientY, point: { ...points[index] }, points: points.map((p) => ({ ...p })), index, width: rect.width, height: rect.height, dragging: false, sensitivity: curveDragSensitivity(points[index], event.pointerType) };
 		target.setPointerCapture(event.pointerId);
 	}
 	function drag(event: PointerEvent) {
@@ -51,7 +51,7 @@
 		const dx = event.clientX - gesture.x;
 		const dy = event.clientY - gesture.y;
 		if (!gesture.dragging) {
-			if (Math.hypot(dx, dy) < 6) return;
+			if (Math.hypot(dx, dy) < (event.pointerType === 'mouse' ? 2 : 6)) return;
 			gesture.dragging = true;
 			suppressPointClick = true;
 			lastPointTap = null;

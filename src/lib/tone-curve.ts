@@ -1,8 +1,9 @@
 export type CurvePoint = { x: number; y: number };
 export const identityPoints = (): CurvePoint[] => [{ x: 0, y: 0 }, { x: 1, y: 1 }];
 
-/** Gentle sensitivity on the diagonal, progressively finer control away from it. */
-export function curveDragSensitivity(point: CurvePoint): number {
+/** Mouse movement is direct; touch gets progressively finer control away from the diagonal. */
+export function curveDragSensitivity(point: CurvePoint, pointerType = 'touch'): number {
+	if (pointerType === 'mouse') return 1;
 	return 0.35 / (1 + 8 * Math.abs(point.y - point.x)) ** 2;
 }
 

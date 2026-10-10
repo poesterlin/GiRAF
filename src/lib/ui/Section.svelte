@@ -43,6 +43,7 @@
 	}
 
 	function handleToggle(event: Event) {
+		if (!window.matchMedia('(max-width: 1023px)').matches) return;
 		const details = event.currentTarget as HTMLDetailsElement;
 		if (!details.open) return;
 		const scroller = details.closest<HTMLElement>('[data-adjustment-scroll]');

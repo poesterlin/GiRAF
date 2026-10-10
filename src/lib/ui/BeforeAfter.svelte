@@ -196,7 +196,7 @@
 			Edited
 		</div>
 		{#if isLoading}
-			<div in:fade={{ duration: 200, delay: 200 }} role="status" aria-label="Updating edited preview" class="rounded-full bg-neutral-950/40 p-1.5 backdrop-blur-md">
+			<div in:fade={{ duration: 200, delay: 200 }} role="status" aria-label="Updating edited preview" class="rounded-full bg-neutral-950/40 p-1.5 backdrop-blur-md lg:hidden">
 				<IconFidgetSpinner class="animate-spin text-neutral-500" size={16} />
 			</div>
 		{/if}
