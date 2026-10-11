@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import Checkbox from './Checkbox.svelte';
-	import { IconChevronRight } from './icons';
 	import { edits } from '$lib/state/editing.svelte';
+	import AdjustmentIcon from './AdjustmentIcon.svelte';
 
 	interface Props {
 		title: string;
@@ -59,7 +59,7 @@
 <div class="relative mb-1">
 	<details class="" ontoggle={handleToggle}>
 		<summary onclick={handleSummaryClick} class="mb-1 flex cursor-pointer items-center rounded-lg bg-neutral-800 px-4 py-2 pr-14 select-none">
-			<IconChevronRight class="mr-2 shrink-0" />
+			<AdjustmentIcon name={title} />
 			<span class="font-medium text-zinc-300 select-none">{title}</span>
 		</summary>
 		<div class="flex flex-col gap-2 px-4 py-2" class:opacity-70={!enabled}>
@@ -78,11 +78,5 @@
 <style>
 	details summary::-webkit-details-marker {
 		display: unset;
-	}
-
-	details[open] {
-		summary > :global(svg) {
-			transform: rotate(90deg);
-		}
 	}
 </style>
