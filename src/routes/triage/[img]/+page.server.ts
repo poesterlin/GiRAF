@@ -1,8 +1,8 @@
 import { db } from '$lib/server/db';
-import { imageTable, imageToTagTable } from '$lib/server/db/schema';
+import { imageTable, imageToTagTable, snapshotTable } from '$lib/server/db/schema';
 import { getBooleanSetting } from '$lib/server/db/settings';
 import { error, redirect } from '@sveltejs/kit';
-import { asc, eq } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -22,7 +22,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		error(404, { message: 'Image not found' });
 	}
 
-	const [sessionImages, imageTags, tags] = await Promise.all([
+	const [sessionImages, imageTags, tags, snapshot] = await Promise.all([
 		db.query.imageTable.findMany({
 			where: eq(imageTable.sessionId, image.sessionId),
 			orderBy: [asc(imageTable.recordedAt), asc(imageTable.id)]
@@ -33,7 +33,12 @@ export const load: PageServerLoad = async ({ params }) => {
 				tag: true
 			}
 		}),
-		db.query.tagTable.findMany()
+		db.query.tagTable.findMany(),
+		db.query.snapshotTable.findFirst({
+			where: eq(snapshotTable.imageId, imageId),
+			orderBy: [desc(snapshotTable.createdAt), desc(snapshotTable.id)],
+			columns: { id: true }
+		})
 	]);
 
 	const currentIndex = sessionImages.findIndex((i) => i.id === imageId);
@@ -42,6 +47,7 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	return {
 		image,
+		snapshotId: snapshot?.id,
 		sessionImages,
 		imageTags: imageTags.map((it) => it.tag),
 		tags,

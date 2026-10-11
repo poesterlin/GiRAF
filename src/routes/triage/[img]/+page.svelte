@@ -132,7 +132,7 @@
 	<!-- Main Preview Area -->
 	<main class="relative order-1 flex min-h-0 flex-1 flex-col overflow-hidden bg-neutral-900 lg:order-2">
 		<div class="flex min-h-0 flex-1 items-center justify-center p-4" class:lg:pr-44={photoInfo.length > 0 || !!data.image.camera || !!data.image.lens}>
-			<TriagePreview imageId={data.image.id} archiving={isArchiving} />
+			<TriagePreview imageId={data.image.id} version={data.image.version} snapshotId={data.snapshotId} archiving={isArchiving} />
 		</div>
 
 		{#if photoInfo.length || data.image.camera || data.image.lens}
