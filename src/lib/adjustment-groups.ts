@@ -18,6 +18,8 @@ export const groupNeutralSettings: Record<string, PP3> = {
 	dynamicRange: { Exposure: { HighlightCompr: 0, HighlightComprThreshold: 0, ShadowCompr: 0 }, 'Shadows_&_Highlights': { Enabled: false } },
 	globalColor: { Exposure: { Saturation: 0 }, Vibrance: { Enabled: false } },
 	colorMixer: { HSV_Equalizer: { Enabled: false } },
+	colorGrading: { ColorToning: { Enabled: false } },
+	monochrome: { 'Black_&_White': { Enabled: false } },
 	saturation: { Exposure: { Saturation: 0 } }
 };
 

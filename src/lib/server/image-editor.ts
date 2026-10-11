@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
  * @param options 
  * @returns 
 */
-export async function editImage(imagePath: string, pp3: string, options: { allowConcurrent?: boolean, signal?: AbortSignal, outputPath?: string, recordedAt?: Date, quality?: number } = {}): Promise<string> {
+export async function editImage(imagePath: string, pp3: string, options: { signal?: AbortSignal, outputPath?: string, recordedAt?: Date, quality?: number } = {}): Promise<string> {
     const start = performance.now();
 
     // Each render owns its profile and output, including simultaneous LUT previews.

@@ -1,138 +1,29 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import Modal from '$lib/ui/Modal.svelte';
-	import type { Import } from '$lib/server/db/schema';
 	import { app } from '$lib/state/app.svelte.js';
 	import { invalidateAll } from '$app/navigation';
 	import SegmentedControl from '$lib/ui/SegmentedControl.svelte';
 	import { slide } from 'svelte/transition';
 	import SessionPicker from '$lib/ui/SessionPicker.svelte';
-	import { uploads } from '$lib/state/uploads.svelte';
 	import UploadProgress from '$lib/ui/UploadProgress.svelte';
-	import pLimit from 'p-limit';
-	import { getLocalPreview, releaseLocalPreviewWorker } from '$lib/local-preview-client';
-	import { assignPendingUploads } from '$lib/upload-assignment';
-	import { importTiming } from '$lib/import-timing';
+	import { uploads } from '$lib/state/uploads.svelte';
+	import { ImporterState, dateKey, type ImageItem } from '$lib/state/importer.svelte';
 
 	let { data } = $props();
-	type ImageItem = Pick<Import, 'id' | 'date'> & {
-		file?: File;
-		url?: string;
-		previewError?: string;
-		uploading?: boolean;
-		importId?: number;
-		uploadPromise?: Promise<number | undefined>;
-		resolveUpload?: (id: number | undefined) => void;
-		assigning?: boolean;
-		assigned?: boolean;
-	};
-	let localItems = $state<ImageItem[]>([]);
-	let duplicateCounts = $state<Record<string, number>>({});
-	function dateKey(date: Date | string) {
-		const value = new Date(date);
-		return new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime().toString();
-	}
-	function countDuplicate(date: Date | string) {
-		const key = dateKey(date);
-		duplicateCounts[key] = (duplicateCounts[key] ?? 0) + 1;
-	}
-	let nextLocalId = -1;
-	let alive = true;
-	let loadedPreviews = $state(new Set<number>());
-	let failedPreviews = $state(new Set<number>());
-	const previewLimit = pLimit(2);
-	function compareItems(a: ImageItem, b: ImageItem) {
-		return new Date(b.date).getTime() - new Date(a.date).getTime() || (b.importId ?? b.id) - (a.importId ?? a.id);
-	}
-	let allItems = $derived<ImageItem[]>([...data.items.filter((item) => !localItems.some((local) => local.importId === item.id)), ...localItems].sort(compareItems));
-
-	function removeLocal(id: number) {
-		const item = localItems.find((item) => item.id === id);
-		if (item?.url) URL.revokeObjectURL(item.url);
-		localItems = localItems.filter((item) => item.id !== id);
+	const importer = new ImporterState(() => data.items, (id) => {
 		selectedIds = new Set([...selectedIds].filter((selected) => selected !== id));
 		if (!selectedIds.size) inSelectionMode = false;
-	}
-
-	function stage(files: FileList | File[]) {
-		const staged = performance.now();
-		importTiming('batch.selected', staged, { files: files.length, bytes: Array.from(files).reduce((sum, file) => sum + file.size, 0) });
-		const batch: ImageItem[] = [];
-		function preparePreview(original: File, source: File) {
-			const id = batch.find((item) => item.file === original)!.id;
-			const file = source;
-			return previewLimit(async () => {
-				importTiming('preview.queue', staged, { file: file.name, pending: previewLimit.pendingCount });
-				if (!alive || !localItems.some((item) => item.id === id)) return;
-				try {
-					const preview = await getLocalPreview(file);
-					const item = localItems.find((item) => item.id === id);
-					if (!alive || !item) {
-						URL.revokeObjectURL(preview.url);
-						return;
-					}
-					item.url = preview.url;
-					importTiming('preview.ready', staged, { file: file.name });
-					if (preview.capturedAt && item.importId === undefined && !item.assigned) item.date = preview.capturedAt;
-				} catch {
-					const item = localItems.find((item) => item.id === id);
-					if (alive && item) item.previewError = 'Preview unavailable';
-				}
-			});
-		}
-		for (const file of Array.from(files)) {
-			const existing = localItems.find((item) => item.file?.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified);
-			if (existing) {
-				countDuplicate(existing.date);
-				continue;
-			}
-			const id = nextLocalId--;
-			let resolveUpload!: (id: number | undefined) => void;
-			const uploadPromise = new Promise<number | undefined>((resolve) => {
-				resolveUpload = resolve;
-			});
-			const entry = { id, file, date: new Date(file.lastModified), uploading: true, uploadPromise, resolveUpload };
-			localItems.push(entry);
-			batch.push(entry);
-		}
-		void uploads.upload(
-			batch.map((item) => item.file!),
-			undefined,
-			{
-				onFilePrepared: preparePreview,
-				onFileDuplicate(file, date) {
-					if (!alive) return;
-					const entry = batch.find((item) => item.file === file)!;
-					const item = localItems.find((item) => item.id === entry.id);
-					countDuplicate(date ?? item?.date ?? entry.date);
-				},
-				onFileUploaded(file, importId, imported, date) {
-					const entry = batch.find((item) => item.file === file)!;
-					const item = localItems.find((item) => item.id === entry.id);
-					if (item) {
-						item.uploading = false;
-						item.importId = importId;
-						item.assigned = imported;
-						if (date) item.date = new Date(date);
-					}
-					entry.resolveUpload?.(imported ? undefined : importId);
-					if (alive && !imported && importId !== undefined && (data.items.some((queued) => queued.id === importId) || localItems.some((local) => local.id !== entry.id && local.importId === importId))) removeLocal(entry.id);
-				},
-				onFileFailed(file) {
-					const entry = batch.find((item) => item.file === file)!;
-					entry.resolveUpload?.(undefined);
-					if (alive) removeLocal(entry.id);
-				}
-			}
-		);
-	}
+	});
+	const duplicateCounts = $derived(importer.duplicateCounts);
+	let loadedPreviews = $state(new Set<number>());
+	let failedPreviews = $state(new Set<number>());
+	const allItems = $derived(importer.allItems);
 
 	// Core State
 	let selectedIds = $state<Set<number>>(new Set());
-	let assigningIds = $state<Set<number>>(new Set());
-	let assignedIds = $derived(new Set(localItems.filter((item) => item.assigned).map((item) => item.id)));
 	function unavailable(id: number) {
-		return assigningIds.has(id) || assignedIds.has(id);
+		return importer.unavailable(id);
 	}
 	let showModal = $state(false);
 	let sessionName = $state('');
@@ -352,10 +243,8 @@
 	}
 
 	onDestroy(() => {
-		alive = false;
-		releaseLocalPreviewWorker();
+		importer.dispose();
 		handleTouchEnd();
-		for (const item of localItems) if (item.url) URL.revokeObjectURL(item.url);
 		for (const sessionId of Object.keys(importPollingIntervals)) {
 			stopImportPolling(Number(sessionId));
 		}
@@ -385,26 +274,7 @@
 			const target = importMode === 'new' ? { name: sessionName.trim() } : { sessionId: selectedSessionId! };
 			showModal = false;
 			clearSelection();
-			assigningIds = new Set([...assigningIds, ...items.map((item) => item.id)]);
-			void assignPendingUploads(
-				items.map((item) => item.uploadPromise ?? Promise.resolve(item.importId ?? item.id)),
-				target,
-				(index) => {
-					if (alive) {
-						const item = items[index];
-						const local = localItems.find((entry) => entry.id === item.id);
-						if (local) local.assigned = true;
-						else {
-							localItems.push({ ...item, importId: item.id, assigned: true });
-							data.items = data.items.filter((entry) => entry.id !== item.id);
-						}
-					}
-					void invalidateAll();
-				},
-				(error) => app.addToast(error instanceof Error ? error.message : 'Session assignment failed', 'error')
-			).finally(() => {
-				if (alive) assigningIds = new Set([...assigningIds].filter((id) => !items.some((item) => item.id === id)));
-			});
+			void importer.assign(items, target);
 			return;
 		} catch (error) {
 			console.error('Import assignment failed', error);
@@ -434,7 +304,7 @@
 	function handleFileSelect(e: Event) {
 		const target = e.target as HTMLInputElement;
 		if (target.files) {
-			stage(target.files);
+			importer.stage(target.files);
 			target.value = '';
 		}
 	}
@@ -451,7 +321,7 @@
 		e.preventDefault();
 		e.stopPropagation();
 		if (e.dataTransfer?.files) {
-			stage(e.dataTransfer.files);
+			importer.stage(e.dataTransfer.files);
 		}
 		fileDragDepth = 0;
 	}
@@ -672,15 +542,15 @@
 										</span>
 									{/if}
 
-									{#if item.assigned}
+									{#if item.status === 'assigned'}
 										<span class="absolute top-3 left-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white" title="Assigned to a session" aria-label="Assigned to a session" role="img">
 											<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>
 										</span>
 									{:else if item.file && item.importId === undefined}
 										<span
 											class="absolute top-3 left-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white"
-											title={item.uploading ? 'Uploading' : 'Local file — not uploaded'}
-											aria-label={item.uploading ? 'Uploading' : 'Local file — not uploaded'}
+											title={item.status === 'uploading' ? 'Uploading' : 'Local file — not uploaded'}
+											aria-label={item.status === 'uploading' ? 'Uploading' : 'Local file — not uploaded'}
 										>
 											<svg
 												width="16"

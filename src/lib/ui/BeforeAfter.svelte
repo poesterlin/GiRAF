@@ -45,6 +45,14 @@
 	const pointers = new Map<number, PointerEvent>();
 	let lastMidpoint: { x: number; y: number } | null = null;
 	let lastDistance = 0;
+	let tapStart: { id: number; x: number; y: number; time: number } | null = null;
+	let lastTap: { x: number; y: number; time: number; type: string } | null = null;
+	$effect(() => {
+		imageId;
+		scale = 1; x = 0; y = 0;
+		tapStart = null; lastTap = null;
+		pointers.clear(); lastMidpoint = null; lastDistance = 0;
+	});
 
 	function applyChange(opts: { panX?: number; panY?: number; scaleDiff?: number; originX?: number; originY?: number }) {
 		const { panX = 0, panY = 0, scaleDiff = 1, originX = 0, originY = 0 } = opts;
@@ -82,14 +90,16 @@
 
 	// Pan/Pinch on the container
 	function onPointerDown(event: PointerEvent) {
-		if ((event.target as HTMLElement).closest('select')) return;
+		if ((event.target as HTMLElement).closest('select, button, a, input') || event.button !== 0) return;
 		if (!containerEl) return;
 		containerEl.setPointerCapture(event.pointerId);
 		pointers.set(event.pointerId, event);
 
 		if (pointers.size === 1) {
+			tapStart = { id: event.pointerId, x: event.clientX, y: event.clientY, time: performance.now() };
 			lastMidpoint = { x: event.clientX, y: event.clientY };
 		} else if (pointers.size === 2) {
+			tapStart = null; lastTap = null;
 			const [p1, p2] = Array.from(pointers.values());
 			lastMidpoint = {
 				x: (p1.clientX + p2.clientX) / 2,
@@ -101,6 +111,7 @@
 
 	function onPointerMove(event: PointerEvent) {
 		if (!pointers.has(event.pointerId)) return;
+		if (tapStart && Math.hypot(event.clientX - tapStart.x, event.clientY - tapStart.y) > 10) { tapStart = null; lastTap = null; }
 		pointers.set(event.pointerId, event);
 
 		if (pointers.size === 1 && lastMidpoint) {
@@ -135,14 +146,29 @@
 	}
 
 	function onPointerUp(event: PointerEvent) {
+		if (!pointers.has(event.pointerId)) return;
+		const now = performance.now();
+		if (event.type === 'pointerup' && tapStart?.id === event.pointerId && now - tapStart.time < 300 && Math.hypot(event.clientX - tapStart.x, event.clientY - tapStart.y) <= 10) {
+			if (lastTap && lastTap.type === event.pointerType && now - lastTap.time < 350 && Math.hypot(event.clientX - lastTap.x, event.clientY - lastTap.y) < 32 && containerEl) {
+				if (scale > 1.05) { scale = 1; x = 0; y = 0; }
+				else {
+					const rect = containerEl.getBoundingClientRect();
+					applyChange({ scaleDiff: 3.2 / scale, originX: event.clientX - rect.left, originY: event.clientY - rect.top });
+				}
+				lastTap = null;
+			} else lastTap = { x: event.clientX, y: event.clientY, time: now, type: event.pointerType };
+		} else lastTap = null;
+		tapStart = null;
 		pointers.delete(event.pointerId);
 		if (pointers.size < 2) lastDistance = 0;
-		if (pointers.size < 1) lastMidpoint = null;
+		const remaining = pointers.values().next().value;
+		lastMidpoint = remaining ? { x: remaining.clientX, y: remaining.clientY } : null;
 	}
 
 	// Slider drag (use pointer capture on the slider itself)
 	function onSliderPointerDown(event: PointerEvent) {
 		event.stopPropagation();
+		tapStart = null; lastTap = null;
 		isDraggingSlider = true;
 		sliderEl?.setPointerCapture(event.pointerId);
 	}
@@ -171,6 +197,7 @@
 	onpointermove={onPointerMove}
 	onpointerup={onPointerUp}
 	onpointercancel={onPointerUp}
+	onlostpointercapture={onPointerUp}
 	style:--split={`${split * 100}%`}
 	style:cursor={isDraggingSlider ? 'ew-resize' : 'grab'}
 >

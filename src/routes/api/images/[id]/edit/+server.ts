@@ -10,6 +10,30 @@ import { eq } from 'drizzle-orm';
 
 const refinements = new Map<string, AbortController>();
 
+async function withRefinement<T>(clientKey: string | null, signal: AbortSignal, render: (signal: AbortSignal) => Promise<T>): Promise<T> {
+	const controller = new AbortController();
+	if (clientKey) {
+		refinements.get(clientKey)?.abort();
+		refinements.set(clientKey, controller);
+	}
+	try {
+		return await render(AbortSignal.any([signal, controller.signal]));
+	} finally {
+		if (clientKey && refinements.get(clientKey) === controller) refinements.delete(clientKey);
+	}
+}
+
+function previewResponse(result: Awaited<ReturnType<typeof editorPreview>>, requestId: string, cacheOnly: boolean, timings: Record<string, number>) {
+	if (!result) return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store', 'X-Preview-Request': requestId } });
+	return new Response(new Uint8Array(result.jpeg), { headers: {
+		'Content-Type': 'image/jpeg', 'Cache-Control': cacheOnly ? 'no-store' : 'private, max-age=3600',
+		'Server-Timing': Object.entries(timings).map(([name, duration]) => `${name};dur=${duration.toFixed(1)}`).join(', '),
+		'X-Preview-Cache': result.cacheHit ? 'hit' : 'miss',
+		'X-Preview-Request': requestId,
+		'X-Preview-Source-Cache': result.sourceCache
+	} });
+}
+
 export const GET: RequestHandler = async ({ params, url, request }) => {
 	const requestStarted = performance.now();
 	const incomingRequestId = request.headers.get('X-Preview-Request');
@@ -36,7 +60,6 @@ export const GET: RequestHandler = async ({ params, url, request }) => {
 
 	try {
 		const config = url.searchParams.get('config');
-		const isPreview = url.searchParams.has('preview');
 
 		const pp3String = config ? fromBase64(config) : stringifyPP3({});
 
@@ -46,34 +69,17 @@ export const GET: RequestHandler = async ({ params, url, request }) => {
 		}
 
 		if (stage === 'quick' || stage === 'final') {
-			const refinement = stage === 'final' && !cacheOnly ? new AbortController() : null;
-			if (clientKey && refinement) {
-				refinements.get(clientKey)?.abort();
-				refinements.set(clientKey, refinement);
-			}
-			try {
-				const signal = refinement ? AbortSignal.any([request.signal, refinement.signal]) : request.signal;
-				const result = await editorPreview(image.tifPath, image.filepath, pp3String, url.searchParams.get('device'), stage, signal, cacheOnly);
-				if (!result) {
-					diagnostics.outcome = 'cache-miss';
-					return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store', 'X-Preview-Request': requestId } });
-				}
-				const timings = { database: databaseMs, ...result.timings, request: performance.now() - requestStarted };
-				Object.assign(diagnostics, timings, { outcome: 'success', jpegCache: result.cacheHit, sourceCache: result.sourceCache, bytes: result.jpeg.byteLength });
-				return new Response(new Uint8Array(result.jpeg), { headers: {
-					'Content-Type': 'image/jpeg', 'Cache-Control': cacheOnly ? 'no-store' : 'private, max-age=3600',
-					'Server-Timing': Object.entries(timings).map(([name, duration]) => `${name};dur=${duration.toFixed(1)}`).join(', '),
-					'X-Preview-Cache': result.cacheHit ? 'hit' : 'miss',
-					'X-Preview-Request': requestId,
-					'X-Preview-Source-Cache': result.sourceCache
-				} });
-			} finally {
-				if (clientKey && refinements.get(clientKey) === refinement) refinements.delete(clientKey);
-			}
+			const render = (signal: AbortSignal) => editorPreview(image.tifPath!, image.filepath, pp3String, url.searchParams.get('device'), stage, signal, cacheOnly);
+			const result = stage === 'final' && !cacheOnly
+				? await withRefinement(clientKey, request.signal, render)
+				: await render(request.signal);
+			const timings = { database: databaseMs, ...result?.timings, request: performance.now() - requestStarted };
+			diagnostics.outcome = result ? 'success' : 'cache-miss';
+			if (result) Object.assign(diagnostics, timings, { jpegCache: result.cacheHit, sourceCache: result.sourceCache, bytes: result.jpeg.byteLength });
+			return previewResponse(result, requestId, cacheOnly, timings);
 		}
 		const renderStarted = performance.now();
 		const output = await editImage(image.tifPath, pp3String, {
-			allowConcurrent: isPreview,
 			quality: 85
 		});
 		const response = await respondWithFile(output);

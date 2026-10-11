@@ -12,6 +12,7 @@
 	import Select from '$lib/ui/Select.svelte';
 	import Slider from '$lib/ui/Slider.svelte';
 	import ColorAdjustments from '$lib/ui/ColorAdjustments.svelte';
+	import CreativeAdjustments from '$lib/ui/CreativeAdjustments.svelte';
 	import AdjustmentSubsection from '$lib/ui/AdjustmentSubsection.svelte';
 	import { blackLevelFromPP3, blackLevelToPP3 } from '$lib/black-level';
 
@@ -31,6 +32,10 @@
 		}
 		edits.pp3.Exposure.Enabled = true;
 		edits.pushHistory(true);
+	}
+	function toolIgnored(section: string, fields: string[]) {
+		const settings = edits.pp3[section];
+		return settings.Enabled === false && fields.some(field => Number(settings[field] ?? 0) !== 0);
 	}
 
 	function lutPathToName(path: string) {
@@ -133,7 +138,7 @@
 			min={0}
 			max={100}
 			step={1}
-			ignored={!shadowsHighlights.Enabled as boolean}
+			ignored={toolIgnored('Shadows_&_Highlights', ['Highlights', 'Shadows'])}
 			onchange={() => { shadowsHighlights.Enabled = true; edits.pushHistory(); }}
 		/>
 		<Slider
@@ -142,7 +147,7 @@
 			min={0}
 			max={100}
 			step={1}
-			ignored={!shadowsHighlights.Enabled as boolean}
+			ignored={toolIgnored('Shadows_&_Highlights', ['Highlights', 'Shadows'])}
 			onchange={() => { shadowsHighlights.Enabled = true; edits.pushHistory(); }}
 		/>
 	
@@ -159,7 +164,7 @@
 			centered
 			onchange={() => edits.pushHistory()}
 		/>
-		<Slider label="Muted Saturation" bind:value={edits.pp3.Vibrance.Pastels as number} min={-100} max={100} step={1} centered resetValue={0} ignored={!edits.pp3.Vibrance.Enabled as boolean} onchange={() => {
+		<Slider label="Muted Saturation" bind:value={edits.pp3.Vibrance.Pastels as number} min={-100} max={100} step={1} centered resetValue={0} ignored={toolIgnored('Vibrance', ['Pastels', 'Saturated'])} onchange={() => {
 			edits.pp3.Vibrance.PastSatTog = false;
 			edits.pp3.Vibrance.Saturated = 0;
 			edits.pp3.Vibrance.Enabled = true; edits.pushHistory();
@@ -167,6 +172,12 @@
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Color Mixer" group="colorMixer">
 		<ColorAdjustments mode="mixer" />
+	</AdjustmentGroup>
+	<AdjustmentGroup title="Color Grading" group="colorGrading">
+		<CreativeAdjustments mode="grading" />
+	</AdjustmentGroup>
+	<AdjustmentGroup title="Black & White" group="monochrome">
+		<CreativeAdjustments mode="monochrome" />
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Clarity" group="clarity">
 		<Slider
@@ -176,15 +187,15 @@
 			max={100}
 			step={1}
 			resetValue={0}
-			ignored={!edits.pp3.Dehaze.Enabled as boolean}
+			ignored={toolIgnored('Dehaze', ['Strength'])}
 			onchange={() => { edits.pp3.Dehaze.Enabled = true; edits.pushHistory(); }}
 		/>
 		<AdjustmentSubsection title="Local Contrast" section="Local_Contrast">
-		<Slider label="Amount" bind:value={edits.pp3.Local_Contrast.Amount as number} min={0} max={1} step={0.01} resetValue={0.2} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
+		<Slider label="Amount" bind:value={edits.pp3.Local_Contrast.Amount as number} min={0} max={1} step={0.01} resetValue={0} ignored={!edits.pp3.Local_Contrast.Enabled as boolean && Number(edits.pp3.Local_Contrast.Amount) !== 0} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
 		<details><summary class="min-h-11 cursor-pointer py-3 text-xs font-semibold uppercase tracking-wider text-neutral-300">Advanced</summary><div class="space-y-3">
-		<Slider label="Radius" bind:value={edits.pp3.Local_Contrast.Radius as number} min={20} max={200} step={1} resetValue={80} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
-		<Slider label="Darkness" bind:value={edits.pp3.Local_Contrast.Darkness as number} min={0} max={3} step={0.01} resetValue={1} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
-		<Slider label="Lightness" bind:value={edits.pp3.Local_Contrast.Lightness as number} min={0} max={3} step={0.01} resetValue={1} ignored={!edits.pp3.Local_Contrast.Enabled as boolean} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
+		<Slider label="Radius" bind:value={edits.pp3.Local_Contrast.Radius as number} min={20} max={200} step={1} resetValue={80} ignored={toolIgnored('Local_Contrast', ['Amount'])} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
+		<Slider label="Darkness" bind:value={edits.pp3.Local_Contrast.Darkness as number} min={0} max={3} step={0.01} resetValue={1} ignored={toolIgnored('Local_Contrast', ['Amount'])} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
+		<Slider label="Lightness" bind:value={edits.pp3.Local_Contrast.Lightness as number} min={0} max={3} step={0.01} resetValue={1} ignored={toolIgnored('Local_Contrast', ['Amount'])} onchange={() => { edits.pp3.Local_Contrast.Enabled = true; edits.pushHistory(); }} />
 		</div></details>
 		</AdjustmentSubsection>
 	</AdjustmentGroup>
@@ -213,9 +224,9 @@
 	
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Vignette" group="vignette">
-		<Slider label="Strength" bind:value={edits.pp3.PCVignette.Strength as number} min={-6} max={6} step={0.01} precision={2} centered resetValue={0} map={(value) => -value} inverseMap={(value) => -value} displayValue={(value) => -value} ignored={!edits.pp3.PCVignette.Enabled as boolean} onchange={() => { edits.pp3.PCVignette.Enabled = edits.pp3.PCVignette.Strength !== 0; edits.pushHistory(); }} />
-		<Slider label="Feather" bind:value={edits.pp3.PCVignette.Feather as number} min={0} max={100} step={1} resetValue={50} ignored={!edits.pp3.PCVignette.Enabled as boolean} onchange={() => edits.pushHistory()} />
-		<Slider label="Roundness" bind:value={edits.pp3.PCVignette.Roundness as number} min={0} max={100} step={1} resetValue={50} ignored={!edits.pp3.PCVignette.Enabled as boolean} onchange={() => edits.pushHistory()} />
+		<Slider label="Strength" bind:value={edits.pp3.PCVignette.Strength as number} min={-6} max={6} step={0.01} precision={2} centered resetValue={0} map={(value) => -value} inverseMap={(value) => -value} displayValue={(value) => -value} ignored={!edits.pp3.PCVignette.Enabled as boolean && Number(edits.pp3.PCVignette.Strength) !== 0} onchange={() => { edits.pp3.PCVignette.Enabled = true; edits.pushHistory(); }} />
+		<Slider label="Feather" bind:value={edits.pp3.PCVignette.Feather as number} min={0} max={100} step={1} resetValue={50} ignored={toolIgnored('PCVignette', ['Strength'])} onchange={() => edits.pushHistory()} />
+		<Slider label="Roundness" bind:value={edits.pp3.PCVignette.Roundness as number} min={0} max={100} step={1} resetValue={50} ignored={toolIgnored('PCVignette', ['Strength'])} onchange={() => edits.pushHistory()} />
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Look" group="look">
 		<AdjustmentSubsection title="LUT" section="Film_Simulation">

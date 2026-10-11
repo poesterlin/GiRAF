@@ -19,7 +19,7 @@
 		<h3 class="text-xs font-semibold uppercase tracking-wider text-neutral-300">{title}</h3>
 		<Checkbox label="" ariaLabel={`Enable ${title}`} checked={enabled} small onchange={toggle} />
 	</div>
-	<fieldset disabled={!enabled} inert={!enabled} class="min-w-0 space-y-3 border-0 p-0" class:opacity-50={!enabled}>
+	<fieldset class="min-w-0 space-y-3 border-0 p-0" class:opacity-50={!enabled}>
 		{@render children()}
 	</fieldset>
 </section>

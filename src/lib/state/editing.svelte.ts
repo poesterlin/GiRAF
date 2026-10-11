@@ -2,11 +2,12 @@ import { assert } from '$lib';
 import { countPP3Properties, diffPP3, parsePP3, type PP3 } from '$lib/pp3-utils';
 import type { Image } from '$lib/server/db/schema';
 import { parsePP3Document, stringifyPP3Document } from '$lib/pp3-document';
-import { normalizeDisabledGroups, restoreGroupedSettings } from '$lib/adjustment-groups';
+import { normalizeDisabledGroups, restoreGroupedSettings, groupNeutralSettings } from '$lib/adjustment-groups';
 import { createEditDocument, normalizeEditStrength, type StrengthWhiteBalance } from '$lib/edit-strength';
 import { lutPreviewSettings } from '$lib/lut-preview';
-
-const PREVIEW_UPDATE_INTERVAL = 100;
+import { EditPreviewScheduler } from '$lib/edit-preview-scheduler';
+import { SnapshotQueue } from '$lib/snapshot-queue';
+import { creativeDefaults } from '$lib/creative-adjustments';
 
 type EditState = { settings: PP3; disabledGroups: string[]; editStrength: number };
 
@@ -21,18 +22,7 @@ class EditingState {
 	public throttledPP3 = $state<PP3>({});
 	public updateThrottledPP3 = (pp3: PP3) => {
 		if (!pp3) return;
-		if (countPP3Properties(diffPP3(this.throttledPP3, pp3)) === 0 && countPP3Properties(diffPP3(pp3, this.throttledPP3)) === 0) {
-			this.cancelPreviewUpdate();
-			return;
-		}
-		// Keep only the latest immutable edit, even while a trailing update is queued.
-		this.pendingPreviewPP3 = structuredClone($state.snapshot(pp3));
-		const remaining = PREVIEW_UPDATE_INTERVAL - (Date.now() - this.lastPreviewUpdate);
-		if (remaining <= 0) {
-			this.flushPreviewPP3();
-		} else if (this.previewTimeout === null) {
-			this.previewTimeout = setTimeout(() => this.flushPreviewPP3(), remaining);
-		}
+		this.previewScheduler.update($state.snapshot(pp3));
 	};
 	public lastSavedPP3 = $derived(this.currentImageId ? this.baselines[this.currentImageId]?.settings : undefined);
 	public lastSavedDocument = $derived.by(() => {
@@ -46,34 +36,16 @@ class EditingState {
 	private history = $state<EditState[]>([]);
 	private historyIndex = $state(0);
 	private lastChangeKey: string | null = null;
-	private previewTimeout: ReturnType<typeof setTimeout> | null = null;
-	private pendingPreviewPP3: PP3 | null = null;
-	private lastPreviewUpdate = 0;
-	private saveQueue: Promise<void> = Promise.resolve();
-	private pendingSaves = new Map<string, number>();
-
-	private cancelPreviewUpdate() {
-		if (this.previewTimeout !== null) clearTimeout(this.previewTimeout);
-		this.previewTimeout = null;
-		this.pendingPreviewPP3 = null;
-	}
-
-	private flushPreviewPP3() {
-		const latest = this.pendingPreviewPP3;
-		this.cancelPreviewUpdate();
-		if (!latest) return;
-		this.lastPreviewUpdate = Date.now();
-		this.throttledPP3 = latest;
-	}
+	private previewScheduler = new EditPreviewScheduler((settings) => { this.throttledPP3 = settings; });
+	private snapshots = new SnapshotQueue();
 
 	private resetPreviewPP3(pp3: PP3) {
-		this.cancelPreviewUpdate();
-		this.lastPreviewUpdate = Date.now();
-		this.throttledPP3 = structuredClone($state.snapshot(pp3));
+		this.previewScheduler.reset($state.snapshot(pp3));
 	}
 
 	private preparePP3(pp3: string | PP3, image: Image) {
 		const newPp3 = typeof pp3 === 'string' ? parsePP3(pp3) : pp3;
+		for (const [section, defaults] of Object.entries(creativeDefaults)) ensureSectionDefaults(newPp3, section, defaults);
 		ensureSectionDefaults(newPp3, 'Exposure', {
 			Enabled: true,
 			Auto: false,
@@ -110,9 +82,9 @@ class EditingState {
 			SkinTonesCurve: '0;'
 		});
 		ensureSectionDefaults(newPp3, 'Local_Contrast', {
-			Enabled: false,
+			Enabled: true,
 			Radius: 80,
-			Amount: 0.2,
+			Amount: 0,
 			Darkness: 1,
 			Lightness: 1
 		});
@@ -128,6 +100,14 @@ class EditingState {
 		ensureSectionDefaults(newPp3, 'White_Balance', { Setting: 'Camera' });
 		setDefault(newPp3.White_Balance, 'Temperature', image.whiteBalance);
 		setDefault(newPp3.White_Balance, 'Green', image.tint);
+		// Neutral tools are ready for input; preserve disabled non-neutral edits.
+		for (const [section, fields] of Object.entries({
+			Dehaze: ['Strength'], Local_Contrast: ['Amount'], PCVignette: ['Strength'],
+			Vibrance: ['Pastels', 'Saturated'], 'Shadows_&_Highlights': ['Highlights', 'Shadows']
+		})) {
+			if (fields.every(field => Number(newPp3[section]?.[field] ?? 0) === 0)) newPp3[section].Enabled = true;
+		}
+		if (newPp3.ColorToning.Method === 'Splitlr' && ['ShadowsColorSaturation', 'HighlightsColorSaturation'].every(key => Number(String(newPp3.ColorToning[key]).split(';')[0]) === 0)) newPp3.ColorToning.Enabled = true;
 		return newPp3;
 	}
 
@@ -143,7 +123,7 @@ class EditingState {
 
 	initialize(pp3: string | PP3, image: Image) {
 		assert(image, 'Image must be provided to initialize editing state');
-		if (this.currentImageId === String(image.id) && (this.hasChangesFor(String(image.id)) || this.pendingSaves.has(String(image.id)))) return;
+		if (this.currentImageId === String(image.id) && (this.hasChangesFor(String(image.id)) || this.snapshots.hasPending(String(image.id)))) return;
 		const document = typeof pp3 === 'string' ? parsePP3Document(pp3) : { settings: pp3, comments: [] };
 		this.disabledGroups = normalizeDisabledGroups(document.ui?.disabledGroups ?? []);
 		this.editStrength = document.ui?.editStrength ?? 100;
@@ -193,43 +173,33 @@ class EditingState {
 
 		const saved = this.captureState();
 		const serialized = stringifyPP3Document(createEditDocument(saved.settings, saved.disabledGroups, saved.editStrength, this.strengthWhiteBalance));
-		this.pendingSaves.set(id, (this.pendingSaves.get(id) ?? 0) + 1);
-		const task = this.saveQueue
-			.catch(() => {})
-			.then(async () => {
-				try {
-					const res = await fetch(`/api/images/${id}/snapshots`, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						keepalive: true,
-						body: JSON.stringify({ pp3: serialized })
-					});
-
-					if (!res.ok) {
-						throw new Error('Failed to save snapshot');
-					}
-
-					this.baselines[id] = saved;
-					if (this.currentImageId === id) {
-						this.isFaulty = false;
-					}
-				} catch (error) {
-					if (this.currentImageId === id) this.isFaulty = true;
-					throw error;
-				} finally {
-					const remaining = (this.pendingSaves.get(id) ?? 1) - 1;
-					if (remaining) this.pendingSaves.set(id, remaining);
-					else this.pendingSaves.delete(id);
-				}
-			});
-		this.saveQueue = task;
-		await task;
+		try {
+			await this.snapshots.save(id, serialized);
+			this.baselines[id] = saved;
+			if (this.currentImageId === id) this.isFaulty = false;
+		} catch (error) {
+			if (this.currentImageId === id) this.isFaulty = true;
+			throw error;
+		}
 	}
 
 	pushHistory(separate = false) {
 		if (separate) this.lastChangeKey = null;
-		const snapshot = this.captureState();
 		const prev = this.history[this.historyIndex];
+		if (prev) {
+			const changes = diffPP3(prev.settings, this.pp3);
+			const changedSections = Object.entries(changes).filter(([, fields]) => Object.keys(fields).some(key => key !== 'Enabled')).map(([section]) => section);
+			for (const section of changedSections) {
+				// Explicit tool toggles and resets keep their requested enabled state.
+				if ('Enabled' in this.pp3[section] && !('Enabled' in changes[section])) this.pp3[section].Enabled = true;
+			}
+			this.disabledGroups = this.disabledGroups.filter(group => !Object.entries(groupNeutralSettings[group] ?? {}).some(([section, neutral]) => {
+				const fields = changes[section];
+				if (!fields) return false;
+				return Object.keys(fields).some(key => key !== 'Enabled' && ('Enabled' in neutral || key in neutral));
+			}));
+		}
+		const snapshot = this.captureState();
 
 		let diff = diffPP3(prev?.settings, snapshot.settings);
 		if (countPP3Properties(diff) === 0) diff = diffPP3(snapshot.settings, prev?.settings);

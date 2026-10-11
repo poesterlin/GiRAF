@@ -25,9 +25,9 @@
 	import { edits } from '$lib/state/editing.svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import { onDestroy } from 'svelte';
-	import { app } from '$lib/state/app.svelte';
 	import Modal from './Modal.svelte';
 	import type { PP3 } from '$lib/pp3-utils';
+	import { readSpotRemoval } from '$lib/spot-removal';
 
 	interface Props {
 		img: string;
@@ -81,7 +81,8 @@
 	let pasteVersion = 0;
 	let showCropChoice = $state(false);
 	let rememberCropChoice = $state(false);
-	let pendingPaste: { pp3: PP3; imageId: string; version: number; groups: string[]; editStrength: number } | undefined;
+	let choiceKind = $state<'crop' | 'retouch'>('crop');
+	let pendingPaste: { pp3: PP3; imageId: string; version: number; groups: string[]; editStrength: number; choices: ('crop' | 'retouch')[]; includeCrop: boolean; includeRetouch: boolean } | undefined;
 	const cropPreferenceKey = 'giraf_paste_crop';
 	function cancelPaste() {
 		pasteVersion += 1;
@@ -91,26 +92,55 @@
 	beforeNavigate(cancelPaste);
 	onDestroy(cancelPaste);
 
-	function applyPaste(pp3: PP3, includeCrop: boolean, groups: string[] = [], editStrength = 100) {
+	function applyPaste(pp3: PP3, includeCrop: boolean, groups: string[] = [], editStrength = 100, includeRetouch = true) {
 		if (!includeCrop) {
 			if (edits.pp3.Crop) pp3.Crop = structuredClone($state.snapshot(edits.pp3.Crop));
 			else delete pp3.Crop;
+		}
+		if (!includeRetouch) {
+			if (edits.pp3.Spot_removal) pp3.Spot_removal = structuredClone($state.snapshot(edits.pp3.Spot_removal));
+			else delete pp3.Spot_removal;
 		}
 		edits.reset(pp3, page.data.image, groups, editStrength);
 		pastedConfig = true;
 		setTimeout(() => (pastedConfig = false), 2000);
 	}
 
-	function chooseCrop(includeCrop: boolean) {
+	function preferenceKey(kind: 'crop' | 'retouch') { return kind === 'crop' ? cropPreferenceKey : 'giraf_paste_retouch'; }
+	function readPreference(kind: 'crop' | 'retouch'): boolean | undefined {
 		try {
-			if (rememberCropChoice) localStorage.setItem(cropPreferenceKey, includeCrop ? 'include' : 'exclude');
-			else localStorage.removeItem(cropPreferenceKey);
+			const key = preferenceKey(kind);
+			const raw = localStorage.getItem(key);
+			if (!raw) return;
+			const value = JSON.parse(raw);
+			if (typeof value.include === 'boolean' && Number.isFinite(value.expiresAt) && value.expiresAt > Date.now() && value.expiresAt <= Date.now() + 3600000) return value.include;
+			localStorage.removeItem(key);
+		} catch { /* Expired or legacy decisions ask again. */ }
+	}
+	function nextPasteChoice() {
+		if (!pendingPaste || pendingPaste.version !== pasteVersion || pendingPaste.imageId !== edits.currentImageId) return cancelPaste();
+		while (pendingPaste.choices.length) {
+			const kind = pendingPaste.choices.shift()!;
+			const preference = readPreference(kind);
+			if (preference === undefined) {
+				choiceKind = kind; rememberCropChoice = false; showCropChoice = true; return;
+			}
+			if (kind === 'crop') pendingPaste.includeCrop = preference;
+			else pendingPaste.includeRetouch = preference;
+		}
+		applyPaste(pendingPaste.pp3, pendingPaste.includeCrop, pendingPaste.groups, pendingPaste.editStrength, pendingPaste.includeRetouch);
+		pendingPaste = undefined; showCropChoice = false;
+	}
+	function chooseCrop(include: boolean) {
+		try {
+			if (rememberCropChoice) localStorage.setItem(preferenceKey(choiceKind), JSON.stringify({ include, expiresAt: Date.now() + 3600000 }));
+			else localStorage.removeItem(preferenceKey(choiceKind));
 		} catch { /* Device storage may be unavailable. */ }
 		if (pendingPaste && pendingPaste.version === pasteVersion && pendingPaste.imageId === edits.currentImageId) {
-			applyPaste(pendingPaste.pp3, includeCrop, pendingPaste.groups, pendingPaste.editStrength);
+			if (choiceKind === 'crop') pendingPaste.includeCrop = include;
+			else pendingPaste.includeRetouch = include;
+			nextPasteChoice();
 		}
-		pendingPaste = undefined;
-		showCropChoice = false;
 	}
 	let hasClipboardContent = $state(false);
 
@@ -268,25 +298,11 @@
 			const pp3 = restoreGroupedSettings(document);
 			const groups = document.ui?.disabledGroups ?? [];
 			const editStrength = document.ui?.editStrength ?? 100;
-			if (pp3.Crop && pp3.Crop.Enabled !== false && Number(pp3.Crop.W) > 0 && Number(pp3.Crop.H) > 0) {
-				let preference: string | null = null;
-				try { preference = localStorage.getItem(cropPreferenceKey); } catch { /* Ask each time. */ }
-				if (preference === 'include' || preference === 'exclude') {
-					applyPaste(pp3, preference === 'include', groups, editStrength);
-					app.addToast(preference === 'include' ? 'Settings pasted including crop.' : 'Settings pasted keeping the current crop.', 'info', {
-						label: 'Edit crop preference',
-						run: () => {
-							if (version !== pasteVersion) return;
-							rememberCropChoice = true;
-							showCropChoice = true;
-						}
-					});
-				} else {
-					pendingPaste = { pp3, imageId, version, groups, editStrength };
-					rememberCropChoice = false;
-					showCropChoice = true;
-				}
-			} else applyPaste(pp3, true, groups, editStrength);
+			const choices: ('crop' | 'retouch')[] = [];
+			if (pp3.Crop && pp3.Crop.Enabled !== false && Number(pp3.Crop.W) > 0 && Number(pp3.Crop.H) > 0) choices.push('crop');
+			if (readSpotRemoval(pp3).entries.length) choices.push('retouch');
+			pendingPaste = { pp3, imageId, version, groups, editStrength, choices, includeCrop: true, includeRetouch: true };
+			nextPasteChoice();
 		} catch {
 			pastedConfig = false;
 		}
@@ -307,14 +323,14 @@
 {#if showCropChoice}
 	<Modal onClose={cancelPaste}>
 		<div class="p-6 text-neutral-100">
-			<h2 class="text-lg font-semibold">Crop when pasting settings</h2>
-			<p class="mt-2 text-sm text-neutral-300">Apply the crop from the copied settings, or keep this image’s current crop?</p>
+			<h2 class="text-lg font-semibold">{choiceKind === 'crop' ? 'Crop' : 'Retouch spots'} when pasting settings</h2>
+			<p class="mt-2 text-sm text-neutral-300">{choiceKind === 'crop' ? 'Apply the crop from the copied settings, or keep this image’s current crop?' : 'Apply the retouch spots from the copied settings, or keep this image’s current retouch spots?'}</p>
 			<label class="mt-4 flex items-center gap-2 text-sm">
-				<input type="checkbox" bind:checked={rememberCropChoice} class="accent-white" /> Remember this choice on this device
+				<input type="checkbox" bind:checked={rememberCropChoice} class="accent-white" /> Remember this choice for 1 hour
 			</label>
 			<div class="mt-6 flex flex-wrap gap-3">
-				<button class="rounded-lg border border-neutral-400 px-4 py-2" onclick={() => chooseCrop(false)}>Keep current crop</button>
-				<button class="rounded-lg bg-white px-4 py-2 text-black" onclick={() => chooseCrop(true)}>Apply copied crop</button>
+				<button class="min-h-11 rounded-lg border border-neutral-400 px-4 py-2" onclick={() => chooseCrop(false)}>Keep current {choiceKind === 'crop' ? 'crop' : 'spots'}</button>
+				<button class="min-h-11 rounded-lg bg-white px-4 py-2 text-black" onclick={() => chooseCrop(true)}>Apply copied {choiceKind === 'crop' ? 'crop' : 'spots'}</button>
 			</div>
 		</div>
 	</Modal>

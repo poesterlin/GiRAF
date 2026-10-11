@@ -3,6 +3,51 @@ import { previewResponseMetrics, trackPreview, trackPreviewPaint, type PreviewMe
 
 let clientId: string | undefined;
 
+async function findCachedPreview(endpoint: string, options: RequestInit, signal: AbortSignal) {
+	const probes = [
+		{ source: 'browser', url: endpoint, options: { ...options, mode: 'same-origin' as const, cache: 'only-if-cached' as const } },
+		{ source: 'server', url: `${endpoint}&cacheOnly=1`, options: { ...options, cache: 'no-store' as const } }
+	];
+	for (const probe of probes) {
+		try {
+			const response = await fetch(probe.url, probe.options);
+			if (response.status === 200) return { response, source: probe.source };
+		} catch {
+			// Unsupported browser probes and network failures can recover normally.
+			signal.throwIfAborted();
+		}
+	}
+	return { response: undefined, source: 'miss' };
+}
+
+function waitForSettling(delay: number, signal: AbortSignal): Promise<void> {
+	signal.throwIfAborted();
+	return new Promise((resolve, reject) => {
+		const abort = () => {
+			clearTimeout(timer);
+			signal.removeEventListener('abort', abort);
+			reject(signal.reason);
+		};
+		const timer = setTimeout(() => {
+			signal.removeEventListener('abort', abort);
+			resolve();
+		}, Math.max(0, delay));
+		signal.addEventListener('abort', abort, { once: true });
+	});
+}
+
+function previewFailure(signal: AbortSignal, status: PreviewMetrics[string], phase: string) {
+	if (signal.aborted) {
+		const reason = signal.reason;
+		const knownReason = typeof reason === 'string' && ['edit-or-navigation', 'superseded'].includes(reason);
+		return { failureReason: 'aborted', abortReason: knownReason ? reason : 'abort-signal', outcome: 'cancelled' };
+	}
+	let failureReason = `${phase}-error`;
+	if (Number(status) >= 400) failureReason = 'http-error';
+	else if (phase === 'fetch') failureReason = 'network-error';
+	return { failureReason, abortReason: 'none', outcome: 'error' };
+}
+
 export function getPreviewDevice(): PreviewDevice {
 	const hints = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean; effectiveType?: string; type?: string } };
 	return previewDevice({ width: window.innerWidth, memory: hints.deviceMemory, cores: hints.hardwareConcurrency, saveData: hints.connection?.saveData, connection: hints.connection?.effectiveType, connectionType: hints.connection?.type });
@@ -35,30 +80,15 @@ export async function loadEditorPreview(imageId: string, config: string, device:
 			let response: Response | undefined;
 			let fetchStarted = performance.now();
 			if (stage === 'final') {
-				// This fetch is browser-cache-only: a miss cannot trigger network/render work.
-				try {
-					const cached = await fetch(endpoint, { ...options, mode: 'same-origin', cache: 'only-if-cached' });
-					if (cached.status === 200) { response = cached; metrics.refinementCache = 'browser'; }
-				} catch { signal.throwIfAborted(); /* Some browsers do not support cache-only fetches. */ }
-				if (!response) {
-					try {
-						const cached = await fetch(`${endpoint}&cacheOnly=1`, { ...options, cache: 'no-store' });
-						if (cached.status === 200) { response = cached; metrics.refinementCache = 'server'; }
-					} catch { signal.throwIfAborted(); /* A failed probe can recover through the normal request. */ }
-				}
+				const cached = await findCachedPreview(endpoint, options, signal);
+				response = cached.response;
+				metrics.refinementCache = cached.source;
 				metrics.cacheLookupMs = Math.round(performance.now() - fetchStarted);
-				metrics.refinementCache ??= 'miss';
 				metrics.settleSkipped = !!response;
 			}
 			nextPhase('settling');
 			if (stage === 'final' && !response) {
-				await new Promise<void>((resolve, reject) => {
-					const abort = () => { clearTimeout(timer); reject(signal.reason); };
-					const remainingDelay = Math.max(0, previewQuality(device, 'final').settleDelay - (performance.now() - stageStarted));
-					const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, remainingDelay);
-					signal.addEventListener('abort', abort, { once: true });
-					if (signal.aborted) abort();
-				});
+				await waitForSettling(previewQuality(device, 'final').settleDelay - (performance.now() - stageStarted), signal);
 			}
 			signal.throwIfAborted();
 			nextPhase('fetch');
@@ -98,7 +128,7 @@ export async function loadEditorPreview(imageId: string, config: string, device:
 		} catch (error) {
 			const failedPhase = phase;
 			nextPhase('finished');
-			trackPreview('preview-render', { ...metrics, phase: failedPhase, failureReason: signal.aborted ? 'aborted' : Number(metrics.httpStatus) >= 400 ? 'http-error' : failedPhase === 'fetch' ? 'network-error' : `${failedPhase}-error`, abortReason: signal.aborted ? typeof signal.reason === 'string' && ['edit-or-navigation', 'superseded'].includes(signal.reason) ? signal.reason : 'abort-signal' : 'none', outcome: signal.aborted ? 'cancelled' : 'error', retainedPreview: ready, stageMs: Math.round(performance.now() - stageStarted), totalMs: Math.round(performance.now() - started) });
+			trackPreview('preview-render', { ...metrics, ...previewFailure(signal, metrics.httpStatus, failedPhase), phase: failedPhase, retainedPreview: ready, stageMs: Math.round(performance.now() - stageStarted), totalMs: Math.round(performance.now() - started) });
 			if (signal.aborted) throw error;
 			// A failed quick pass can still recover at final quality. Keep a successful
 			// quick pass if refinement fails rather than replacing it with an error.

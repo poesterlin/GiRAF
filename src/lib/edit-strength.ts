@@ -25,6 +25,7 @@ export function scaleEditSettings(settings: PP3, percent: number, whiteBalance: 
 		Dehaze: ['Strength'],
 		PCVignette: ['Strength'],
 		Film_Simulation: ['Strength'],
+		ColorToning: ['Strength'],
 		Sharpening: ['Amount'],
 		Directional_Pyramid_Denoising: ['Luma', 'Chroma']
 	};
@@ -35,6 +36,7 @@ export function scaleEditSettings(settings: PP3, percent: number, whiteBalance: 
 		Vibrance: ['Pastels', 'Saturated'],
 		Dehaze: ['Strength'],
 		Film_Simulation: ['Strength'],
+		ColorToning: ['Strength'],
 		Sharpening: ['Amount']
 	};
 	for (const [chapter, fields] of Object.entries(amounts)) {
@@ -96,7 +98,7 @@ export function scaleEditSettings(settings: PP3, percent: number, whiteBalance: 
 	if (strength === 0) {
 		if (result.Exposure) result.Exposure.Auto = false;
 		if (wb) wb.Setting = 'Camera';
-		for (const chapter of ['Shadows_&_Highlights', 'Vibrance', 'Local_Contrast', 'Dehaze', 'PCVignette', 'Film_Simulation', 'Sharpening', 'Directional_Pyramid_Denoising', 'HSV_Equalizer', 'Channel_Mixer']) {
+		for (const chapter of ['Shadows_&_Highlights', 'Vibrance', 'Local_Contrast', 'Dehaze', 'PCVignette', 'Film_Simulation', 'Sharpening', 'Directional_Pyramid_Denoising', 'HSV_Equalizer', 'Channel_Mixer', 'ColorToning', 'Black_&_White']) {
 			if (result[chapter]) result[chapter].Enabled = false;
 		}
 	}
