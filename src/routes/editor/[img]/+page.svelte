@@ -160,15 +160,13 @@
 
 	<!-- Controls Panel Section -->
 	<aside class="flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-neutral-800 bg-neutral-950 transition-all duration-300 lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l h-[36dvh] lg:h-auto">
+		<div class="hidden shrink-0 px-6 pt-2 lg:block"><EditorTools img={page.params.img!} /></div>
 		<EditorPanelHeader title="Adjustments" loading={edits.isLoading} />
 
 		<!-- Scrollable Controls -->
 		<div data-adjustment-scroll class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain custom-scrollbar">
 			<EditorMobileToolbar img={page.params.img!} />
 			<div class="px-3 py-2 lg:px-6 lg:py-4">
-			<div class="mb-6 hidden lg:block">
-				<EditorTools img={page.params.img!} />
-			</div>
 			{#if edits.pp3}
 				<Adjustments {data} bind:showLutPicker previewSrc={sampleImageId === String(data.image.id) && !edits.isFaulty ? sampleImage : ''} />
 			{/if}

@@ -326,15 +326,15 @@
 		class="flex max-h-[45dvh] w-full shrink-0 flex-col border-t border-neutral-800 bg-neutral-950 lg:max-h-none lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l"
 	>
 		<!-- Panel Header -->
+		{#if edits.currentImageId}
+			<div class="hidden shrink-0 px-6 pt-2 lg:block"><EditorTools img={edits.currentImageId} currentTool="crop" /></div>
+		{/if}
 		<EditorPanelHeader title="Crop & Rotate" />
 
 		<!-- Scrollable Controls -->
 		<div class="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
 			{#if edits.currentImageId}<EditorMobileToolbar img={edits.currentImageId} currentTool="crop" />{/if}
 			<div class="px-4 py-3 lg:px-6 lg:py-4">
-			{#if edits.currentImageId}
-				<div class="mb-6 hidden lg:block"><EditorTools img={edits.currentImageId} currentTool="crop" /></div>
-			{/if}
 			{#if !hasCrop}
 				<button type="button" onclick={startCrop} class="mb-3 w-full rounded-xl border border-neutral-500 bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-100 hover:bg-neutral-800">Start crop</button>
 			{/if}

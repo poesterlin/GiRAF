@@ -16,10 +16,13 @@
 
 <style>
 	nav { display: flex; border-bottom: 1px solid #404040; color: #d4d4d4; }
-	a { text-decoration: none; min-height: 44px; display: flex; align-items: center; flex: 1; flex-direction: column; justify-content: center; gap: 6px; padding: 10px 2px; font-size: 11px; border-bottom: 2px solid transparent; }
+	a { text-decoration: none; min-height: 44px; display: flex; align-items: center; flex: 1; flex-direction: column; justify-content: center; gap: 6px; padding: 10px 2px; font-size: 12px; border-bottom: 2px solid transparent; }
 	a:hover { color: #fff; background: #ffffff0a; }
 	a:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-	a[aria-current] { color: #fff; border-bottom-color: #f5f5f5; background: #ffffff08; }
+	a[aria-current] { color: #fff; border-bottom-color: #f5f5f5; }
+	@media (min-width: 1024px) {
+		a :global(svg) { display: none; }
+	}
 	@media (max-width: 1023px) {
 		nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: min(100%, 288px); border-bottom: 0; }
 		a { min-width: 0; min-height: 48px; gap: 3px; padding: 4px; font-size: 10px; line-height: 12px; font-weight: 600; }

@@ -99,6 +99,11 @@
 	}
 	function keydown(event: KeyboardEvent) {
 		if (event.key === 'Escape' && menu) menu.open = false;
+		if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's' && !event.altKey && !event.shiftKey) {
+			event.preventDefault();
+			if (!event.repeat && !showFilter && !document.querySelector('dialog[open]') && !page.data.editorError && page.data.hasMatchingImages !== false) void save();
+			return;
+		}
 		if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || showFilter || document.querySelector('dialog[open]')) return;
 		if ((event.target as Element)?.closest('input, textarea, select, button, a, summary, [contenteditable], [role="slider"]')) return;
 		const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
