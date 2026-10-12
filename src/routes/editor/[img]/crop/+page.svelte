@@ -18,8 +18,8 @@
 	import { checkHandleCollision, drawCropGrid, moveHandle } from '$lib/canvas/grid';
 	import { excludePP3, toBase64, type PP3 } from '$lib/pp3-utils';
 	import { edits } from '$lib/state/editing.svelte';
-	import EditModeNav from '$lib/ui/EditModeNav.svelte';
 	import EditorTools from '$lib/ui/EditorTools.svelte';
+	import EditorMobileToolbar from '$lib/ui/EditorMobileToolbar.svelte';
 	import EditorPanelHeader from '$lib/ui/EditorPanelHeader.svelte';
 	import Slider from '$lib/ui/Slider.svelte';
 	
@@ -327,18 +327,11 @@
 	>
 		<!-- Panel Header -->
 		<EditorPanelHeader title="Crop & Rotate" />
-		<div class="flex shrink-0 items-center justify-between border-b border-neutral-800 px-4 py-2 lg:hidden">
-			<div class="flex items-center gap-3">
-				<div class="h-2 w-2 rounded-full bg-neutral-500"></div>
-				<h2 class="text-xs font-bold tracking-widest uppercase text-neutral-400">Crop & Rotate</h2>
-			</div>
-			<div class="lg:hidden">
-				{#if edits.currentImageId}<EditModeNav showEdit img={edits.currentImageId} />{/if}
-			</div>
-		</div>
 
 		<!-- Scrollable Controls -->
-		<div class="min-h-0 flex-1 overflow-y-auto px-4 py-3 lg:px-6 lg:py-4 custom-scrollbar">
+		<div class="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
+			{#if edits.currentImageId}<EditorMobileToolbar img={edits.currentImageId} currentTool="crop" />{/if}
+			<div class="px-4 py-3 lg:px-6 lg:py-4">
 			{#if edits.currentImageId}
 				<div class="mb-6 hidden lg:block"><EditorTools img={edits.currentImageId} currentTool="crop" /></div>
 			{/if}
@@ -372,6 +365,7 @@
 					{/if}
 				</div>
 			{/if}
+			</div>
 		</div>
 
 	</aside>

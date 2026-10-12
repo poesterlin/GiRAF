@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { edits } from '$lib/state/editing.svelte';
-	import { IconArrowBackUp, IconArrowForwardUp, IconFidgetSpinner } from './icons';
-	import { fade } from 'svelte/transition';
+	import { IconArrowBackUp, IconArrowForwardUp } from './icons';
+	import PreviewLoading from './PreviewLoading.svelte';
 	let { title, onundo = () => edits.undo(), onredo = () => edits.redo(), loading = false }: {
 		title: string; onundo?: () => void; onredo?: () => void; loading?: boolean;
 	} = $props();
@@ -10,7 +10,7 @@
 <div class="hidden shrink-0 items-center justify-between border-b border-neutral-800 px-6 py-4 lg:flex">
 	<div class="flex items-center gap-3"><div class="h-2 w-2 rounded-full bg-neutral-500"></div><h2 class="text-xs font-bold uppercase tracking-widest text-neutral-400">{title}</h2></div>
 	<div class="flex items-center gap-1">
-		{#if loading}<div in:fade={{ duration: 200, delay: 200 }} class="mr-2"><IconFidgetSpinner class="animate-spin text-neutral-500" size={16} /></div>{/if}
+		<PreviewLoading {loading} />
 		<button onclick={onundo} disabled={!edits.canUndo} aria-label="Undo"><IconArrowBackUp size={16} /></button>
 		<button onclick={onredo} disabled={!edits.canRedo} aria-label="Redo"><IconArrowForwardUp size={16} /></button>
 	</div>

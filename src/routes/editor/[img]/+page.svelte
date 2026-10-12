@@ -10,6 +10,7 @@
 	import BeforeAfter from '$lib/ui/BeforeAfter.svelte';
 	import EditModeNav from '$lib/ui/EditModeNav.svelte';
 	import EditorTools from '$lib/ui/EditorTools.svelte';
+	import EditorMobileToolbar from '$lib/ui/EditorMobileToolbar.svelte';
 	import LutPicker from '$lib/ui/LutPicker.svelte';
 	import { IconFilter } from '$lib/ui/icons';
 	import EditorPanelHeader from '$lib/ui/EditorPanelHeader.svelte';
@@ -151,7 +152,7 @@
 			<div class="pointer-events-auto"><EditModeNav img={page.params.img!} showSnapshots showClipboard showFlag showLast /></div>
 		</div>
 		<div class="absolute bottom-1 left-0 right-0 z-40 flex justify-center pointer-events-none lg:hidden">
-			<div class="mobile-photo-toolbar pointer-events-auto"><EditModeNav img={page.params.img!} showHistory showSnapshots showClipboard showFlag showLast /></div>
+			<div class="mobile-photo-toolbar pointer-events-auto"><EditModeNav img={page.params.img!} showHistory showUndoRedo={false} showSnapshots showClipboard showFlag showLast /></div>
 		</div>
 
 
@@ -162,13 +163,16 @@
 		<EditorPanelHeader title="Adjustments" loading={edits.isLoading} />
 
 		<!-- Scrollable Controls -->
-		<div data-adjustment-scroll class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-2 lg:px-6 lg:py-4 custom-scrollbar">
-			<div class="mb-3 flex justify-center lg:mb-6">
+		<div data-adjustment-scroll class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain custom-scrollbar">
+			<EditorMobileToolbar img={page.params.img!} />
+			<div class="px-3 py-2 lg:px-6 lg:py-4">
+			<div class="mb-6 hidden lg:block">
 				<EditorTools img={page.params.img!} />
 			</div>
 			{#if edits.pp3}
 				<Adjustments {data} bind:showLutPicker previewSrc={sampleImageId === String(data.image.id) && !edits.isFaulty ? sampleImage : ''} />
 			{/if}
+			</div>
 		</div>
 
 	</aside>

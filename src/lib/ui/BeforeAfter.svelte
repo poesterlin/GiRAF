@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { fade } from 'svelte/transition';
-	import { IconChevronRight, IconFidgetSpinner } from '$lib/ui/icons';
+	import PreviewLoading from './PreviewLoading.svelte';
+	import { onDestroy } from 'svelte';
+	import { IconChevronRight } from '$lib/ui/icons';
 
 	const { beforeImage, savedImage, afterImage, imageId, isLoading = false } = $props<{
 		beforeImage: string;
@@ -10,6 +11,15 @@
 		isLoading?: boolean;
 	}>();
 	let comparison = $state('original');
+	let labelsVisible = $state(true);
+	let labelTimer: ReturnType<typeof setTimeout> | undefined;
+	function revealLabels() {
+		labelsVisible = true;
+		clearTimeout(labelTimer);
+		labelTimer = setTimeout(() => { labelsVisible = false; }, 3000);
+	}
+	$effect(() => { imageId; revealLabels(); });
+	onDestroy(() => clearTimeout(labelTimer));
 	const comparisonImage = $derived(comparison === 'saved' ? savedImage : beforeImage);
 
 	let readyPreview = $state<{ imageId: number; url: string } | null>(null);
@@ -71,6 +81,7 @@
 
 	// Zoom with wheel/trackpad pinch (ctrlKey on some devices)
 	function onWheel(event: WheelEvent) {
+		revealLabels();
 		event.preventDefault();
 		if (!containerEl) return;
 
@@ -90,6 +101,7 @@
 
 	// Pan/Pinch on the container
 	function onPointerDown(event: PointerEvent) {
+		revealLabels();
 		if ((event.target as HTMLElement).closest('select, button, a, input') || event.button !== 0) return;
 		if (!containerEl) return;
 		containerEl.setPointerCapture(event.pointerId);
@@ -110,6 +122,7 @@
 	}
 
 	function onPointerMove(event: PointerEvent) {
+		revealLabels();
 		if (!pointers.has(event.pointerId)) return;
 		if (tapStart && Math.hypot(event.clientX - tapStart.x, event.clientY - tapStart.y) > 10) { tapStart = null; lastTap = null; }
 		pointers.set(event.pointerId, event);
@@ -167,6 +180,7 @@
 
 	// Slider drag (use pointer capture on the slider itself)
 	function onSliderPointerDown(event: PointerEvent) {
+		revealLabels();
 		event.stopPropagation();
 		tapStart = null; lastTap = null;
 		isDraggingSlider = true;
@@ -174,6 +188,7 @@
 	}
 
 	function onSliderPointerMove(event: PointerEvent) {
+		revealLabels();
 		if (!isDraggingSlider || !containerEl) return;
 		event.stopPropagation();
 		const rect = containerEl.getBoundingClientRect();
@@ -191,6 +206,8 @@
 
 <div
 	class="container group lg:rounded-xl shadow-2xl overflow-hidden border border-neutral-800"
+	class:labels-idle={!labelsVisible}
+	onfocusin={revealLabels}
 	bind:this={containerEl}
 	onwheel={onWheel}
 	onpointerdown={onPointerDown}
@@ -211,7 +228,7 @@
 		<img src={displayedPreview} alt={showingEdited ? 'After' : 'Original preview'} draggable="false" style:transform={`translate(${x}px, ${y}px) scale(${scale})`} />
 	</div>
 
-	<div class="absolute top-4 left-4 z-30 rounded-full border border-neutral-700/50 bg-neutral-950/40 text-[10px] font-bold tracking-widest uppercase text-neutral-300 backdrop-blur-md transition-opacity group-hover:opacity-100 focus-within:opacity-100 sm:opacity-0">
+	<div class="comparison-label absolute top-4 left-4 z-30 rounded-full border border-neutral-700/50 bg-neutral-950/40 text-[10px] font-bold tracking-widest uppercase text-neutral-300 backdrop-blur-md">
 		<select bind:value={comparison} aria-label="Left comparison version" class="cursor-pointer appearance-none rounded-full bg-transparent py-1 pl-3 pr-7 text-[10px] font-bold tracking-widest uppercase focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300">
 			<option value="original" class="bg-neutral-900">Original</option>
 			<option value="saved" class="bg-neutral-900">Saved</option>
@@ -219,15 +236,11 @@
 		<IconChevronRight size={12} class="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rotate-90" />
 	</div>
 	<div class="absolute top-4 right-4 z-30 flex flex-col items-center gap-2">
-		<div class="rounded-full border border-neutral-700/50 bg-neutral-100 px-3 py-1 text-[10px] font-bold tracking-widest uppercase text-neutral-950 backdrop-blur-md transition-opacity group-hover:opacity-100 sm:opacity-0">
+		<div class="comparison-label rounded-full border border-neutral-700/50 bg-neutral-100 px-3 py-1 text-[10px] font-bold tracking-widest uppercase text-neutral-950 backdrop-blur-md">
 			Edited
 		</div>
-		{#if isLoading}
-			<div in:fade={{ duration: 200, delay: 200 }} role="status" aria-label="Updating edited preview" class="rounded-full bg-neutral-950/40 p-1.5 backdrop-blur-md lg:hidden">
-				<IconFidgetSpinner class="animate-spin text-neutral-500" size={16} />
-			</div>
-		{/if}
 	</div>
+	<PreviewLoading loading={isLoading} overlay />
 
 	<!-- Slider -->
 	<div
@@ -249,6 +262,9 @@
 </div>
 
 <style>
+	.comparison-label { transition: opacity 250ms ease; }
+	.labels-idle .comparison-label:not(:focus-within) { opacity: 0; pointer-events: none; }
+	@media (prefers-reduced-motion: reduce) { .comparison-label { transition: none; } }
 	.container {
 		position: relative;
 		width: 100%;

@@ -70,7 +70,7 @@
 			</div>
 		</fieldset>
 		<label class="flex min-h-12 cursor-pointer items-center gap-3 font-semibold text-neutral-300">
-			<input type="checkbox" bind:checked={filters.newlyImported} class="h-5 w-5 accent-neutral-200" />
+			<input type="checkbox" bind:checked={filters.newlyImported} class="h-5 w-5 accent-accent" />
 			Newly imported since last session export
 		</label>
 		<div class="flex justify-between gap-3">

@@ -36,7 +36,7 @@
 		showRetouch?: boolean;
 		horizontal?: boolean;
 		showHistory?: boolean;
-		// showUndoRedo?: boolean;
+		showUndoRedo?: boolean;
 		// showReset?: boolean;
 		showEdit?: boolean;
 		showClipboard?: boolean;
@@ -46,7 +46,7 @@
 		isFlagged?: boolean;
 	}
 
-	let { img, showSnapshots, showCrop, showMasks = true, showRetouch = true, horizontal = false, showHistory = false, showEdit, showClipboard, showFlag, isFlagged, showLast }: Props = $props();
+	let { img, showSnapshots, showCrop, showMasks = true, showRetouch = true, horizontal = false, showHistory = false, showUndoRedo = true, showEdit, showClipboard, showFlag, isFlagged, showLast }: Props = $props();
 
 	let showMore = $state(false);
 	let moreContainer = $state<HTMLDivElement>();
@@ -294,7 +294,7 @@
 			<h2 class="text-lg font-semibold">{choiceKind === 'crop' ? 'Crop' : 'Retouch spots'} when pasting settings</h2>
 			<p class="mt-2 text-sm text-neutral-300">{choiceKind === 'crop' ? 'Apply the crop from the copied settings, or keep this image’s current crop?' : 'Apply the retouch spots from the copied settings, or keep this image’s current retouch spots?'}</p>
 			<label class="mt-4 flex items-center gap-2 text-sm">
-				<input type="checkbox" bind:checked={rememberCropChoice} class="accent-white" /> Remember this choice for 1 hour
+				<input type="checkbox" bind:checked={rememberCropChoice} class="accent-accent" /> Remember this choice for 1 hour
 			</label>
 			<div class="mt-6 flex flex-wrap gap-3">
 				<button class="min-h-11 rounded-lg border border-neutral-400 px-4 py-2" onclick={() => chooseCrop(false)}>Keep current {choiceKind === 'crop' ? 'crop' : 'spots'}</button>
@@ -353,6 +353,7 @@
 	{/if}
 
 	{#if compact}
+		{#if showUndoRedo}
 		<button
 			type="button"
 			onclick={() => edits.undo()}
@@ -371,6 +372,7 @@
 		>
 			<IconArrowForwardUp size={20} />
 		</button>
+		{/if}
 		{#if showCrop || showEdit || showFlag || showSnapshots || canLoadLast || showClipboard}
 			<div class="relative" bind:this={moreContainer}>
 				<button
@@ -385,7 +387,7 @@
 					<IconDots size={20} />
 				</button>
 				{#if showMore}
-					<div id={moreId} role="group" aria-label="More editing actions" class="absolute right-0 {horizontal ? 'top-full mt-2' : 'bottom-full mb-2'} z-50 max-h-[60dvh] w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950 p-1 text-sm text-neutral-200 shadow-2xl">
+					<div id={moreId} role="group" aria-label="More editing actions" class="more-menu absolute right-0 {horizontal ? 'top-full mt-2' : 'bottom-full mb-2'} z-50 max-h-[60dvh] w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950 p-1 text-sm text-neutral-200 shadow-2xl">
 						{#if showFlag}
 							<button type="button" class="more-action" onclick={() => { closeMore(true); showFlagModal = true; }}>
 								{#if isFlagged}<IconFlagFilled size={20} />{:else}<IconFlag size={20} />{/if}
@@ -509,7 +511,8 @@
 		nav button[aria-label='Redo']:not(:disabled) { color: #f5f5f5; background: #ffffff1a; }
 		:global(.mobile-photo-toolbar) nav { gap: 0; padding: 2px; }
 		:global(.mobile-photo-toolbar) nav :global(button:not(.more-action)),
-		:global(.mobile-photo-toolbar) nav :global(a) { height: 44px; width: 44px; min-height: 44px; min-width: 44px; }
+		:global(.mobile-photo-toolbar) nav :global(a:not(.more-action)) { height: 44px; width: 44px; min-height: 44px; min-width: 44px; }
+		:global(.mobile-photo-toolbar) .more-menu { left: 50%; right: auto; transform: translateX(-50%); }
 		:global(.mobile-photo-toolbar) nav :global(svg) { width: 17px; height: 17px; }
 	}
 	.more-action {

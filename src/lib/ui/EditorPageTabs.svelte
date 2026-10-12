@@ -10,7 +10,7 @@
 
 <nav aria-label="Editor pages">
 	{#each pages as { tool, label }}
-		<a href={editorToolUrl(img, tool, query)} aria-current={tool === currentTool ? 'page' : undefined}><EditorToolIcon {tool} /><span>{label}</span></a>
+		<a href={editorToolUrl(img, tool, query)} aria-label={label} title={label} aria-current={tool === currentTool ? 'page' : undefined}><EditorToolIcon {tool} /><span>{label}</span></a>
 	{/each}
 </nav>
 
@@ -20,4 +20,12 @@
 	a:hover { color: #fff; background: #ffffff0a; }
 	a:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 	a[aria-current] { color: #fff; border-bottom-color: #f5f5f5; background: #ffffff08; }
+	@media (max-width: 1023px) {
+		nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: min(100%, 288px); border-bottom: 0; }
+		a { min-width: 0; min-height: 48px; gap: 3px; padding: 4px; font-size: 10px; line-height: 12px; font-weight: 600; }
+		a span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		a :global(svg) { width: 16px; height: 16px; }
+		a[aria-current] { background: #262626; }
+		a:focus-visible { outline-offset: -2px; }
+	}
 </style>

@@ -7,10 +7,11 @@
 		id?: string;
 		name?: string;
 		small?: boolean;
+		neutral?: boolean;
 		onchange?: (value: boolean) => void;
 	}
 
-	let { checked = $bindable(false), disabled = false, label = 'Toggle', ariaLabel, id = `toggle-${Math.random().toString(36).slice(2, 9)}`, name, small, onchange }: Props = $props();
+	let { checked = $bindable(false), disabled = false, label = 'Toggle', ariaLabel, id = `toggle-${Math.random().toString(36).slice(2, 9)}`, name, small, neutral = false, onchange }: Props = $props();
 
 	function handleChange(e: Event) {
 		const next = (e.target as HTMLInputElement).checked;
@@ -31,7 +32,7 @@
 		class="relative z-10 h-5 w-12 cursor-pointer rounded-full pointer-events-auto
 		transition-colors outline-none select-none focus-visible:ring-2
 		focus-visible:ring-neutral-100/60
-		{checked ? 'bg-neutral-200 ring-neutral-300' : 'bg-neutral-950 ring-neutral-500'}"
+		{checked ? (neutral ? 'bg-neutral-200 ring-neutral-300' : 'bg-accent ring-orange-300') : 'bg-neutral-950 ring-neutral-500'}"
 		class:opacity-60={disabled}
 	>
 		<!-- Track background (dark) -->
@@ -41,7 +42,7 @@
         ring-1
       "
 		>
-			<div class={`absolute inset-0 ${checked ? 'bg-neutral-200' : 'bg-neutral-950'}`}></div>
+			<div class={`absolute inset-0 ${checked ? (neutral ? 'bg-neutral-200' : 'bg-accent') : 'bg-neutral-950'}`}></div>
 		</div>
 
 		<!-- Knob -->

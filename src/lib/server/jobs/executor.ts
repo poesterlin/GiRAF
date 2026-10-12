@@ -2,7 +2,7 @@ import { parsePP3, stringifyPP3 } from '$lib/pp3-utils';
 import { db } from '$lib/server/db';
 import { editImage, generateExportTif, generateImportTif, mapCropFromPreviewToExport } from '$lib/server/image-editor';
 import { bmvbhash } from 'blockhash-core';
-import { and, asc, desc, eq, isNull, lt, or } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
 import { readFile, mkdir, stat } from 'fs/promises';
 import { decode } from 'jpeg-js';
 import { dirname, join } from 'path';
@@ -176,6 +176,9 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 			let outputPath = makeOutputPath(image, session);
 			if (image.isArchived) {
 				await moveExportFile(outputPath, true);
+				for (const album of albums) {
+					if (album.integration === 'immich') await removeArchivedAlbumImage(album, image);
+				}
 				continue;
 			}
 
@@ -222,6 +225,21 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 		console.error(`[Executor] Failed export for session: ${sessionId}`, e);
 		return { status: 'error', message: e.message };
 	}
+}
+
+async function removeArchivedAlbumImage(album: Album, image: Image) {
+	const integration = integrations.find((integration) => integration.type === album.integration);
+	assert(integration, `Integration not found: ${album.integration}`);
+	if (!integration.isConfigured()) return;
+
+	const media = await db.query.mediaTable.findMany({
+		where: and(eq(mediaTable.albumId, album.id), eq(mediaTable.imageId, image.id), eq(mediaTable.integration, album.integration))
+	});
+	if (!media.length) return;
+
+	// Clear membership records only after Immich confirms removal, so failures retry on sync.
+	await integration.removeFromAlbum(album, media.map((item) => item.externalId));
+	await db.delete(mediaTable).where(inArray(mediaTable.id, media.map((item) => item.id)));
 }
 
 export async function ensureDir(path: string) {

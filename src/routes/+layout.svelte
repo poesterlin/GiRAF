@@ -16,6 +16,7 @@
 		IconUser
 	} from '$lib/ui/icons';
 	import EditorToolIcon from '$lib/ui/EditorToolIcon.svelte';
+	import EditorMobileHeader from '$lib/ui/EditorMobileHeader.svelte';
 	import { editorToolFromPath } from '$lib/editor-tools';
 	import '../app.css';
 
@@ -183,8 +184,10 @@
 
 <div style:height="var(--app-height, 100dvh)" class="grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-neutral-950 text-neutral-200 font-sans">
 	<header
+		class:editor-header={editorActive && !!page.params.img}
 		class="z-50 flex items-center justify-between border-b border-neutral-800/50 bg-neutral-950/80 px-3 py-3 backdrop-blur-md sm:px-6"
 	>
+		{#if editorActive && page.params.img}<EditorMobileHeader {triageEnabled} />{/if}
 		<!-- Brand -->
 		<a href="/" class="flex items-center gap-2 sm:gap-3">
 			<img src={logo} alt="GiRAF Logo" class="h-8 w-8 sm:h-9 sm:w-9 rounded-full" />
@@ -276,7 +279,7 @@
 			{#if showNotifications}
 				<div
 					bind:this={notificationsPanel}
-					class="absolute top-11 right-10 z-80 w-80 overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/95 shadow-2xl backdrop-blur-md"
+					class="absolute top-11 right-0 z-80 w-80 max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/95 shadow-2xl backdrop-blur-md lg:right-10"
 				>
 					<div class="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
 						<p class="text-xs font-semibold uppercase tracking-wider text-neutral-400">Notifications</p>
@@ -352,6 +355,11 @@
 </div>
 
 <style>
+	@media (max-width: 1023px) {
+		.editor-header { padding: 0 8px 0 0; gap: 4px; }
+		.editor-header > a, .editor-header > nav, .editor-header > div > a { display: none; }
+		.editor-header > div > button { width: 44px; height: 44px; }
+	}
 	@keyframes running-dot-pulse {
 		0%,
 		100% {

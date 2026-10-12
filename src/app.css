@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 
 @theme {
+  --color-accent: #fb923c;
+  --color-accent-soft: #fed7aa;
   --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
@@ -14,7 +16,7 @@ button {
   gap: 2px;
   padding: 4px;
   border-radius: 999px;
-  background: rgba(60, 40, 40, 0.45);
+  background: rgba(10, 10, 10, 0.85);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -23,6 +25,7 @@ button {
 
 :root {
   color-scheme: dark;
+  accent-color: var(--color-accent);
 }
 
 html, body {

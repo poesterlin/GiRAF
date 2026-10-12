@@ -11,9 +11,12 @@
 	import Slider from '$lib/ui/Slider.svelte';
 	import EditorToolPanel from '$lib/ui/EditorToolPanel.svelte';
 	import EditorZoomControls from '$lib/ui/EditorZoomControls.svelte';
+	import PreviewToggle from '$lib/ui/PreviewToggle.svelte';
+	import PreviewLoading from '$lib/ui/PreviewLoading.svelte';
 	import IconEye from '@tabler/icons-svelte/icons/eye';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
+	import IconX from '@tabler/icons-svelte/icons/x';
 
 	let { data } = $props();
 	let svg = $state<SVGSVGElement>();
@@ -337,12 +340,28 @@
 		if (key === 'feather') feather = value;
 		if (active) commit(spots.map((s, i) => (i === selected ? { ...s, [key]: value } : s)));
 	}
+	function deleteSelectedSpot() {
+		if (!active || adding || drag) return;
+		commit(spots.filter((_, i) => i !== selected));
+		target = undefined;
+	}
+	function handleDeleteKey(event: KeyboardEvent) {
+		if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+		if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+		const element = event.target;
+		if (element instanceof HTMLElement && element.closest('input, textarea, select, [contenteditable], [role="slider"]')) return;
+		if (!active || adding || drag) return;
+		event.preventDefault();
+		deleteSelectedSpot();
+	}
 </script>
+
+<svelte:window onkeydown={handleDeleteKey} />
 
 {#snippet pointBadge(x: number, y: number)}
 	<g transform={`translate(${x} ${y}) scale(${hitRadius / zoom / 22})`} pointer-events="none" role="img" aria-label="Copy source" opacity="0.65">
 		<title>Copy source</title>
-		<g stroke="#a5d6dd" stroke-width="1.25" fill="none">
+		<g stroke="var(--color-accent-soft)" stroke-width="1.25" fill="none">
 			<rect x="-3" y="-3" width="9" height="9" rx="1.5"/><path d="M2-6h-7a1 1 0 0 0-1 1v7"/>
 		</g>
 	</g>
@@ -395,7 +414,7 @@
 								/>
 							{/if}
 							<circle data-spot={index} cx={spot.x} cy={spot.y} r={spot.radius} vector-effect="non-scaling-stroke" />
-							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={spot.radius} stroke={index === selected ? '#67e8f9' : '#aaa'} stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
+							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={spot.radius} stroke={index === selected ? 'var(--color-accent)' : '#aaa'} stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
 							{#if index === selected}
 								{@const labelSize = hitRadius / zoom * 0.5}
 								{@render pointBadge(spot.sourceX, spot.sourceY+spot.radius+labelSize*1.5)}
@@ -438,18 +457,15 @@
 			</div>
 		{/if}
 		<EditorZoomControls {zoom} onzoomout={() => focusAt({ x: view.x + view.width / 2, y: view.y + view.height / 2 }, zoom / 1.5)} onzoomin={() => focusAt(target ?? active ?? { x: dimensions.width / 2, y: dimensions.height / 2 }, zoom * 1.5)} onfit={() => (zoom = 1)}>
-			{#if spots.length}
-				<span class="mx-1 hidden h-5 w-px bg-neutral-700 lg:block" aria-hidden="true"></span>
-				<button class="min-h-11 rounded-full px-3 text-xs font-medium" aria-pressed={showOriginal} onclick={() => (showOriginal = !showOriginal)}><IconEye size={20} /><span>Before</span></button>
-			{/if}
+				<PreviewToggle disabled={!spots.length} pressed={showOriginal} onclick={() => (showOriginal = !showOriginal)} />
 		</EditorZoomControls>
-		{#if loading}<div class="pointer-events-none absolute left-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs" role="status">Updating preview…</div>{/if}
+		<PreviewLoading {loading} overlay />
 		{#if renderError}<p role="alert" class="absolute bottom-3 left-3 right-3 rounded-lg bg-black/80 p-3 text-sm">{renderError}</p>{/if}
 	</div>
-	<EditorToolPanel img={String(data.image.id)} tool="retouch" onundo={() => { edits.undo(); target = undefined; adding = false; showOriginal = false; }} onredo={() => { edits.redo(); target = undefined; adding = false; showOriginal = false; }}>
+	<EditorToolPanel img={String(data.image.id)} tool="retouch" {loading} onundo={() => { edits.undo(); target = undefined; adding = false; showOriginal = false; }} onredo={() => { edits.redo(); target = undefined; adding = false; showOriginal = false; }}>
 		<div class="flex items-center gap-1 rounded-2xl bg-neutral-900/70 p-1" aria-label="Spot selection">
 			<button class="tool shrink-0" class:chosen={adding} aria-label="Add spot" aria-pressed={adding} onclick={addMode}><IconPlus size={18} /></button>
-			<div class="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto p-1" aria-label="Spots">
+			<div class="spot-list flex min-w-0 flex-1 items-center gap-2 overflow-x-auto p-1" aria-label="Spots">
 				{#each spots as spot, i}<button
 						class="icon-tool relative shrink-0 overflow-hidden rounded-full text-xs"
 						class:chosen={!adding && selected === i}
@@ -468,18 +484,16 @@
 						{:else}{i + 1}{/if}
 					</button>{/each}
 			</div>
-			{#if target}<button class="tool text-xs" onclick={addMode}>Cancel source</button>{/if}
-			{#if active && !adding}<button
-					class="icon-tool"
+			{#if target}
+				<button class="icon-tool shrink-0" aria-label="Cancel source" title="Cancel source" onclick={addMode}><IconX size={18} /></button>
+			{:else}<button
+					class="icon-tool shrink-0"
+					disabled={!active || adding}
 					aria-label="Delete selected spot"
-					onclick={() => {
-						commit(spots.filter((_, i) => i !== selected));
-						target = undefined;
-					}}><IconTrash size={18} /></button
+					onclick={deleteSelectedSpot}><IconTrash size={18} /></button
 				>{/if}
 		</div>
-		{#if !showOriginal && (active || adding)}
-			<div class="grid grid-cols-2 gap-2">
+			<fieldset disabled={showOriginal || (!active && !adding)} class="spot-settings grid min-w-0 grid-cols-2 gap-2" aria-label="Spot settings">
 				<Slider
 					label="Size"
 					bind:value={sizeValue}
@@ -492,12 +506,14 @@
 					onchange={(value) => change('radius', value)}
 				/>
 				<Slider label="Feather" bind:value={featherValue} min={0} max={100} step={1} precision={0} unit="%" resetValue={50} onchange={(value) => change('feather', value / 100)} />
-			</div>
-		{/if}
+			</fieldset>
 	</EditorToolPanel>
 </div>
 
 <style>
+	.spot-list { height: 52px; scrollbar-width: none; }
+	.spot-list::-webkit-scrollbar { display: none; }
+	.spot-settings:disabled { opacity: .4; pointer-events: none; }
 	.source-flow { animation: source-flow 1.2s linear infinite; }
 	@keyframes source-flow { to { stroke-dashoffset: -8; } }
 	@media (prefers-reduced-motion: reduce) { .source-flow { animation: none; } }
@@ -549,6 +565,6 @@
 	.control input {
 		min-width: 0;
 		flex: 1;
-		accent-color: white;
+		accent-color: var(--color-accent);
 	}
 </style>

@@ -117,8 +117,8 @@
 
 <svelte:window onkeydown={keydown} onpointerdown={(event) => { if (menu && !menu.contains(event.target as Node)) menu.open = false; }} />
 <nav aria-label="Image navigation" class="relative flex shrink-0 items-center gap-1 border-t border-neutral-800 bg-neutral-900/70 px-3 py-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] text-neutral-300">
-	<button type="button" class="nav-action" aria-label="Previous image" disabled={busy || !page.data.previousImage} onclick={() => navigate(page.data.previousImage)}><IconChevronLeft size={20} /></button>
-	<button type="button" class="nav-action" aria-label="Next image" disabled={busy || !page.data.nextImage} onclick={() => navigate(page.data.nextImage)}><IconChevronRight size={20} /></button>
+	<button type="button" class="nav-action image-step" aria-label="Previous image" disabled={busy || !page.data.previousImage} onclick={() => navigate(page.data.previousImage)}><IconChevronLeft size={20} /></button>
+	<button type="button" class="nav-action image-step" aria-label="Next image" disabled={busy || !page.data.nextImage} onclick={() => navigate(page.data.nextImage)}><IconChevronRight size={20} /></button>
 	<button type="button" class="nav-action" aria-label="Filter gallery" aria-pressed={hasEditorFilters(page.url.searchParams)} disabled={busy} onclick={() => showFilter = true}><IconFilter size={20} /></button>
 	<button type="button" class="relative ml-auto flex min-h-11 w-24 shrink-0 items-center justify-center gap-2 rounded-xl bg-neutral-100 px-3 text-sm font-semibold text-neutral-950 disabled:opacity-50" aria-label="Save edits" disabled={busy} onclick={save}>
 		{#if savedImage === edits.currentImageId && !edits.hasChanges}<IconCheck size={18} />{:else}<IconDeviceFloppy size={18} />{/if}
@@ -141,6 +141,10 @@
 	.nav-action:hover { background: #262626; color: #f5f5f5; }
 	.nav-action:disabled { opacity: .25; }
 	.nav-action:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+	.image-step { color: var(--color-accent); background: #fb923c14; }
+	.image-step:hover:not(:disabled) { color: var(--color-accent-soft); background: #fb923c2e; }
+	.image-step:focus-visible { outline-color: var(--color-accent); }
+	.image-step:disabled { color: #737373; background: transparent; opacity: .5; }
 	.menu-action { display: flex; min-height: 44px; width: 100%; align-items: center; gap: 12px; border-radius: 8px; padding: 0 12px; font-size: 14px; }
 	.menu-action:hover { background: #262626; }
 </style>

@@ -2,10 +2,12 @@
 	import type { Snippet } from 'svelte';
 	import Section from './Section.svelte';
 	import { edits } from '$lib/state/editing.svelte';
+	import { page } from '$app/state';
 	let { title, group, children }: { title: string; group: string; children: Snippet } = $props();
 	const enabled = $derived(!edits.disabledGroups.includes(group));
 </script>
 
+{#if !page.data.hiddenAdjustmentCategories?.includes(group)}
 <div class="adjustment-group relative">
 	<Section {title} section="" showToggle={false}>
 		<fieldset class="min-w-0 space-y-3 border-0 p-0" class:opacity-50={!enabled}>
@@ -28,6 +30,7 @@
 		</span>
 	</button>
 </div>
+{/if}
 
 <style>
 	.bypass { color: #a3a3a3; transition: color 150ms; }

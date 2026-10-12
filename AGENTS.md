@@ -157,6 +157,8 @@ Required in `.env` (see `.env.example`):
 
 ## Docker Deployment
 
+After completing changes, always deploy the local checkout and confirm the editor passes its health check, unless the user explicitly asks not to deploy.
+
 Deploy the local checkout (including local edits) through Traefik:
 
 ```bash

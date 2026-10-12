@@ -19,6 +19,7 @@
 		resetValue?: number;
 		displayValue?: (value: number) => number;
 		compact?: boolean;
+		editable?: boolean;
 	}
 
 	let {
@@ -38,6 +39,7 @@
 		inverseMap = (n) => n,
 		displayValue = (n) => n,
 		compact = false,
+		editable = false,
 	}: Props = $props();
 
 	let wrapperRef: HTMLDivElement;
@@ -128,6 +130,7 @@
 	}
 
 	function handlePointerDown(e: PointerEvent) {
+		if ((e.target as HTMLElement).closest('input[type="number"]')) return;
 		if (e.pointerType !== 'mouse' && maybeHandleDoubleTap(e)) {
 			return;
 		}
@@ -281,6 +284,7 @@
 		<!-- Center mark (only in centered mode) -->
 		{#if centered}
 			<div
+				class:compact-center={compact}
 				class="
           pointer-events-none absolute top-1/2 h-8 w-px
           -translate-x-1/2 -translate-y-1/2
@@ -317,7 +321,11 @@
 			class="pointer-events-none absolute flex items-center justify-between text-xs {compact ? 'inset-x-0 top-1 text-neutral-300' : 'inset-0 px-4 text-white mix-blend-difference sm:text-sm'}"
 		>
 			<span class="font-medium">{label}</span>
-			<span class="tabular-nums">{formatNumber(displayValue(value))}{unit}</span>
+			{#if editable}
+				<span class="pointer-events-auto flex items-center gap-1 tabular-nums">
+					<input type="number" aria-label={`${label} value`} {min} {max} {step} value={linearValue} onchange={(event) => { if (event.currentTarget.value !== '' && Number.isFinite(event.currentTarget.valueAsNumber)) handleInput(event); else event.currentTarget.value = String(linearValue); }} ondblclick={(event) => event.stopPropagation()} class="w-12 rounded bg-transparent text-right text-neutral-100 focus:bg-neutral-800 focus:outline-1 focus:outline-white" />{unit}
+				</span>
+			{:else}<span class="tabular-nums">{formatNumber(displayValue(value))}{unit}</span>{/if}
 		</div>
 
 		{#if compact}
@@ -343,6 +351,9 @@
 </div>
 
 <style>
+	.compact-center { top: auto; bottom: 0; height: 14px; transform: translateX(-50%); }
+	input[type='number'] { appearance: textfield; }
+	input[type='number']::-webkit-inner-spin-button, input[type='number']::-webkit-outer-spin-button { appearance: none; margin: 0; }
 	.saturate-0 {
 		filter: saturate(0);
 	}

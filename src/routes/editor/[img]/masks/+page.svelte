@@ -8,7 +8,8 @@
 	import LocalMasks from '$lib/ui/LocalMasks.svelte';
 	import EditorToolPanel from '$lib/ui/EditorToolPanel.svelte';
 	import EditorZoomControls from '$lib/ui/EditorZoomControls.svelte';
-	import IconEye from '@tabler/icons-svelte/icons/eye';
+	import PreviewToggle from '$lib/ui/PreviewToggle.svelte';
+	import PreviewLoading from '$lib/ui/PreviewLoading.svelte';
 	let { data } = $props();
 	let showOverlay = $state(true);
 	let compare = $state(false);
@@ -36,6 +37,8 @@
 		return toBase64(pp3);
 	});
 	const src = $derived(`/api/images/${data.image.id}/edit?stage=quick&config=${config}`);
+	let settledSrc = $state('');
+	const loading = $derived(settledSrc !== src);
 	$effect(() => {
 		const image = data.image;
 		const pp3 = data.snapshots[0]?.pp3 ?? image.importBaseline ?? BasePP3;
@@ -151,7 +154,7 @@
 		<div bind:this={surface} role="region" aria-label="Mask photo workspace" class="absolute inset-0 touch-none overflow-hidden p-6 lg:p-10" onpointerdown={surfaceDown} onpointermove={surfaceMove} onpointerup={surfaceEnd} onpointercancel={surfaceEnd} onlostpointercapture={surfaceEnd} onwheel={(event) => { event.preventDefault(); setZoom(zoom * (event.deltaY < 0 ? 1.2 : 1 / 1.2), localPoint(event.clientX, event.clientY)); }}>
 			<div class="flex h-full w-full min-h-0 min-w-0 items-center justify-center" bind:clientWidth={viewportWidth} bind:clientHeight={viewportHeight}>
 			<div bind:this={imageArea} class="relative shrink-0" style:width={`${displayWidth}px`} style:height={`${displayWidth / aspect}px`} style:transform={`translate(${pan.x}px, ${pan.y}px) scale(${zoom})`}>
-				<img {src} alt="Photo with local adjustments" class="block h-full w-full object-contain" draggable="false" onload={(event) => { const image = event.currentTarget as HTMLImageElement; aspect = image.naturalWidth / image.naturalHeight; }} />
+				<img {src} alt="Photo with local adjustments" class="block h-full w-full object-contain" draggable="false" onload={(event) => { const image = event.currentTarget as HTMLImageElement; aspect = image.naturalWidth / image.naturalHeight; settledSrc = image.getAttribute('src') ?? ''; }} onerror={(event) => { settledSrc = event.currentTarget.getAttribute('src') ?? ''; }} />
 				{#if showOverlay && !compare}
 					{#each indices as index}
 						{@const w = maskSize(edits.pp3, index, 'width')}
@@ -159,7 +162,7 @@
 						<div class="absolute" style:left={`${50 + Number(edits.pp3.Locallab[`CenterX_${index}`]) / 20}%`} style:top={`${50 + Number(edits.pp3.Locallab[`CenterY_${index}`]) / 20}%`} style:width={`${w}%`} style:height={`${h}%`} style:transform="translate(-50%, -50%)">
 							<button type="button" aria-label={`Move ${edits.pp3.Locallab[`Name_${index}`]}`} aria-pressed={selected === index} class="absolute inset-0 touch-none border-2 border-dashed border-white/50 bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300" class:border-sky-300={selected === index} style:border-radius={edits.pp3.Locallab[`Shape_${index}`] === 'ELI' ? '50%' : '0'} class:opacity-40={!edits.pp3.Locallab[`Activ_${index}`]} onpointerdown={(event) => start(event, index, 'move')} onpointermove={move} onpointerup={finish} onpointercancel={finish} onlostpointercapture={finish} onkeydown={(event) => nudge(event, index)} onclick={() => edits.pp3.Locallab.Selspot = index}>
 								{#if selected === index}
-									<span class="pointer-events-none absolute border border-dotted border-sky-200/60" style:inset={`${(100 - Math.max(0, Math.min(100, Number(edits.pp3.Locallab[`Transit_${index}`] ?? 60)))) / 2}%`} style:border-radius={edits.pp3.Locallab[`Shape_${index}`] === 'ELI' ? '50%' : '0'}></span>
+									<span aria-hidden="true" class="pointer-events-none absolute border border-dotted border-sky-200/80" style:inset={`${Math.max(0, Math.min(100, Number(edits.pp3.Locallab[`Feather_${index}`] ?? 25))) / 2}%`} style:border-radius={edits.pp3.Locallab[`Shape_${index}`] === 'ELI' ? '50%' : '0'}></span>
 								{/if}
 							</button>
 							{#if selected === index}
@@ -173,18 +176,15 @@
 			</div>
 			</div>
 		</div>
-		<EditorZoomControls {zoom} dragging={!!drag} bottom={16 + Math.max(0, (viewportHeight - displayWidth / aspect) / 2)} onzoomout={() => setZoom(zoom / 1.5)} onzoomin={() => setZoom(zoom * 1.5)}>
+		<EditorZoomControls {zoom} dragging={!!drag} bottom={8} onzoomout={() => setZoom(zoom / 1.5)} onzoomin={() => setZoom(zoom * 1.5)}>
 			{#if indices.length}
-			<span class="mx-1 hidden h-5 w-px bg-neutral-700 lg:block" aria-hidden="true"></span>
-			<button class="icon-tool" aria-label="Mask outlines" title="Mask outlines" aria-pressed={showOverlay} onclick={() => showOverlay = !showOverlay}>
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><ellipse cx="12" cy="12" rx="9" ry="7" stroke-dasharray="3 2" /></svg>
-				<span>Mask</span>
-			</button>
-			<button class="tool text-xs" aria-pressed={compare} onclick={() => compare = !compare}><IconEye size={20} /><span>Before</span></button>
+			<PreviewToggle kind="overlay" pressed={showOverlay} onclick={() => showOverlay = !showOverlay} />
+			<PreviewToggle pressed={compare} onclick={() => compare = !compare} />
 			{/if}
 		</EditorZoomControls>
+		<PreviewLoading {loading} overlay />
 	</main>
-	<EditorToolPanel img={String(data.image.id)} tool="masks">
+	<EditorToolPanel img={String(data.image.id)} tool="masks" {loading}>
 		{#if edits.pp3}<LocalMasks onadd={() => { showOverlay = true; compare = false; }} />{/if}
 		{#if saveError}<p role="alert" class="text-sm text-red-300">{saveError}</p>{/if}
 	</EditorToolPanel>
@@ -195,6 +195,10 @@
 	.tool { min-height: 44px; padding: 0 12px; border-radius: 9999px; }
 	.icon-tool:hover, .tool:hover { background: #262626; }
 	.icon-tool:disabled { opacity: .3; }
+	button[aria-label^="Move"][aria-pressed="true"] { border-color: var(--color-accent); }
+	button[aria-label^="Move"]:focus-visible { outline-color: var(--color-accent); }
+	button[aria-label^="Move"] > span { border-color: var(--color-accent-soft); }
+	button[aria-label^="Resize mask"] > span { background: var(--color-accent-soft); }
 	.chosen { background: #f5f5f5; color: #171717; }
 	.tool.chosen:hover, .icon-tool.chosen:hover { background: #e5e5e5; }
 	button:focus-visible, a:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
