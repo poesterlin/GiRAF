@@ -48,7 +48,6 @@
             <form method="POST" action="?/update" use:enhance bind:this={form}>
                 <div class="flex flex-col gap-1 py-3">
                     <Checkbox 
-                        neutral
                         label="Triage Step" 
                         name="triage_enabled" 
                         bind:checked={triageEnabled} 
