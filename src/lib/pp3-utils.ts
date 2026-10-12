@@ -74,19 +74,6 @@ export function stringifyPP3(pp3Object: PP3) {
     return result.trim(); // Remove trailing newline
 }
 
-export function applyPP3Diff(pp3: PP3, diff: PP3) {
-    for (const chapter in diff) {
-        if (!pp3[chapter]) {
-            pp3[chapter] = {};
-        }
-        for (const key in diff[chapter]) {
-            pp3[chapter][key] = diff[chapter][key];
-        }
-    }
-
-    return pp3;
-}
-
 export function diffPP3(base: PP3, target: PP3): PP3 {
     const diff: PP3 = {};
     for (const chapter in target) {

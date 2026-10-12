@@ -59,6 +59,7 @@ class AppState {
         setTimeout(() => {
 			this.toasts = this.toasts.filter((item) => item.id !== id);
         }, action ? 10000 : 3000);
+		return id;
     }
 
 	async markAllNotificationsRead() {

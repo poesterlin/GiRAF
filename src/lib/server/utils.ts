@@ -22,12 +22,6 @@ export function getFileNameFromPath(filePath: string) {
     return filePath.split('/').pop() || '';
 }
 
-export function getFileDirectory(filePath: string) {
-    const parts = filePath.split('/');
-    parts.pop(); // Remove the file name
-    return parts.join('/') || '/'; // Return the directory or root if empty
-}
-
 type SelectedType<Fields extends Record<string, PgColumn | SQL>> = {
     [Property in keyof Fields]:  Fields[Property] extends PgColumn ? GetColumnData<Fields[Property]> : Fields[Property] extends SQL<infer U> ? U : never
 };

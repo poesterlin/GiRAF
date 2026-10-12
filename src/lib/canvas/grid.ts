@@ -165,12 +165,7 @@ export function checkHandleCollision(pp3: PP3<number>, x: number, y: number, hit
     return checkGridCollision(pp3, x, y, hitSlop) ? 'grid' : undefined;
 }
 
-export function getGridCenter(pp3: PP3<number>, { padding }: { padding: number }) {
-    const crop = pp3.Crop;
-    return { x: crop.X + crop.W / 2 + padding, y: crop.Y + crop.H / 2 + padding };
-}
-
-export function checkGridCollision(pp3: PP3<number>, x: number, y: number, hitSlop: number): boolean {
+function checkGridCollision(pp3: PP3<number>, x: number, y: number, hitSlop: number): boolean {
     const crop = pp3.Crop;
     const left = crop.X - hitSlop;
     const top = crop.Y - hitSlop;
@@ -240,7 +235,7 @@ export function moveHandle(
 }
 const round = Math.round;
 
-export function moveGrid(pp3: PP3<number>, dx: number, dy: number) {
+function moveGrid(pp3: PP3<number>, dx: number, dy: number) {
     const crop = pp3.Crop;
     crop.X += dx;
     crop.Y += dy;

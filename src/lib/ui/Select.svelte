@@ -16,7 +16,7 @@
 	let buttonEl = $state<HTMLButtonElement>();
 	let listEl = $state<HTMLUListElement>();
 	let activeIndex = $state(-1);
-	const id = `s-${Math.random().toString(36).slice(2, 9)}`;
+	const id = $props.id();
 
 	// Normalize options to an array preserving original key types
 	let entries = $derived.by(() => {
@@ -105,7 +105,7 @@
 	}
 
 	function scrollActiveIntoView() {
-		const el = listEl?.querySelector(`#${id}-item-${activeIndex}`) as HTMLElement | null;
+		const el = listEl?.children.item(activeIndex);
 		el?.scrollIntoView({ block: 'nearest' });
 	}
 
@@ -136,7 +136,7 @@
 		class="trigger"
 		aria-haspopup="listbox"
 		aria-expanded={open}
-		aria-labelledby={`${id}-label`}
+		aria-label={ariaLabel}
 		aria-disabled={disabled}
 		onclick={toggle}
 		onkeydown={onKeydown}
@@ -153,7 +153,7 @@
 	</button>
 
 	{#if open}
-		<ul bind:this={listEl} class="list z-20" role="listbox" tabindex="0" aria-activedescendant={activeIndex >= 0 ? `${id}-item-${activeIndex}` : undefined} onkeydown={onKeydown}>
+		<ul bind:this={listEl} class="list z-20" role="listbox" aria-label={ariaLabel} tabindex="0" aria-activedescendant={activeIndex >= 0 ? `${id}-item-${activeIndex}` : undefined} onkeydown={onKeydown}>
 			{#each entries as entry, i}
 				<li
 					id={entry.id}

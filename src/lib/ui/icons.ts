@@ -1,11 +1,9 @@
 import IconBell from '@tabler/icons-svelte/icons/bell';
-import IconSettings from '@tabler/icons-svelte/icons/settings';
 import IconUser from '@tabler/icons-svelte/icons/user';
 import IconAdjustmentsHorizontal from '@tabler/icons-svelte/icons/adjustments-horizontal';
 import IconArchive from '@tabler/icons-svelte/icons/archive';
 import IconArrowBackUp from '@tabler/icons-svelte/icons/arrow-back-up';
 import IconArrowForwardUp from '@tabler/icons-svelte/icons/arrow-forward-up';
-import IconCameraFilled from '@tabler/icons-svelte/icons/camera-filled';
 import IconCameraPlus from '@tabler/icons-svelte/icons/camera-plus';
 import IconCheck from '@tabler/icons-svelte/icons/check';
 import IconChevronLeft from '@tabler/icons-svelte/icons/chevron-left';
@@ -34,14 +32,12 @@ export {
 	IconStarFilled,
 	IconFileExport,
 	IconBell,
-	IconSettings,
 	IconUser,
 	IconAdjustmentsHorizontal,
 	IconAdjustmentsFilled,
 	IconArchive,
 	IconArrowBackUp,
 	IconArrowForwardUp,
-	IconCameraFilled,
 	IconCameraPlus,
 	IconGitBranch,
 	IconCheck,

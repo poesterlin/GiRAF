@@ -190,7 +190,7 @@
 </script>
 
 <div
-	class="container group rounded-xl shadow-2xl overflow-hidden border border-neutral-800"
+	class="container group lg:rounded-xl shadow-2xl overflow-hidden border border-neutral-800"
 	bind:this={containerEl}
 	onwheel={onWheel}
 	onpointerdown={onPointerDown}
@@ -239,7 +239,7 @@
 		onpointercancel={onSliderPointerUp}
 		onlostpointercapture={onSliderPointerUp}
 	>
-		<div class="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 backdrop-blur-xl shadow-lg transition-transform hover:scale-110">
+		<div class="flex h-7 w-7 lg:h-10 lg:w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 backdrop-blur-xl shadow-lg transition-transform hover:scale-110">
 			<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white">
 				<path d="m9 18-6-6 6-6"/>
 				<path d="m15 6 6 6-6 6"/>

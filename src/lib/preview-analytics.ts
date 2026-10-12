@@ -1,6 +1,6 @@
 export type PreviewMetrics = Record<string, string | number | boolean>;
 
-export function previewContext(): PreviewMetrics {
+function previewContext(): PreviewMetrics {
 	if (typeof window === 'undefined') return {};
 	const hints = navigator as Navigator & { deviceMemory?: number; connection?: { type?: string; effectiveType?: string; saveData?: boolean; downlink?: number; rtt?: number } };
 	return {

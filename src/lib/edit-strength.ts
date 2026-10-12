@@ -17,6 +17,9 @@ export function scaleEditSettings(settings: PP3, percent: number, whiteBalance: 
 	const result = structuredClone(settings);
 	const strength = normalizeEditStrength(percent) / 100;
 	if (strength === 1) return result;
+	for (const [key, value] of Object.entries(result.Locallab ?? {})) {
+		if (/^(Expcomp|Lightness|Contrast|Chroma)_\d+$/.test(key) && typeof value === 'number') result.Locallab[key] = key.startsWith('Expcomp_') ? value * strength : Math.round(value * strength);
+	}
 	const amounts: Record<string, string[]> = {
 		Exposure: ['Compensation', 'Brightness', 'Contrast', 'Saturation', 'Black', 'HighlightCompr', 'ShadowCompr'],
 		'Shadows_&_Highlights': ['Highlights', 'Shadows'],
@@ -24,6 +27,7 @@ export function scaleEditSettings(settings: PP3, percent: number, whiteBalance: 
 		Local_Contrast: ['Amount'],
 		Dehaze: ['Strength'],
 		PCVignette: ['Strength'],
+		Gradient: ['Strength'],
 		Film_Simulation: ['Strength'],
 		ColorToning: ['Strength'],
 		Sharpening: ['Amount'],
@@ -96,6 +100,8 @@ export function scaleEditSettings(settings: PP3, percent: number, whiteBalance: 
 		}
 	}
 	if (strength === 0) {
+		if (result.Locallab) result.Locallab.Enabled = false;
+		if (result.Gradient) result.Gradient.Enabled = false;
 		if (result.Exposure) result.Exposure.Auto = false;
 		if (wb) wb.Setting = 'Camera';
 		for (const chapter of ['Shadows_&_Highlights', 'Vibrance', 'Local_Contrast', 'Dehaze', 'PCVignette', 'Film_Simulation', 'Sharpening', 'Directional_Pyramid_Denoising', 'HSV_Equalizer', 'Channel_Mixer', 'ColorToning', 'Black_&_White']) {

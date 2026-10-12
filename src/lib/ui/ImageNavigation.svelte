@@ -1,0 +1,146 @@
+<script lang="ts">
+	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
+	import { edits } from '$lib/state/editing.svelte';
+	import { editorFilterQuery, hasEditorFilters, readEditorFilters } from '$lib/editor-filters';
+	import { IconChevronLeft, IconChevronRight, IconFilter, IconCheck, IconDeviceFloppy, IconRestore, IconArchive } from './icons';
+	import BasePP3 from '$lib/assets/client.pp3?raw';
+	import { parsePP3 } from '$lib/pp3-utils';
+	import { resetEditorTool } from '$lib/editor-reset';
+	import { editorToolFromPath, editorToolUrl } from '$lib/editor-tools';
+	import FilterModal from './FilterModal.svelte';
+	import { app } from '$lib/state/app.svelte';
+	import { tick } from 'svelte';
+	import type { PP3 } from '$lib/pp3-utils';
+	let savedStyling: { imageId: string; settings: PP3; groups: string[]; strength: number } | undefined;
+	let stylingToast: string | undefined;
+	function captureStyling() {
+		return { imageId: edits.currentImageId!, settings: $state.snapshot(edits.pp3), groups: [...edits.disabledGroups], strength: edits.editStrength };
+	}
+	function dismissStylingToast() {
+		app.toasts = app.toasts.filter(toast => toast.id !== stylingToast);
+		stylingToast = undefined;
+	}
+	let { busy = $bindable(false) }: { busy?: boolean } = $props();
+	let showFilter = $state(false);
+	let navigationError = $state('');
+	let savedImage = $state<string>();
+	let menu = $state<HTMLDetailsElement>();
+	beforeNavigate(() => { if (menu) menu.open = false; dismissStylingToast(); });
+	async function save() {
+		if (busy) return;
+		busy = true; navigationError = '';
+		try {
+			const styling = edits.hasChanges ? captureStyling() : undefined;
+			await edits.snapshot();
+			if (styling) savedStyling = styling;
+			savedImage = edits.currentImageId ?? undefined;
+			await invalidateAll();
+		}
+		catch (error) { navigationError = String(error); }
+		finally { busy = false; }
+	}
+	async function reset() {
+		if (busy) return;
+		if (menu) menu.open = false;
+		busy = true; navigationError = ''; savedImage = undefined;
+		try {
+			await edits.snapshot();
+			const activeTool = tool;
+			const settings = resetEditorTool($state.snapshot(edits.pp3), parsePP3(page.data.image.importBaseline ?? BasePP3), activeTool, parsePP3(BasePP3));
+			if (activeTool === 'adjustments') edits.reset(settings, page.data.image);
+			else { edits.pp3 = settings; edits.pushHistory(true); }
+			await edits.snapshot();
+			await invalidateAll();
+		} catch (error) { navigationError = String(error); }
+		finally { busy = false; }
+	}
+	async function archive() {
+		if (busy) return;
+		if (menu) menu.open = false;
+		busy = true; navigationError = '';
+		try {
+			await edits.snapshot();
+			const response = await fetch(`/api/images/${page.params.img}/archive`, { method: page.data.image.isArchived ? 'DELETE' : 'POST' });
+			if (!response.ok) throw new Error('Could not update photo archive status');
+			await invalidateAll();
+		} catch (error) { navigationError = String(error); }
+		finally { busy = false; }
+	}
+	const tool = $derived(editorToolFromPath(page.url.pathname));
+	const query = $derived(editorFilterQuery(readEditorFilters(page.url.searchParams)));
+	async function navigate(id: number | undefined) {
+		if (!id || busy) return;
+		const destination = editorToolUrl(id, tool, query);
+		busy = true;
+		navigationError = '';
+		try {
+			const sourceId = edits.currentImageId;
+			const styling = edits.hasChanges ? captureStyling() : savedStyling?.imageId === sourceId ? savedStyling : undefined;
+			const offerStyling = id === page.data.nextImage;
+			await edits.snapshot();
+			await goto(destination);
+			await tick();
+			if (styling && offerStyling && edits.currentImageId === String(id)) {
+				savedStyling = undefined;
+				stylingToast = app.addToast('Apply previous styling?', 'info', {
+					label: 'Apply',
+					run: () => {
+						if (busy || edits.currentImageId !== String(id)) return;
+						const settings = resetEditorTool($state.snapshot(edits.pp3), styling.settings, 'adjustments', {});
+						edits.reset(settings, page.data.image, styling.groups, styling.strength);
+						dismissStylingToast();
+					}
+				});
+			}
+		} catch (error) {
+			navigationError = String(error);
+		} finally { busy = false; }
+	}
+	function keydown(event: KeyboardEvent) {
+		if (event.key === 'Escape' && menu) menu.open = false;
+		if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || showFilter || document.querySelector('dialog[open]')) return;
+		if ((event.target as Element)?.closest('input, textarea, select, button, a, summary, [contenteditable], [role="slider"]')) return;
+		const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+		const actions: Record<string, () => void> = {
+			s: () => { void save(); }, r: () => { void reset(); }, a: () => { void archive(); },
+			ArrowLeft: () => { void navigate(page.data.previousImage); },
+			ArrowRight: () => { void navigate(page.data.nextImage); }
+		};
+		if ((page.data.editorError || page.data.hasMatchingImages === false) && !key.startsWith('Arrow')) return;
+		const action = actions[key];
+		if (!action) return;
+		event.preventDefault();
+		action();
+	}
+</script>
+
+<svelte:window onkeydown={keydown} onpointerdown={(event) => { if (menu && !menu.contains(event.target as Node)) menu.open = false; }} />
+<nav aria-label="Image navigation" class="relative flex shrink-0 items-center gap-1 border-t border-neutral-800 bg-neutral-900/70 px-3 py-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] text-neutral-300">
+	<button type="button" class="nav-action" aria-label="Previous image" disabled={busy || !page.data.previousImage} onclick={() => navigate(page.data.previousImage)}><IconChevronLeft size={20} /></button>
+	<button type="button" class="nav-action" aria-label="Next image" disabled={busy || !page.data.nextImage} onclick={() => navigate(page.data.nextImage)}><IconChevronRight size={20} /></button>
+	<button type="button" class="nav-action" aria-label="Filter gallery" aria-pressed={hasEditorFilters(page.url.searchParams)} disabled={busy} onclick={() => showFilter = true}><IconFilter size={20} /></button>
+	<button type="button" class="relative ml-auto flex min-h-11 w-24 shrink-0 items-center justify-center gap-2 rounded-xl bg-neutral-100 px-3 text-sm font-semibold text-neutral-950 disabled:opacity-50" aria-label="Save edits" disabled={busy} onclick={save}>
+		{#if savedImage === edits.currentImageId && !edits.hasChanges}<IconCheck size={18} />{:else}<IconDeviceFloppy size={18} />{/if}
+		{busy ? 'Saving…' : savedImage === edits.currentImageId && !edits.hasChanges ? 'Saved' : 'Save'}
+		{#if edits.hasChanges}<span class="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-neutral-600" aria-label="Unsaved changes"></span>{/if}
+	</button>
+	<details bind:this={menu} class="relative">
+		<summary class="nav-action list-none cursor-pointer" aria-label="More photo actions"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg></summary>
+		<div class="absolute bottom-full right-0 z-50 mb-2 w-44 rounded-xl border border-neutral-700 bg-neutral-900 p-1 shadow-xl">
+			<button type="button" class="menu-action" disabled={busy} onclick={reset}><IconRestore size={18} />Reset edits</button>
+			<button type="button" class="menu-action" disabled={busy} onclick={archive}><IconArchive size={18} />{page.data.image.isArchived ? 'Restore photo' : 'Archive photo'}</button>
+		</div>
+	</details>
+	{#if navigationError}<p role="alert" class="absolute bottom-full left-3 right-3 mb-2 rounded-xl border border-neutral-700 bg-neutral-950 p-3 text-sm text-red-300">{navigationError}</p>{/if}
+</nav>
+{#if showFilter}<FilterModal onClose={() => showFilter = false} />{/if}
+
+<style>
+	.nav-action { display: flex; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; border-radius: 9999px; }
+	.nav-action:hover { background: #262626; color: #f5f5f5; }
+	.nav-action:disabled { opacity: .25; }
+	.nav-action:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+	.menu-action { display: flex; min-height: 44px; width: 100%; align-items: center; gap: 12px; border-radius: 8px; padding: 0 12px; font-size: 14px; }
+	.menu-action:hover { background: #262626; }
+</style>

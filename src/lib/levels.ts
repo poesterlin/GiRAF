@@ -1,7 +1,7 @@
 export type Levels = { black: number; white: number; gamma: number };
 export const defaultLevels: Levels = { black: 0, white: 255, gamma: 1 };
 
-export function normalizeLevels(levels: Levels): Levels {
+function normalizeLevels(levels: Levels): Levels {
 	const black = Math.max(0, Math.min(253, levels.black));
 	return {
 		black,

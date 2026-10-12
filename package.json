@@ -4,6 +4,9 @@
 	"version": "0.1.1",
 	"type": "module",
 	"scripts": {
+		"analyze": "fallow",
+		"analyze:dead-code": "fallow dead-code",
+		"analyze:dupes": "fallow dupes",
 		"test:upload:browser": "bun scripts/upload-browser.integration.ts",
 		"upload:compile": "bun build scripts/raw-upload.ts --compile --outfile dist/raw-upload",
 		"dev": "bunx --bun vite dev",
@@ -37,6 +40,7 @@
 		"eslint": "^9.39.2",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.14.0",
+		"fallow": "3.33.1",
 		"globals": "^16.5.0",
 		"license-checker": "^25.0.1",
 		"playwright": "^1.64.0",

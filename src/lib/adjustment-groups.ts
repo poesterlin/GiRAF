@@ -20,6 +20,7 @@ export const groupNeutralSettings: Record<string, PP3> = {
 	colorMixer: { HSV_Equalizer: { Enabled: false } },
 	colorGrading: { ColorToning: { Enabled: false } },
 	monochrome: { 'Black_&_White': { Enabled: false } },
+	gradientMask: { Gradient: { Enabled: false } },
 	saturation: { Exposure: { Saturation: 0 } }
 };
 

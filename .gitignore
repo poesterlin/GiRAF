@@ -1,4 +1,5 @@
 node_modules
+/.fallow
 
 # Output
 .output

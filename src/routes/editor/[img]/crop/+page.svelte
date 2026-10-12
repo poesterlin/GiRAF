@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { untrack } from 'svelte';
 	import { assert } from '$lib';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
-	import { beforeNavigate, invalidateAll } from '$app/navigation';
+	import { beforeNavigate } from '$app/navigation';
+	import { app } from '$lib/state/app.svelte';
 	import {
 		createInitialCrop,
 		getAutoFillScale,
@@ -15,11 +16,10 @@
 		type Dimensions
 	} from '$lib/canvas/crop';
 	import { checkHandleCollision, drawCropGrid, moveHandle } from '$lib/canvas/grid';
-	import { excludePP3, parsePP3, toBase64, type PP3 } from '$lib/pp3-utils';
+	import { excludePP3, toBase64, type PP3 } from '$lib/pp3-utils';
 	import { edits } from '$lib/state/editing.svelte';
-	import Button from '$lib/ui/Button.svelte';
 	import EditModeNav from '$lib/ui/EditModeNav.svelte';
-	import { IconCheck, IconDeviceFloppy, IconRestore } from '$lib/ui/icons';
+	import EditorTools from '$lib/ui/EditorTools.svelte';
 	import Slider from '$lib/ui/Slider.svelte';
 	
 	let canvasEl = $state<HTMLCanvasElement>();
@@ -40,18 +40,8 @@
 	let imageUrl = $derived(apiPath + `/edit?preview&config=${toBase64(excludePP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
 
 	// TODO: Configure autosave behavior in settings
-	let actionVersion = 0;
-	let confirmationVersion = 0;
-	let resetting = false;
-	onDestroy(() => { actionVersion += 1; });
 	beforeNavigate(() => {
-		actionVersion += 1;
-		confirmationVersion += 1;
-		snapshotSaved = false;
-		resetSaved = false;
-		if(edits.hasChanges) {
-			edits.snapshot();
-		}
+		if (edits.hasChanges) void edits.snapshot().catch(error => app.addToast(String(error), 'error'));
 	});
 
 	$effect(() => {
@@ -77,10 +67,6 @@
 	});
 
 	let moveCursor = $state(false);
-	let snapshotSaved = $state(false);
-	let resetSaved = $state(false);
-	let flashKey = $state<string>();
-	let flashTimer: number | null = null;
 	let imageInfo = $state<{ resolutionX: number; resolutionY: number }>();
 	let hasCrop = $derived(!!edits.pp3?.Crop);
 
@@ -123,6 +109,12 @@
 	function getRotationDeg() {
 		return safeNumber(edits.pp3?.Rotation?.Degree);
 	}
+	$effect(() => {
+		JSON.stringify(edits.pp3?.Crop);
+		edits.pp3?.Rotation?.Degree;
+		const frame = untrack(() => requestAnimationFrame(draw));
+		return () => cancelAnimationFrame(frame);
+	});
 
 	function updateDimensions() {
 		if (!canvasEl || !imgEl) {
@@ -201,58 +193,6 @@
 		drawCropGrid(ctx, scaledPP3, { padding, selected: handle });
 	}
 
-	async function snapshot() {
-		const imageId = edits.currentImageId;
-		const version = actionVersion;
-		await edits.snapshot()
-		if (version !== actionVersion || imageId !== edits.currentImageId) return;
-		snapshotSaved = true;
-		resetSaved = false;
-		const confirmation = ++confirmationVersion;
-
-		setTimeout(() => {
-			if (version !== actionVersion || confirmation !== confirmationVersion) return;
-			snapshotSaved = false;
-		}, 2000);
-	}
-
-	async function reset() {
-		if (resetting) return;
-		resetting = true;
-		const imageId = edits.currentImageId;
-		const version = actionVersion;
-		try {
-			if (edits.hasChanges) {
-				await edits.snapshot();
-			}
-			if (version !== actionVersion || imageId !== edits.currentImageId) return;
-
-			const base = parsePP3(BasePP3);
-			if (edits.pp3) {
-				delete edits.pp3.Crop;
-				edits.pp3.Rotation = base.Rotation;
-				edits.pushHistory();
-			}
-
-			await edits.snapshot();
-			if (version !== actionVersion || imageId !== edits.currentImageId) return;
-			resetSaved = true;
-			snapshotSaved = false;
-			const confirmation = ++confirmationVersion;
-			await invalidateAll();
-
-			setTimeout(() => {
-				if (version !== actionVersion || confirmation !== confirmationVersion) return;
-				resetSaved = false;
-			}, 2000);
-		
-			requestAnimationFrame(() => {
-				if (version === actionVersion && imageId === edits.currentImageId) draw();
-			});
-		} finally {
-			resetting = false;
-		}
-	}
 
 	function move(event: PointerEvent) {
 		if (activePointerId !== null && event.pointerId !== activePointerId) return;
@@ -364,37 +304,9 @@
 		requestAnimationFrame(() => draw());
 	}
 
-	function handleKeyDown(event: KeyboardEvent) {
-		const target = event.target as HTMLElement | null;
-		if (event.repeat) {
-			return;
-		}
-		if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) {
-			return;
-		}
-		const normalizedKey = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-		if (normalizedKey === 's') {
-			event.preventDefault();
-			flashKey = normalizedKey;
-			if (flashTimer) {
-				clearTimeout(flashTimer);
-			}
-			flashTimer = window.setTimeout(() => {
-				if (flashKey === normalizedKey) {
-					flashKey = undefined;
-				}
-			}, 220);
-			snapshot();
-		}
-		if (normalizedKey === 'r') {
-			event.preventDefault();
-			reset();
-		}
-	}
 
 </script>
 
-<svelte:window onkeydown={handleKeyDown} />
 
 <img src={imageUrl} alt="" class="hidden" bind:this={imgEl} onload={draw} />
 
@@ -405,14 +317,6 @@
 			<canvas bind:this={canvasEl} onpointerdown={startMove} onpointermove={move} onpointerup={endMove} onpointercancel={endMove} onlostpointercapture={endMove} aria-label="Crop image: drag corners to resize or drag inside to move" class:cursor-move={moveCursor} class="m-auto touch-none select-none"></canvas>
 		</div>
 		
-		<!-- Desktop Left Nav -->
-		<div class="absolute inset-y-0 left-4 hidden lg:flex flex-col justify-center pointer-events-none">
-			<div class="pointer-events-auto">
-				{#if edits.currentImageId}
-					<EditModeNav showEdit img={edits.currentImageId} />
-				{/if}
-			</div>
-		</div>
 
 	</div>
 
@@ -433,6 +337,9 @@
 
 		<!-- Scrollable Controls -->
 		<div class="min-h-0 flex-1 overflow-y-auto px-4 py-3 lg:px-6 lg:py-6 custom-scrollbar">
+			{#if edits.currentImageId}
+				<div class="mb-6 hidden lg:block"><EditorTools img={edits.currentImageId} currentTool="crop" /></div>
+			{/if}
 			{#if !hasCrop}
 				<button type="button" onclick={startCrop} class="mb-3 w-full rounded-xl border border-neutral-500 bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-100 hover:bg-neutral-800">Start crop</button>
 			{/if}
@@ -465,32 +372,5 @@
 			{/if}
 		</div>
 
-		<!-- Actions Footer -->
-		<div class="shrink-0 border-t border-neutral-800 bg-neutral-900/50 p-3 lg:p-6 backdrop-blur-sm">
-			<div class="grid grid-cols-2 gap-3">
-				<Button onclick={reset} flash={flashKey === 'r'} class="justify-center">
-					<span>Reset</span>
-					{#if resetSaved}
-						<IconCheck size={18} />
-					{:else}
-						<IconRestore size={18} />
-					{/if}
-				</Button>
-
-				<Button onclick={snapshot} flash={flashKey === 's'} class="w-full justify-center bg-neutral-100 hover:bg-neutral-200 border-none py-2.5">
-					<span>Save Crop</span>
-					{#if snapshotSaved}
-						<IconCheck size={18} />
-					{:else}
-						<div class="relative">
-							<IconDeviceFloppy size={16} />
-							{#if edits.hasChanges}
-								<span class="absolute -top-0.5 -right-0.5 block h-1.5 w-1.5 rounded-full bg-neutral-800"></span>
-							{/if}
-						</div>
-					{/if}
-				</Button>
-			</div>
-		</div>
 	</aside>
 </div>

@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { edits } from '$lib/state/editing.svelte';
 	import { untrack } from 'svelte';
+	import ImageNavigation from '$lib/ui/ImageNavigation.svelte';
+	import { page } from '$app/state';
+	import { editorToolFromPath } from '$lib/editor-tools';
+	const tool = $derived(editorToolFromPath(page.url.pathname));
+	let navigationBusy = $state(false);
 
 	let { children } = $props();
 
@@ -10,17 +15,19 @@
 	});
 
 	$effect(() => {
-		// const pp3 = $state.snapshot(edits.throttledPP3);
-		// edits.update(pp3);
-	});
-
-	$effect(() => {
 		if (edits.throttledPP3) {
 			edits.isLoading = true;
 		}
 	});
 </script>
 
-<div class="h-full min-h-0 overflow-hidden">
-	{@render children?.()}
+<div class="editor-layout relative flex h-full min-h-0 flex-col overflow-hidden">
+	<div class="min-h-0 flex-1 overflow-hidden" inert={navigationBusy}>{@render children?.()}</div>
+	<div class="shrink-0 lg:absolute lg:bottom-0 lg:right-0 {tool === 'masks' || tool === 'retouch' ? 'lg:w-80' : 'lg:w-[380px]'}"><ImageNavigation bind:busy={navigationBusy} /></div>
 </div>
+
+<style>
+	@media (min-width: 1024px) {
+		.editor-layout :global(aside) { padding-bottom: 53px; }
+	}
+</style>

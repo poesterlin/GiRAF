@@ -21,7 +21,7 @@ class UploadHttpError extends Error {
 }
 
 /** Only acknowledged chunks count as durable progress; retries still count as wire bytes. */
-export async function uploadRequest<T>(url: string, options: RequestOptions = {}): Promise<T> {
+async function uploadRequest<T>(url: string, options: RequestOptions = {}): Promise<T> {
 	for (let attempt = 0; ; attempt++) {
 		try {
 			return await new Promise<T>((resolve, reject) => {

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { beforeNavigate } from '$app/navigation';
-	import { page } from '$app/state';
 	import { onDestroy, untrack } from 'svelte';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
 	import { edits } from '$lib/state/editing.svelte';
@@ -9,12 +8,12 @@
 	import { readSpotRemoval, writeSpotRemoval } from '$lib/spot-removal';
 	import { suggestSpotSource } from '$lib/spot-source';
 	type Spot = { x: number; y: number; sourceX: number; sourceY: number; radius: number; feather: number; opacity: number };
-	import { IconArrowBackUp, IconArrowForwardUp, IconCheck, IconDeviceFloppy } from '$lib/ui/icons';
 	import Slider from '$lib/ui/Slider.svelte';
+	import EditorToolPanel from '$lib/ui/EditorToolPanel.svelte';
+	import EditorZoomControls from '$lib/ui/EditorZoomControls.svelte';
+	import IconEye from '@tabler/icons-svelte/icons/eye';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
-	import IconMinus from '@tabler/icons-svelte/icons/minus';
-	import IconMaximize from '@tabler/icons-svelte/icons/maximize';
 
 	let { data } = $props();
 	let svg = $state<SVGSVGElement>();
@@ -24,13 +23,11 @@
 	let target = $state<{ x: number; y: number }>();
 	let draft = $state<Spot[]>();
 	let drag: { index: number; source: boolean; pointer: number } | undefined;
-	let saving = $state(false);
-	let saved = $state(false);
 	let imageUrl = $state('');
 	let loading = $state(false);
 	let renderError = $state('');
 	let showOriginal = $state(false);
-	let alive = true;
+	let loadedImageId: number | undefined;
 	let radius = $state(40);
 	let feather = $state(0.5);
 	let hitRadius = $state(100);
@@ -112,7 +109,6 @@
 		showOriginal = false;
 		detail = undefined;
 	}
-	const editorLink = $derived(`/editor/${data.image.id}${page.url.search}`);
 	$effect(() => {
 		if (!svg || !dimensions.width) return;
 		const observer = new ResizeObserver(() => {
@@ -127,9 +123,22 @@
 		const pp3 = data.snapshots[0]?.pp3 ?? data.image.importBaseline ?? BasePP3;
 		untrack(() => {
 			edits.initialize(pp3, image);
+			if (loadedImageId === image.id) return;
+			loadedImageId = image.id;
+			if (imageUrl) URL.revokeObjectURL(imageUrl);
+			imageUrl = '';
 			radius = Math.min(radius, data.maxRadius);
 			selected = -1;
 			target = undefined;
+			zoom = 1;
+			center = { x: 0, y: 0 };
+			pointers.clear();
+			pinch = undefined;
+			gesture = undefined;
+			drag = undefined;
+			draft = undefined;
+			adding = true;
+			showOriginal = false;
 		});
 	});
 	$effect(() => {
@@ -165,7 +174,6 @@
 		};
 	});
 	onDestroy(() => {
-		alive = false;
 		if (imageUrl) URL.revokeObjectURL(imageUrl);
 		if (originalUrl) URL.revokeObjectURL(originalUrl);
 	});
@@ -209,7 +217,6 @@
 			entries: next.map((s) => ({ source: { x: s.sourceX, y: s.sourceY }, target: { x: s.x, y: s.y }, radius: s.radius, feather: s.feather, opacity: s.opacity }))
 		});
 		edits.pushHistory(true);
-		saved = false;
 	}
 	function point(event: PointerEvent) {
 		const matrix = svg?.getScreenCTM();
@@ -330,18 +337,6 @@
 		if (key === 'feather') feather = value;
 		if (active) commit(spots.map((s, i) => (i === selected ? { ...s, [key]: value } : s)));
 	}
-	async function save() {
-		if (saving) return;
-		saving = true;
-		try {
-			await edits.snapshot();
-			if (alive) saved = true;
-		} catch (error) {
-			app.addToast(String(error), 'error');
-		} finally {
-			if (alive) saving = false;
-		}
-	}
 </script>
 
 {#snippet pointBadge(x: number, y: number)}
@@ -442,32 +437,16 @@
 				>
 			</div>
 		{/if}
-		<div class="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center rounded-full border border-neutral-700 bg-black/80 p-1 shadow-xl">
-			<button class="icon-tool" aria-label="Zoom out" disabled={zoom === 1} onclick={() => focusAt({ x: view.x + view.width / 2, y: view.y + view.height / 2 }, zoom / 1.5)}
-				><IconMinus size={18} /></button
-			>
-			<span class="min-w-10 text-center text-xs tabular-nums">{zoom.toFixed(1)}×</span>
-			<button
-				class="icon-tool"
-				aria-label="Zoom in"
-				disabled={zoom === 8}
-				onclick={() => focusAt(target ?? active ?? { x: dimensions.width / 2, y: dimensions.height / 2 }, zoom * 1.5)}><IconPlus size={18} /></button
-			>
-			<div class="hidden lg:block"><button class="icon-tool" aria-label="Fit photo" onclick={() => (zoom = 1)}><IconMaximize size={18} /></button></div>
+		<EditorZoomControls {zoom} onzoomout={() => focusAt({ x: view.x + view.width / 2, y: view.y + view.height / 2 }, zoom / 1.5)} onzoomin={() => focusAt(target ?? active ?? { x: dimensions.width / 2, y: dimensions.height / 2 }, zoom * 1.5)} onfit={() => (zoom = 1)}>
 			{#if spots.length}
-				<span class="mx-1 h-5 w-px bg-neutral-700" aria-hidden="true"></span>
-				<button class="min-h-11 rounded-full px-3 text-xs font-medium" aria-pressed={showOriginal} class:chosen={showOriginal} onclick={() => (showOriginal = !showOriginal)}>Before</button>
+				<span class="mx-1 hidden h-5 w-px bg-neutral-700 lg:block" aria-hidden="true"></span>
+				<button class="min-h-11 rounded-full px-3 text-xs font-medium" aria-pressed={showOriginal} onclick={() => (showOriginal = !showOriginal)}><IconEye size={20} /><span>Before</span></button>
 			{/if}
-		</div>
+		</EditorZoomControls>
 		{#if loading}<div class="pointer-events-none absolute left-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs" role="status">Updating preview…</div>{/if}
 		{#if renderError}<p role="alert" class="absolute bottom-3 left-3 right-3 rounded-lg bg-black/80 p-3 text-sm">{renderError}</p>{/if}
 	</div>
-	<aside class="flex max-h-[50dvh] shrink-0 flex-col gap-2 overflow-y-auto border-t border-neutral-800 p-3 lg:max-h-full lg:w-80 lg:border-l lg:border-t-0 lg:p-5">
-		<div class="flex items-center justify-between">
-			<h1 class="sr-only">Retouch</h1>
-			<div class="min-w-0 flex-1">{@render actions()}</div>
-			<a href={editorLink} class="flex min-h-11 items-center px-3 text-sm">Done</a>
-		</div>
+	<EditorToolPanel img={String(data.image.id)} tool="retouch" onundo={() => { edits.undo(); target = undefined; adding = false; showOriginal = false; }} onredo={() => { edits.redo(); target = undefined; adding = false; showOriginal = false; }}>
 		<div class="flex items-center gap-1 rounded-2xl bg-neutral-900/70 p-1" aria-label="Spot selection">
 			<button class="tool shrink-0" class:chosen={adding} aria-label="Add spot" aria-pressed={adding} onclick={addMode}><IconPlus size={18} /></button>
 			<div class="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto p-1" aria-label="Spots">
@@ -499,38 +478,6 @@
 					}}><IconTrash size={18} /></button
 				>{/if}
 		</div>
-		{#snippet actions()}
-		<div class="secondary-actions flex items-center gap-1">
-			{#if edits.canUndo}
-				<button
-					class="tool"
-					disabled={!edits.canUndo}
-					aria-label="Undo"
-					onclick={() => {
-						edits.undo();
-						target = undefined;
-						adding = false;
-						showOriginal = false;
-					}}><IconArrowBackUp size={20} /></button
-				>
-			{/if}
-			{#if edits.canRedo}
-				<button
-					class="tool"
-					disabled={!edits.canRedo}
-					aria-label="Redo"
-					onclick={() => {
-						edits.redo();
-						target = undefined;
-						adding = false;
-						showOriginal = false;
-					}}><IconArrowForwardUp size={20} /></button
-				>
-			{/if}
-			{#if edits.hasChanges || saving}<button class="tool chosen ml-auto" disabled={saving} onclick={save}><IconDeviceFloppy size={18} />{saving ? 'Saving…' : 'Save'}</button
-				>{:else if saved}<span class="ml-auto flex items-center gap-1 text-xs text-neutral-400"><IconCheck size={16} />Saved</span>{/if}
-		</div>
-		{/snippet}
 		{#if !showOriginal && (active || adding)}
 			<div class="grid grid-cols-2 gap-2">
 				<Slider
@@ -547,15 +494,13 @@
 				<Slider label="Feather" bind:value={featherValue} min={0} max={100} step={1} precision={0} unit="%" resetValue={50} onchange={(value) => change('feather', value / 100)} />
 			</div>
 		{/if}
-	</aside>
+	</EditorToolPanel>
 </div>
 
 <style>
 	.source-flow { animation: source-flow 1.2s linear infinite; }
 	@keyframes source-flow { to { stroke-dashoffset: -8; } }
 	@media (prefers-reduced-motion: reduce) { .source-flow { animation: none; } }
-	.secondary-actions .tool { background: transparent; padding: 8px; }
-	.secondary-actions .chosen { background: #eee; }
 	.retouch-workspace,
 	.retouch-workspace :global(*) {
 		-webkit-user-select: none;
@@ -568,7 +513,10 @@
 		justify-content: center;
 		min-width: 44px;
 		min-height: 44px;
+		border-radius: 9999px;
 	}
+	.icon-tool:hover { background: #262626; }
+	button:focus-visible, a:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 	button:disabled {
 		opacity: 0.3;
 	}

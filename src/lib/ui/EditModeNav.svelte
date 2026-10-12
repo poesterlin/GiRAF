@@ -6,20 +6,19 @@
 	import { page } from '$app/state';
 	import { parsePP3 } from '$lib/pp3-utils';
 	import {
-		IconAdjustmentsHorizontal,
 		IconArrowBackUp,
 		IconArrowForwardUp,
 		IconGitBranch,
 		IconCheck,
 		IconClipboard,
 		IconCopy,
-		IconCrop,
 		IconFlag,
 		IconHistory,
 	} from '$lib/ui/icons';
 	import { IconFlagFilled } from '@tabler/icons-svelte';
 	import IconDots from '@tabler/icons-svelte/icons/dots';
-	import IconBandage from '@tabler/icons-svelte/icons/bandage';
+	import EditorToolIcon from './EditorToolIcon.svelte';
+	import { editorToolUrl } from '$lib/editor-tools';
 	import FlagModal from './FlagModal.svelte';
 	import Tooltip from './Tooltip.svelte';
 	import { edits } from '$lib/state/editing.svelte';
@@ -33,6 +32,9 @@
 		img: string;
 		showSnapshots?: boolean;
 		showCrop?: boolean;
+		showMasks?: boolean;
+		showRetouch?: boolean;
+		horizontal?: boolean;
 		showHistory?: boolean;
 		// showUndoRedo?: boolean;
 		// showReset?: boolean;
@@ -44,14 +46,14 @@
 		isFlagged?: boolean;
 	}
 
-	let { img, showSnapshots, showCrop, showHistory = false, showEdit, showClipboard, showFlag, isFlagged, showLast }: Props = $props();
+	let { img, showSnapshots, showCrop, showMasks = true, showRetouch = true, horizontal = false, showHistory = false, showEdit, showClipboard, showFlag, isFlagged, showLast }: Props = $props();
 
 	let showMore = $state(false);
 	let moreContainer = $state<HTMLDivElement>();
 	let moreButton = $state<HTMLButtonElement>();
 	let isDesktop = $state(false);
 	const moreId = $props.id();
-	const compact = $derived(showHistory && !isDesktop);
+	const compact = $derived(showHistory && (!isDesktop || horizontal));
 	const canLoadLast = $derived(showLast && edits.lastSavedPP3 && edits.hasChanges);
 
 	function closeMore(restoreFocus = false) {
@@ -147,10 +149,12 @@
 	if (browser) {
 		const mediaQuery = window.matchMedia('(min-width: 1024px)');
 		isDesktop = mediaQuery.matches;
-		mediaQuery.addEventListener('change', (e) => (isDesktop = e.matches));
+		const updateDesktop = (event: MediaQueryListEvent) => { isDesktop = event.matches; };
+		mediaQuery.addEventListener('change', updateDesktop);
+		onDestroy(() => mediaQuery.removeEventListener('change', updateDesktop));
 	}
 
-	const tooltipPosition = $derived(isDesktop ? 'right' : 'top');
+	const tooltipPosition = $derived(horizontal ? 'bottom' : isDesktop ? 'right' : 'top');
 	const iconSize = $derived(isDesktop ? 24 : 20);
 	const filterQuery = $derived(editorFilterQuery(readEditorFilters(page.url.searchParams)));
 
@@ -176,38 +180,26 @@
 		}
 	}
 
-	async function checkClipboard() {
-		let pp3Text: string | null = null;
-
-		// TODO: if the permission is not jet set, dont request it
-		const hasPermission = await getClipboardPermissionState();
-		if (hasPermission !== 'granted') {
-			return;
-		}
-
-		// try clipboard readText
-		if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.readText) {
+	async function readConfigClipboard(readSystem = true): Promise<string | null> {
+		if (readSystem && typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
 			try {
 				const txt = await navigator.clipboard.readText();
-				if (txt && txt.trim().length > 0) {
-					pp3Text = txt;
-				}
+				if (txt.trim()) return txt;
 			} catch {
-				// ignore and try localStorage
+				// Device clipboard access may be unavailable; try the saved copy.
 			}
 		}
+		try {
+			const stored = localStorage.getItem('giraf_pp3_clipboard');
+			return stored?.trim() ? stored : null;
+		} catch {
+			return null;
+		}
+	}
 
-		// fallback to localStorage
-		if (!pp3Text) {
-			try {
-				const stored = localStorage.getItem('giraf_pp3_clipboard');
-				if (stored && stored.trim().length > 0) {
-					pp3Text = stored;
-				}
-			} catch {
-				// ignore
-			}
-		}
+	async function checkClipboard() {
+		// Background checks must not prompt for permission to read the clipboard.
+		const pp3Text = await readConfigClipboard(await getClipboardPermissionState() === 'granted');
 
 		if (pp3Text) {
 			try {
@@ -259,31 +251,7 @@
 		const version = ++pasteVersion;
 		pendingPaste = undefined;
 		showCropChoice = false;
-		let pp3Text: string | null = null;
-
-		// try clipboard readText
-		if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.readText) {
-			try {
-				const txt = await navigator.clipboard.readText();
-				if (txt && txt.trim().length > 0) {
-					pp3Text = txt;
-				}
-			} catch {
-				// ignore and try localStorage
-			}
-		}
-
-		// fallback to localStorage
-		if (!pp3Text) {
-			try {
-				const stored = localStorage.getItem('giraf_pp3_clipboard');
-				if (stored && stored.trim().length > 0) {
-					pp3Text = stored;
-				}
-			} catch {
-				// ignore
-			}
-		}
+		const pp3Text = await readConfigClipboard();
 
 		if (!pp3Text) {
 			// nothing to paste
@@ -338,7 +306,7 @@
 
 <svelte:window onfocus={() => checkClipboard()} onkeyup={handleKeyUp} onpointerdown={handleOutsidePointer} onkeydown={handleMoreKeydown} />
 
-<nav class="flex flex-row lg:flex-col items-center gap-1 rounded-full border border-neutral-800/50 bg-neutral-950/40 p-1 backdrop-blur-xl shadow-2xl">
+<nav class="floating-pill {horizontal ? 'flex-row' : 'flex-row lg:flex-col'}">
 
 	<!-- {#if showReset && edits.canUndo}
 		<button
@@ -351,32 +319,35 @@
 	{/if} -->
 
 	<!-- navigation -->
-	{#if (showCrop || showEdit) && !compact}
-		<Tooltip text="Retouch" position={tooltipPosition}><a href="/editor/{img}/retouch{filterQuery}" aria-label="Retouch" class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"><IconBandage size={iconSize}/></a></Tooltip>
+	{#if showMasks && (showCrop || showEdit)}
+		<Tooltip text="Masks" position={tooltipPosition}><a href={editorToolUrl(img, 'masks', filterQuery)} aria-label="Masks" class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"><EditorToolIcon tool="masks" size={iconSize} /></a></Tooltip>
+	{/if}
+	{#if showRetouch && (showCrop || showEdit)}
+		<Tooltip text="Retouch" position={tooltipPosition}><a href={editorToolUrl(img, 'retouch', filterQuery)} aria-label="Retouch" class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"><EditorToolIcon tool="retouch" size={iconSize} /></a></Tooltip>
 	{/if}
 	{#if showCrop}
 		<Tooltip text="Crop & Rotate" position={tooltipPosition}>
 			<a
-				href="/editor/{img}/crop{filterQuery}"
+				href={editorToolUrl(img, 'crop', filterQuery)}
 				aria-label="Crop"
 				class:min-h-11={compact}
 				class:min-w-11={compact}
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
 			>
-				<IconCrop size={iconSize} />
+				<EditorToolIcon tool="crop" size={iconSize} />
 			</a>
 		</Tooltip>
 	{/if}
 	{#if showEdit}
 		<Tooltip text="Adjustments" position={tooltipPosition}>
 			<a
-				href="/editor/{img}{filterQuery}"
+				href={editorToolUrl(img, 'adjustments', filterQuery)}
 				aria-label="Edit"
 				class:min-h-11={compact}
 				class:min-w-11={compact}
 				class="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-full text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90"
 			>
-				<IconAdjustmentsHorizontal size={iconSize} />
+				<EditorToolIcon tool="adjustments" size={iconSize} />
 			</a>
 		</Tooltip>
 	{/if}
@@ -414,8 +385,7 @@
 					<IconDots size={20} />
 				</button>
 				{#if showMore}
-					<div id={moreId} role="group" aria-label="More editing actions" class="absolute right-0 bottom-full z-50 mb-2 max-h-[60dvh] w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950 p-1 text-sm text-neutral-200 shadow-2xl">
-						<a href="/editor/{img}/retouch{filterQuery}" class="more-action" onclick={() => closeMore()}><IconBandage size={20}/>Retouch spots</a>
+					<div id={moreId} role="group" aria-label="More editing actions" class="absolute right-0 {horizontal ? 'top-full mt-2' : 'bottom-full mb-2'} z-50 max-h-[60dvh] w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950 p-1 text-sm text-neutral-200 shadow-2xl">
 						{#if showFlag}
 							<button type="button" class="more-action" onclick={() => { closeMore(true); showFlagModal = true; }}>
 								{#if isFlagged}<IconFlagFilled size={20} />{:else}<IconFlag size={20} />{/if}
@@ -534,6 +504,14 @@
 {/if}
 
 <style>
+	@media (max-width: 1023px) {
+		nav button[aria-label='Undo']:not(:disabled),
+		nav button[aria-label='Redo']:not(:disabled) { color: #f5f5f5; background: #ffffff1a; }
+		:global(.mobile-photo-toolbar) nav { gap: 0; padding: 2px; }
+		:global(.mobile-photo-toolbar) nav :global(button:not(.more-action)),
+		:global(.mobile-photo-toolbar) nav :global(a) { height: 44px; width: 44px; min-height: 44px; min-width: 44px; }
+		:global(.mobile-photo-toolbar) nav :global(svg) { width: 17px; height: 17px; }
+	}
 	.more-action {
 		display: flex;
 		min-height: 44px;

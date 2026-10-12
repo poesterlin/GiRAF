@@ -8,15 +8,15 @@
 	import { app } from '$lib/state/app.svelte';
 	import { edits } from '$lib/state/editing.svelte';
 	import {
-		IconCameraFilled,
 		IconCameraPlus,
 		IconLayoutGrid,
 		IconFlag,
-		IconAdjustmentsHorizontal,
 		IconFileExport,
 		IconBell,
 		IconUser
 	} from '$lib/ui/icons';
+	import EditorToolIcon from '$lib/ui/EditorToolIcon.svelte';
+	import { editorToolFromPath } from '$lib/editor-tools';
 	import '../app.css';
 
 	let { children, data } = $props();
@@ -31,6 +31,7 @@
 	let currentRoute = $derived(page.route?.id);
 	let galleryActive = $derived(currentRoute?.startsWith('/gallery'));
 	let editorActive = $derived(currentRoute?.startsWith('/editor'));
+	const editorTool = $derived(editorToolFromPath(page.url.pathname));
 	let exporterActive = $derived(currentRoute?.startsWith('/exporter'));
 	let importerActive = $derived(currentRoute?.startsWith('/importer'));
 	let triageActive = $derived(currentRoute?.startsWith('/triage'));
@@ -126,6 +127,19 @@
 	}
 
 	onMount(() => {
+		const viewport = window.visualViewport;
+		const updateViewportHeight = () => {
+			if (!viewport || viewport.scale === 1) document.documentElement.style.setProperty('--app-height', `${viewport?.height ?? window.innerHeight}px`);
+		};
+		updateViewportHeight();
+		viewport?.addEventListener('resize', updateViewportHeight);
+		window.addEventListener('resize', updateViewportHeight);
+		return () => {
+			viewport?.removeEventListener('resize', updateViewportHeight);
+			window.removeEventListener('resize', updateViewportHeight);
+		};
+	});
+	onMount(() => {
 		void refreshRunningTasks();
 		void refreshNotifications();
 		runningTasksPollingInterval = setInterval(() => {
@@ -167,7 +181,7 @@
 	<link rel="icon" href={logo} />
 </svelte:head>
 
-<div class="grid h-dvh grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-neutral-950 text-neutral-200 font-sans">
+<div style:height="var(--app-height, 100dvh)" class="grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-neutral-950 text-neutral-200 font-sans">
 	<header
 		class="z-50 flex items-center justify-between border-b border-neutral-800/50 bg-neutral-950/80 px-3 py-3 backdrop-blur-md sm:px-6"
 	>
@@ -224,7 +238,7 @@
 				class:text-neutral-400={!editorActive}
 				class:hover:text-neutral-100={!editorActive}
 			>
-				<IconAdjustmentsHorizontal size={18} />
+				<EditorToolIcon tool={editorTool} size={18} />
 				<span class="hidden md:block">Editor</span>
 			</a>
 			<a
