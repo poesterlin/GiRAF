@@ -157,9 +157,9 @@ Required in `.env` (see `.env.example`):
 
 ## Docker Deployment
 
-After completing changes, always deploy the local checkout and confirm the editor passes its health check, unless the user explicitly asks not to deploy.
+After completing changes, deploy the local checkout and confirm the editor passes its health check only when working directly on the deployment server, unless the user explicitly asks not to deploy. Establish that the current machine is the deployment server from explicit user context or known environment information; having Docker installed or deployment files in the checkout is not sufficient. In other environments, complete local checks and leave deployment to the server. If the environment is uncertain, skip automatic deployment and state that it was not performed.
 
-Deploy the local checkout (including local edits) through Traefik:
+When working directly on the deployment server, deploy the local checkout (including local edits) through Traefik:
 
 ```bash
 docker compose -f docker-compose.yml -f compose.deploy.yaml up -d --build --wait --wait-timeout 180 editor

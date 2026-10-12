@@ -49,6 +49,7 @@
 	let { img, showSnapshots, showCrop, showMasks = true, showRetouch = true, horizontal = false, showHistory = false, showUndoRedo = true, showEdit, showClipboard, showFlag, isFlagged, showLast }: Props = $props();
 
 	let showMore = $state(false);
+	let toolbar = $state<HTMLElement>();
 	let moreContainer = $state<HTMLDivElement>();
 	let moreButton = $state<HTMLButtonElement>();
 	let isDesktop = $state(false);
@@ -277,9 +278,11 @@
 	}
 
 	function handleKeyUp(event: KeyboardEvent) {
-		if (event.target && (event.target as HTMLElement).tagName === 'INPUT') {
-			return; // Ignore key events when focused on input fields
-		}
+		// Desktop and mobile toolbars are mounted together. Only the visible
+		// instance owns shortcuts; a hidden modal would block the visible one.
+		if (!showClipboard || !toolbar?.getClientRects().length || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+		if (document.querySelector('dialog:modal')) return;
+		if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
 		const action = keyMap.get(event.key);
 		if (action) {
 			event.preventDefault();
@@ -306,7 +309,7 @@
 
 <svelte:window onfocus={() => checkClipboard()} onkeyup={handleKeyUp} onpointerdown={handleOutsidePointer} onkeydown={handleMoreKeydown} />
 
-<nav class="floating-pill {horizontal ? 'flex-row' : 'flex-row lg:flex-col'}">
+<nav bind:this={toolbar} class="floating-pill {horizontal ? 'flex-row' : 'flex-row lg:flex-col'}">
 
 	<!-- {#if showReset && edits.canUndo}
 		<button
