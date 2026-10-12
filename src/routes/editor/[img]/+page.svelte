@@ -11,13 +11,8 @@
 	import EditModeNav from '$lib/ui/EditModeNav.svelte';
 	import EditorTools from '$lib/ui/EditorTools.svelte';
 	import LutPicker from '$lib/ui/LutPicker.svelte';
-	import {
-		IconArrowBackUp,
-		IconArrowForwardUp,
-		IconFidgetSpinner,
-		IconFilter
-	} from '$lib/ui/icons';
-	import { fade } from 'svelte/transition';
+	import { IconFilter } from '$lib/ui/icons';
+	import EditorPanelHeader from '$lib/ui/EditorPanelHeader.svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import Adjustments from './Adjustments.svelte';
 	import Snapshots from './Snapshots.svelte';
@@ -164,14 +159,7 @@
 
 	<!-- Controls Panel Section -->
 	<aside class="flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-neutral-800 bg-neutral-950 transition-all duration-300 lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l h-[36dvh] lg:h-auto">
-		<div class="hidden items-center justify-between border-b border-neutral-800 px-6 py-3 lg:flex lg:py-4">
-			<div class="flex items-center gap-3"><div class="h-2 w-2 rounded-full bg-neutral-500"></div><h2 class="text-xs font-bold uppercase tracking-widest text-neutral-400">Adjustments</h2></div>
-			<div class="flex items-center gap-1">
-				{#if edits.isLoading}<div in:fade={{ duration: 200, delay: 200 }} class="mr-2"><IconFidgetSpinner class="animate-spin text-neutral-500" size={16} /></div>{/if}
-				<button onclick={() => edits.undo()} disabled={!edits.canUndo} class="flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200 disabled:pointer-events-none disabled:opacity-25" aria-label="Undo"><IconArrowBackUp size={16} /></button>
-				<button onclick={() => edits.redo()} disabled={!edits.canRedo} class="flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200 disabled:pointer-events-none disabled:opacity-25" aria-label="Redo"><IconArrowForwardUp size={16} /></button>
-			</div>
-		</div>
+		<EditorPanelHeader title="Adjustments" loading={edits.isLoading} />
 
 		<!-- Scrollable Controls -->
 		<div data-adjustment-scroll class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-2 lg:px-6 lg:py-4 custom-scrollbar">

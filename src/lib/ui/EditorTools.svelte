@@ -3,12 +3,14 @@
 	import { editorFilterQuery, readEditorFilters } from '$lib/editor-filters';
 	import { editorTools, editorToolUrl, type EditorTool } from '$lib/editor-tools';
 	import EditorToolIcon from './EditorToolIcon.svelte';
+	import EditorPageTabs from './EditorPageTabs.svelte';
 	let { img, currentTool = 'adjustments' }: { img: string; currentTool?: EditorTool } = $props();
 	const tools = $derived(currentTool === 'adjustments' ? editorTools : [{ tool: 'adjustments' as const, label: 'Adjustments' }, ...editorTools.filter(item => item.tool !== currentTool)]);
 	const query = $derived(editorFilterQuery(readEditorFilters(page.url.searchParams)));
 </script>
 
-<nav aria-label="Editing tools" class="flex w-full items-center gap-3">
+<div class="hidden w-full lg:block"><EditorPageTabs {img} {currentTool} {query} /></div>
+<nav aria-label="Editing tools" class="flex w-full items-center gap-3 lg:hidden">
 	{#each tools as { tool, label }}
 		<a href={editorToolUrl(img, tool, query)}><EditorToolIcon {tool} /><span>{label}</span></a>
 	{/each}

@@ -20,6 +20,7 @@
 	import { edits } from '$lib/state/editing.svelte';
 	import EditModeNav from '$lib/ui/EditModeNav.svelte';
 	import EditorTools from '$lib/ui/EditorTools.svelte';
+	import EditorPanelHeader from '$lib/ui/EditorPanelHeader.svelte';
 	import Slider from '$lib/ui/Slider.svelte';
 	
 	let canvasEl = $state<HTMLCanvasElement>();
@@ -325,7 +326,8 @@
 		class="flex max-h-[45dvh] w-full shrink-0 flex-col border-t border-neutral-800 bg-neutral-950 lg:max-h-none lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l"
 	>
 		<!-- Panel Header -->
-		<div class="flex shrink-0 items-center justify-between border-b border-neutral-800 px-4 py-2 lg:px-6 lg:py-4">
+		<EditorPanelHeader title="Crop & Rotate" />
+		<div class="flex shrink-0 items-center justify-between border-b border-neutral-800 px-4 py-2 lg:hidden">
 			<div class="flex items-center gap-3">
 				<div class="h-2 w-2 rounded-full bg-neutral-500"></div>
 				<h2 class="text-xs font-bold tracking-widest uppercase text-neutral-400">Crop & Rotate</h2>
@@ -336,7 +338,7 @@
 		</div>
 
 		<!-- Scrollable Controls -->
-		<div class="min-h-0 flex-1 overflow-y-auto px-4 py-3 lg:px-6 lg:py-6 custom-scrollbar">
+		<div class="min-h-0 flex-1 overflow-y-auto px-4 py-3 lg:px-6 lg:py-4 custom-scrollbar">
 			{#if edits.currentImageId}
 				<div class="mb-6 hidden lg:block"><EditorTools img={edits.currentImageId} currentTool="crop" /></div>
 			{/if}
