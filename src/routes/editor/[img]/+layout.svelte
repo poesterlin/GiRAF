@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { edits } from '$lib/state/editing.svelte';
-	import { untrack } from 'svelte';
+	import { setContext, untrack } from 'svelte';
+	import { editorHistoryKey, type EditorHistoryActions } from '$lib/editor-history';
 	import ImageNavigation from '$lib/ui/ImageNavigation.svelte';
 	let navigationBusy = $state(false);
+	const historyActions = $state<EditorHistoryActions>({ undo: () => edits.undo(), redo: () => edits.redo(), loading: false });
+	setContext(editorHistoryKey, historyActions);
 
 	let { children } = $props();
 
@@ -25,6 +28,6 @@
 
 <style>
 	@media (min-width: 1024px) {
-		.editor-layout :global(aside) { padding-bottom: 53px; }
+		.editor-layout :global(aside) { padding-bottom: 112px; }
 	}
 </style>

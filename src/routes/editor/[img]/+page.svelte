@@ -13,7 +13,7 @@
 	import EditorMobileToolbar from '$lib/ui/EditorMobileToolbar.svelte';
 	import LutPicker from '$lib/ui/LutPicker.svelte';
 	import { IconFilter } from '$lib/ui/icons';
-	import EditorPanelHeader from '$lib/ui/EditorPanelHeader.svelte';
+	import EditorHistoryBinding from '$lib/ui/EditorHistoryBinding.svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import Adjustments from './Adjustments.svelte';
 	import Snapshots from './Snapshots.svelte';
@@ -82,9 +82,7 @@
 
 	const keyMap = $derived(
 		new Map<string, () => void>([
-			['p', () => showPreview()],
-			['z', () => edits.undo()],
-			['y', () => edits.redo()]
+			['p', () => showPreview()]
 		])
 	);
 
@@ -161,7 +159,7 @@
 	<!-- Controls Panel Section -->
 	<aside class="flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-neutral-800 bg-neutral-950 transition-all duration-300 lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l h-[36dvh] lg:h-auto">
 		<div class="hidden shrink-0 px-6 pt-2 lg:block"><EditorTools img={page.params.img!} /></div>
-		<EditorPanelHeader title="Adjustments" loading={edits.isLoading} />
+		<EditorHistoryBinding loading={edits.isLoading} />
 
 		<!-- Scrollable Controls -->
 		<div data-adjustment-scroll class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain custom-scrollbar">

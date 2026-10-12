@@ -20,7 +20,7 @@
 	import { edits } from '$lib/state/editing.svelte';
 	import EditorTools from '$lib/ui/EditorTools.svelte';
 	import EditorMobileToolbar from '$lib/ui/EditorMobileToolbar.svelte';
-	import EditorPanelHeader from '$lib/ui/EditorPanelHeader.svelte';
+	import EditorHistoryBinding from '$lib/ui/EditorHistoryBinding.svelte';
 	import Slider from '$lib/ui/Slider.svelte';
 	
 	let canvasEl = $state<HTMLCanvasElement>();
@@ -329,7 +329,7 @@
 		{#if edits.currentImageId}
 			<div class="hidden shrink-0 px-6 pt-2 lg:block"><EditorTools img={edits.currentImageId} currentTool="crop" /></div>
 		{/if}
-		<EditorPanelHeader title="Crop & Rotate" />
+		<EditorHistoryBinding loading={edits.isLoading} />
 
 		<!-- Scrollable Controls -->
 		<div class="min-h-0 flex-1 overflow-y-auto custom-scrollbar">

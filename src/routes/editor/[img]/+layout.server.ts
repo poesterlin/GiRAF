@@ -2,7 +2,7 @@ import { db } from '$lib/server/db';
 import { imageTable, snapshotTable } from '$lib/server/db/schema';
 import { editorFilterQuery, readEditorFilters } from '$lib/editor-filters';
 import { error, redirect } from '@sveltejs/kit';
-import { and, asc, desc, eq, exists, gt, isNull, isNotNull, lt, notExists, or } from 'drizzle-orm';
+import { and, asc, count, desc, eq, exists, gt, isNull, isNotNull, lt, notExists, or } from 'drizzle-orm';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ params, url }) => {
@@ -34,14 +34,23 @@ export const load: LayoutServerLoad = async ({ params, url }) => {
 				: or(isNull(imageTable.lastExportedAt), gt(snapshotTable.createdAt, imageTable.lastExportedAt))
 		))));
 	}
-	const [matchingImage, nextImage, previousImage] = await Promise.all([
-		db.query.imageTable.findFirst({ columns: { id: true }, where: and(...filters) }),
+	const beforeCurrent = or(
+		lt(imageTable.recordedAt, image.recordedAt), and(eq(imageTable.recordedAt, image.recordedAt), lt(imageTable.id, image.id))
+	);
+	const [totals, preceding, currentMatch, nextImage, previousImage] = await Promise.all([
+		db.select({ total: count() }).from(imageTable).where(and(...filters)),
+		db.select({ total: count() }).from(imageTable).where(and(...filters, beforeCurrent)),
+		db.query.imageTable.findFirst({ columns: { id: true }, where: and(...filters, eq(imageTable.id, image.id)) }),
 		db.query.imageTable.findFirst({ columns: { id: true }, where: and(...filters, or(
 			gt(imageTable.recordedAt, image.recordedAt), and(eq(imageTable.recordedAt, image.recordedAt), gt(imageTable.id, image.id))
 		)), orderBy: [asc(imageTable.recordedAt), asc(imageTable.id)] }),
-		db.query.imageTable.findFirst({ columns: { id: true }, where: and(...filters, or(
-			lt(imageTable.recordedAt, image.recordedAt), and(eq(imageTable.recordedAt, image.recordedAt), lt(imageTable.id, image.id))
-		)), orderBy: [desc(imageTable.recordedAt), desc(imageTable.id)] })
+		db.query.imageTable.findFirst({ columns: { id: true }, where: and(...filters, beforeCurrent), orderBy: [desc(imageTable.recordedAt), desc(imageTable.id)] })
 	]);
-	return { hasMatchingImages: !!matchingImage, nextImage: nextImage?.id, previousImage: previousImage?.id };
+	return {
+		hasMatchingImages: totals[0].total > 0,
+		matchingImageCount: totals[0].total,
+		currentImagePosition: currentMatch ? preceding[0].total + 1 : null,
+		nextImage: nextImage?.id,
+		previousImage: previousImage?.id
+	};
 };
