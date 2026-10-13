@@ -37,16 +37,18 @@ export const load: LayoutServerLoad = async ({ params, url }) => {
 	const beforeCurrent = or(
 		lt(imageTable.recordedAt, image.recordedAt), and(eq(imageTable.recordedAt, image.recordedAt), lt(imageTable.id, image.id))
 	);
-	const [totals, preceding, currentMatch, nextImage, previousImage] = await Promise.all([
+	const [totals, preceding, currentMatch, nextImage, previousImage, navigationImages] = await Promise.all([
 		db.select({ total: count() }).from(imageTable).where(and(...filters)),
 		db.select({ total: count() }).from(imageTable).where(and(...filters, beforeCurrent)),
 		db.query.imageTable.findFirst({ columns: { id: true }, where: and(...filters, eq(imageTable.id, image.id)) }),
 		db.query.imageTable.findFirst({ columns: { id: true }, where: and(...filters, or(
 			gt(imageTable.recordedAt, image.recordedAt), and(eq(imageTable.recordedAt, image.recordedAt), gt(imageTable.id, image.id))
 		)), orderBy: [asc(imageTable.recordedAt), asc(imageTable.id)] }),
-		db.query.imageTable.findFirst({ columns: { id: true }, where: and(...filters, beforeCurrent), orderBy: [desc(imageTable.recordedAt), desc(imageTable.id)] })
+		db.query.imageTable.findFirst({ columns: { id: true }, where: and(...filters, beforeCurrent), orderBy: [desc(imageTable.recordedAt), desc(imageTable.id)] }),
+		db.query.imageTable.findMany({ columns: { id: true, name: true, version: true, isArchived: true }, where: and(...filters), orderBy: [asc(imageTable.recordedAt), asc(imageTable.id)] })
 	]);
 	return {
+		navigationImages,
 		hasMatchingImages: totals[0].total > 0,
 		matchingImageCount: totals[0].total,
 		currentImagePosition: currentMatch ? preceding[0].total + 1 : null,

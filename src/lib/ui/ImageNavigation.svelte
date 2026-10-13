@@ -14,6 +14,8 @@
 	import { editorHistoryKey, type EditorHistoryActions } from '$lib/editor-history';
 	import Tooltip from './Tooltip.svelte';
 	import PreviewLoading from './PreviewLoading.svelte';
+	import EditorPhotoBrowser from './EditorPhotoBrowser.svelte';
+	import IconPhoto from '@tabler/icons-svelte/icons/photo';
 	import type { PP3 } from '$lib/pp3-utils';
 	let savedStyling: { imageId: string; settings: PP3; groups: string[]; strength: number } | undefined;
 	let stylingToast: string | undefined;
@@ -29,6 +31,11 @@
 	let navigationError = $state('');
 	let savedImage = $state<string>();
 	let menu = $state<HTMLDetailsElement>();
+	let showBrowser = $state(false);
+	let returnToBrowser = $state(false);
+	let browserButton = $state<HTMLButtonElement>();
+	let browserRoot = $state<HTMLDivElement>();
+	function closeBrowser() { showBrowser = false; browserButton?.focus(); }
 	const historyActions = getContext<EditorHistoryActions | undefined>(editorHistoryKey);
 	const filtered = $derived(hasEditorFilters(page.url.searchParams));
 	const editingDisabled = $derived(busy || !!page.data.editorError || page.data.hasMatchingImages === false);
@@ -78,7 +85,7 @@
 	const tool = $derived(editorToolFromPath(page.url.pathname));
 	const query = $derived(editorFilterQuery(readEditorFilters(page.url.searchParams)));
 	async function navigate(id: number | undefined) {
-		if (!id || busy) return;
+		if (!id || busy || id === Number(page.params.img)) return;
 		const destination = editorToolUrl(id, tool, query);
 		busy = true;
 		navigationError = '';
@@ -106,6 +113,8 @@
 		} finally { busy = false; }
 	}
 	function keydown(event: KeyboardEvent) {
+		if (event.key === 'Escape' && showBrowser) { event.preventDefault(); closeBrowser(); return; }
+		if (showBrowser) return;
 		if (event.key === 'Escape' && menu) menu.open = false;
 		if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.altKey) {
 			if (event.defaultPrevented || showFilter || document.querySelector('dialog[open]') || (event.target as Element)?.closest('input, textarea, select, [contenteditable]')) return;
@@ -135,9 +144,10 @@
 	}
 </script>
 
-<svelte:window onkeydown={keydown} onpointerdown={(event) => { if (menu && !menu.contains(event.target as Node)) menu.open = false; }} />
+<svelte:window onkeydown={keydown} onpointerdown={(event) => { if (menu && !menu.contains(event.target as Node)) menu.open = false; if (showBrowser && !browserRoot?.contains(event.target as Node) && !browserButton?.contains(event.target as Node)) showBrowser = false; }} />
 <nav aria-label="Image navigation" class="editor-footer relative shrink-0 border-t border-neutral-800 bg-neutral-950 text-neutral-300">
-	<div class="editing-row hidden items-center justify-between lg:flex" role="group" aria-label="Editing actions">
+	{#if showBrowser}<div bind:this={browserRoot}><EditorPhotoBrowser bind:busy onnavigate={navigate} onclose={closeBrowser} onfilter={() => { returnToBrowser = true; showBrowser = false; showFilter = true; }} /></div>{/if}
+	<div class="editing-row hidden items-center justify-between lg:flex" role="group" aria-label="Editing actions" inert={showBrowser}>
 		<div class="flex items-center gap-1">
 			<Tooltip text="Undo · Z / Ctrl+Z" position="top"><button type="button" class="nav-action" aria-label="Undo" aria-keyshortcuts="Z Control+Z Meta+Z" disabled={editingDisabled || !edits.canUndo} onclick={undo}><IconArrowBackUp size={19} /></button></Tooltip>
 			<Tooltip text="Redo · Y / Ctrl+Shift+Z" position="top"><button type="button" class="nav-action" aria-label="Redo" aria-keyshortcuts="Y Control+Shift+Z Meta+Shift+Z" disabled={editingDisabled || !edits.canRedo} onclick={redo}><IconArrowForwardUp size={19} /></button></Tooltip>
@@ -148,12 +158,13 @@
 			<Tooltip text={page.data.image.isArchived ? 'Restore photo · A' : 'Archive photo · A'} position="left"><button type="button" class="nav-action" aria-label={page.data.image.isArchived ? 'Restore photo' : 'Archive photo'} aria-keyshortcuts="A" disabled={editingDisabled} onclick={archive}>{#if page.data.image.isArchived}<IconRestore size={19} />{:else}<IconArchive size={19} />{/if}</button></Tooltip>
 		</div>
 	</div>
-	<div class="navigation-row flex items-center gap-1">
+	<div class="navigation-row flex items-center gap-1" inert={showBrowser}>
 	<button type="button" class="nav-action image-step" aria-label="Previous image" disabled={busy || !page.data.previousImage} onclick={() => navigate(page.data.previousImage)}><IconChevronLeft size={20} /></button>
-	<div class="image-counter hidden min-w-0 flex-1 items-center justify-center gap-2 lg:flex" aria-live="polite" aria-atomic="true">
+	<button bind:this={browserButton} type="button" class="image-counter min-w-0 flex-1 items-center justify-center gap-2 flex" aria-label="Browse session photos" aria-expanded={showBrowser} aria-controls="editor-photo-browser" title="Browse session photos" onclick={() => showBrowser = !showBrowser}>
+		<IconPhoto size={16} />
 		<span class="tabular-nums"><span class="font-semibold text-neutral-100">{page.data.currentImagePosition ?? '—'}</span><span class="mx-1.5 text-neutral-600">/</span>{page.data.matchingImageCount ?? 0}</span>
 		{#if filtered}<span class="filtered-label text-neutral-500"><span aria-hidden="true">· </span>filtered</span>{/if}
-	</div>
+	</button>
 	<button type="button" class="nav-action image-step" aria-label="Next image" disabled={busy || !page.data.nextImage} onclick={() => navigate(page.data.nextImage)}><IconChevronRight size={20} /></button>
 	<button type="button" class="nav-action filter-action relative lg:ml-2" aria-label={filtered ? 'Filter gallery (active)' : 'Filter gallery'} aria-pressed={filtered} title={filtered ? 'Filter gallery · filters active' : 'Filter gallery'} disabled={busy} onclick={() => showFilter = true}><IconFilter size={20} />{#if filtered}<span class="filter-badge" aria-hidden="true"></span>{/if}</button>
 	<button type="button" class="relative ml-auto flex min-h-11 w-24 shrink-0 items-center justify-center gap-2 rounded-xl bg-neutral-100 px-3 text-sm font-semibold text-neutral-950 disabled:opacity-50 lg:hidden" aria-label="Save edits" disabled={busy} onclick={save}>
@@ -171,11 +182,16 @@
 	</div>
 	{#if navigationError}<p role="alert" class="absolute bottom-full left-3 right-3 mb-2 rounded-xl border border-neutral-700 bg-neutral-950 p-3 text-sm text-red-300">{navigationError}</p>{/if}
 </nav>
-{#if showFilter}<FilterModal onClose={() => showFilter = false} />{/if}
+{#if showFilter}<FilterModal onClose={() => { showFilter = false; if (returnToBrowser) { showBrowser = true; returnToBrowser = false; } }} />{/if}
 
 <style>
 	.editor-footer { padding: 4px 12px calc(4px + env(safe-area-inset-bottom)); }
 	.image-counter { font-size: 13px; line-height: 1; white-space: nowrap; }
+	.image-counter { min-height: 44px; border-radius: 8px; cursor: pointer; }
+	.image-counter:hover, .image-counter[aria-expanded='true'] { background: #303030; color: white; }
+	.image-counter:focus-visible { outline: 2px solid white; outline-offset: -2px; }
+	@media (max-width: 1023px) { .image-counter { flex: none; min-width: 44px; } .image-counter > span { display: none; } }
+	.editor-footer { z-index: 45; }
 	.filtered-label { font-size: 11px; }
 	.reset-action { gap: 7px; padding: 0 12px; font-size: 12px; font-weight: 500; }
 	.filter-badge { position: absolute; top: 9px; right: 9px; height: 5px; width: 5px; border-radius: 50%; background: var(--color-accent); box-shadow: 0 0 0 2px #0a0a0a; }
@@ -190,9 +206,9 @@
 	.nav-action:hover:not(:disabled) { background: #262626; color: #f5f5f5; }
 	.nav-action:disabled { opacity: .25; }
 	.nav-action:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-	.image-step { color: var(--color-accent); background: #fb923c14; }
-	.image-step:hover:not(:disabled) { color: var(--color-accent-soft); background: #fb923c2e; }
-	.image-step:focus-visible { outline-color: var(--color-accent); }
+	.image-step { color: #e5e5e5; background: #262626; }
+	.image-step:hover:not(:disabled) { color: #fff; background: #404040; }
+	.image-step:focus-visible { outline-color: #fff; }
 	.image-step:disabled { color: #737373; background: transparent; opacity: .5; }
 	.menu-action { display: flex; min-height: 44px; width: 100%; align-items: center; gap: 12px; border-radius: 8px; padding: 0 12px; font-size: 14px; }
 	.menu-action:hover { background: #262626; }
