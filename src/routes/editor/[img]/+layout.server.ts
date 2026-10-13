@@ -14,7 +14,10 @@ export const load: LayoutServerLoad = async ({ params, url }) => {
 		url.searchParams.delete('uneditedSince');
 		redirect(307, url.pathname + url.search);
 	}
-	const image = await db.query.imageTable.findFirst({ where: eq(imageTable.id, Number(params.img)) });
+	const image = await db.query.imageTable.findFirst({
+		where: eq(imageTable.id, Number(params.img)),
+		with: { session: { columns: { id: true, name: true } } }
+	});
 	if (!image) error(404, { message: 'Image or session not found' });
 	const filters = [eq(imageTable.sessionId, image.sessionId)];
 	if (selectedFilters.newlyImported) {
@@ -48,6 +51,7 @@ export const load: LayoutServerLoad = async ({ params, url }) => {
 		db.query.imageTable.findMany({ columns: { id: true, name: true, version: true, isArchived: true }, where: and(...filters), orderBy: [asc(imageTable.recordedAt), asc(imageTable.id)] })
 	]);
 	return {
+		session: image.session ?? null,
 		navigationImages,
 		hasMatchingImages: totals[0].total > 0,
 		matchingImageCount: totals[0].total,

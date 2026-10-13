@@ -7,16 +7,8 @@
 	import { uploads } from '$lib/state/uploads.svelte';
 	import { app } from '$lib/state/app.svelte';
 	import { edits } from '$lib/state/editing.svelte';
-	import {
-		IconCameraPlus,
-		IconLayoutGrid,
-		IconFlag,
-		IconFileExport,
-		IconBell,
-		IconUser
-	} from '$lib/ui/icons';
-	import EditorToolIcon from '$lib/ui/EditorToolIcon.svelte';
-	import { editorToolFromPath } from '$lib/editor-tools';
+	import FlowNav from '$lib/ui/FlowNav.svelte';
+	import { IconBell, IconUser } from '$lib/ui/icons';
 	import '../app.css';
 
 	let { children, data } = $props();
@@ -29,14 +21,12 @@
 	};
 
 	let currentRoute = $derived(page.route?.id);
-	let galleryActive = $derived(currentRoute?.startsWith('/gallery'));
 	let editorActive = $derived(currentRoute?.startsWith('/editor'));
-	const editorTool = $derived(editorToolFromPath(page.url.pathname));
-	let exporterActive = $derived(currentRoute?.startsWith('/exporter'));
-	let importerActive = $derived(currentRoute?.startsWith('/importer'));
-	let triageActive = $derived(currentRoute?.startsWith('/triage'));
 
 	let triageEnabled = $derived(data.triageEnabled);
+	let sessionName = $derived(
+		(page.data as { session?: { id: number; name: string } | null } | null)?.session?.name ?? null
+	);
 	let showNotifications = $state(false);
 	let notificationsButton: HTMLButtonElement;
 	let notificationsPanel: HTMLDivElement;
@@ -195,65 +185,7 @@
 		</a>
 
 		<!-- Main Nav -->
-		<nav class="flex items-center rounded-full border border-neutral-800/50 bg-neutral-900/40 p-1 shadow-inner">
-			<a
-				href="/importer"
-				class="flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-all sm:px-4"
-				class:bg-neutral-100={importerActive}
-				class:text-neutral-950={importerActive}
-				class:text-neutral-400={!importerActive}
-				class:hover:text-neutral-100={!importerActive}
-			>
-				<IconCameraPlus size={18} />
-				<span class="hidden md:block">Import</span>
-			</a>
-			<a
-				href="/gallery"
-				class="flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-all sm:px-4"
-				class:bg-neutral-100={galleryActive}
-				class:text-neutral-950={galleryActive}
-				class:text-neutral-400={!galleryActive}
-				class:hover:text-neutral-100={!galleryActive}
-			>
-				<IconLayoutGrid size={18} />
-				<span class="hidden md:block">Gallery</span>
-			</a>
-			{#if triageEnabled}
-				<a
-					href="/triage"
-					class="flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-all sm:px-4"
-					class:bg-neutral-100={triageActive}
-					class:text-neutral-950={triageActive}
-					class:text-neutral-400={!triageActive}
-					class:hover:text-neutral-100={!triageActive}
-				>
-					<IconFlag size={18} />
-					<span class="hidden md:block">Triage</span>
-				</a>
-			{/if}
-			<a
-				href="/editor"
-				class="flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-all sm:px-4"
-				class:bg-neutral-100={editorActive}
-				class:text-neutral-950={editorActive}
-				class:text-neutral-400={!editorActive}
-				class:hover:text-neutral-100={!editorActive}
-			>
-				<EditorToolIcon tool={editorTool} size={18} />
-				<span class="hidden md:block">Editor</span>
-			</a>
-			<a
-				href="/exporter"
-				class="flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-all sm:px-4"
-				class:bg-neutral-100={exporterActive}
-				class:text-neutral-950={exporterActive}
-				class:text-neutral-400={!exporterActive}
-				class:hover:text-neutral-100={!exporterActive}
-			>
-				<IconFileExport size={18} />
-				<span class="hidden md:block">Export</span>
-			</a>
-		</nav>
+		<FlowNav {triageEnabled} {sessionName} />
 
 		<!-- Utilities -->
 		<div class="relative flex items-center gap-2">

@@ -15,7 +15,8 @@ export const load: PageServerLoad = async ({ params }) => {
 	const imageId = Number(img);
 
 	const image = await db.query.imageTable.findFirst({
-		where: eq(imageTable.id, imageId)
+		where: eq(imageTable.id, imageId),
+		with: { session: { columns: { id: true, name: true } } }
 	});
 
 	if (!image) {
@@ -47,6 +48,7 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	return {
 		image,
+		session: image.session ?? null,
 		snapshotId: snapshot?.id,
 		sessionImages,
 		imageTags: imageTags.map((it) => it.tag),
