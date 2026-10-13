@@ -15,6 +15,7 @@
 	import CreativeAdjustments from '$lib/ui/CreativeAdjustments.svelte';
 	import AdjustmentSubsection from '$lib/ui/AdjustmentSubsection.svelte';
 	import { blackLevelFromPP3, blackLevelToPP3 } from '$lib/black-level';
+	import { limitExpandedGroups } from '$lib/ui/adjustment-expansion';
 
 	interface Props {
 		data: { image: Image; snapshots: Snapshot[] };
@@ -44,7 +45,7 @@
 	}
 </script>
 
-<section class="control-section" data-adjustment-sections>
+<section class="control-section" data-adjustment-sections use:limitExpandedGroups>
 	<div class="mb-4 px-1">
 		<Slider compact label="Edit strength" bind:value={edits.editStrength} min={0} max={100} step={1} precision={0} unit="%" resetValue={100} onchange={() => edits.pushHistory()} />
 	</div>

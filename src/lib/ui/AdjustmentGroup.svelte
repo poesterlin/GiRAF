@@ -9,7 +9,7 @@
 
 {#if !page.data.hiddenAdjustmentCategories?.includes(group)}
 <div class="adjustment-group relative">
-	<Section {title} section="" showToggle={false}>
+	<Section {title} section="" showToggle={false} groupId={group}>
 		<fieldset class="min-w-0 space-y-3 border-0 p-0" class:opacity-50={!enabled}>
 			{@render children()}
 		</fieldset>

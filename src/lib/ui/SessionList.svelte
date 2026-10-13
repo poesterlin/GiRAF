@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import Scroller from '$lib/ui/Scroller.svelte';
 	import Tooltip from '$lib/ui/Tooltip.svelte';
@@ -75,11 +75,17 @@
 	let pollingIntervals: Record<number, ReturnType<typeof setInterval>> = {};
 
 	$effect(() => {
-		for (const sessionId of initialImports) {
-			importJobStates.add(sessionId);
-			importJobStates = new Set(importJobStates);
-			startImportPolling(sessionId, false);
-		}
+		const pending = initialImports;
+		// Seeding the state here would re-trigger this effect forever, and
+		// restarting the interval on every refresh would stop it ticking.
+		untrack(() => {
+			for (const sessionId of pending) {
+				if (importJobStates.has(sessionId)) continue;
+				importJobStates.add(sessionId);
+				importJobStates = new Set(importJobStates);
+				startImportPolling(sessionId, false);
+			}
+		});
 	});
 
 	onDestroy(() => {

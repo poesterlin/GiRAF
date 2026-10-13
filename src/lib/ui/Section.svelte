@@ -10,9 +10,10 @@
 		children: Snippet<[]>;
 		enabledKey?: string;
 		showToggle?: boolean;
+		groupId?: string;
 	}
 
-	let { title, section, children, enabledKey = 'Enabled', showToggle = true }: Props = $props();
+	let { title, section, children, enabledKey = 'Enabled', showToggle = true, groupId }: Props = $props();
 
 	let enabled = $derived.by(() => {
 		const sectionState = edits.pp3?.[section];
@@ -57,7 +58,7 @@
 </script>
 
 <div class="relative mb-1">
-	<details class="" ontoggle={handleToggle}>
+	<details class="" data-adjustment-group={groupId} ontoggle={handleToggle}>
 		<summary onclick={handleSummaryClick} class="mb-1 flex cursor-pointer items-center rounded-lg bg-neutral-800 px-4 py-2 pr-14 select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-300">
 			<AdjustmentIcon name={title} />
 			<span class="font-medium text-zinc-300 select-none">{title}</span>
