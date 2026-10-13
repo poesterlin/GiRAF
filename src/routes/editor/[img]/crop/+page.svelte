@@ -2,7 +2,6 @@
 	import { untrack } from 'svelte';
 	import { assert } from '$lib';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
-	import { beforeNavigate } from '$app/navigation';
 	import { app } from '$lib/state/app.svelte';
 	import {
 		createInitialCrop,
@@ -39,11 +38,6 @@
 	let lastY = 0;
 	let apiPath = $derived(`/api/images/${data.image.id}`);
 	let imageUrl = $derived(apiPath + `/edit?preview&config=${toBase64(excludePP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
-
-	// TODO: Configure autosave behavior in settings
-	beforeNavigate(() => {
-		if (edits.hasChanges) void edits.snapshot().catch(error => app.addToast(String(error), 'error'));
-	});
 
 	$effect(() => {
 		const latestSnapshot = data.snapshots[0];

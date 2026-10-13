@@ -167,7 +167,7 @@
 							{@const album = item.albums.find((a) => a.integration === integration)}
 							{@const img = integrationLogos[integration]}
 							{#if album}
-								<div class="group/album relative">
+								<div class="album group/album relative">
 									<Tooltip text="View Album on {integration}" position="top">
 										<a
 											href="/api/integrations/{integration}/albums/{album.id}"
@@ -183,8 +183,9 @@
 											e.stopPropagation();
 											albumDeleteId = album.id;
 										}}
-										class="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-white group-hover/album:flex"
+										class="album-unlink absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-white focus-visible:opacity-100"
 										title="Remove Link"
+										aria-label={`Remove ${integration} album link`}
 									>
 										<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
 									</button>
@@ -230,25 +231,20 @@
 
 					</button>
 				{:else}
-					<div class="flex items-center gap-2">
-						{#if item.albums.length > 0}
-							<button
-								onclick={() => exportSession(item.id)}
-								class="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/50 px-6 py-3 text-xs font-bold text-neutral-400 transition-all hover:bg-neutral-800"
-								title="Sync images to albums"
-							>
-								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-								Sync
-							</button>
-						{/if}
-						<button
-							onclick={() => exportSession(item.id)}
-							class="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/50 px-6 py-3 text-xs font-bold text-neutral-500 transition-all hover:bg-neutral-800 hover:text-neutral-100"
-						>
+					{@const hasAlbums = item.albums.length > 0}
+					<button
+						onclick={() => exportSession(item.id)}
+						class="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/50 px-6 py-3 text-xs font-bold text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100"
+						title={hasAlbums ? 'Sync images to albums' : 'Export the session again'}
+					>
+						{#if hasAlbums}
+							<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+							Sync
+						{:else}
 							<IconFileExport size={14} />
 							Re-export
-						</button>
-					</div>
+						{/if}
+					</button>
 				{/if}
 			</div>
 		</div>
@@ -392,3 +388,22 @@
 		</div>
 	</Modal>
 {/if}
+
+<style>
+	/* Touch devices have no hover, so the unlink control stays visible there
+	   and only reveals itself on pointer devices. It stays focusable so the
+	   keyboard can reach it either way. */
+	@media (hover: hover) {
+		.album-unlink {
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity 120ms ease;
+		}
+
+		.album:hover .album-unlink,
+		.album-unlink:focus-visible {
+			opacity: 1;
+			pointer-events: auto;
+		}
+	}
+</style>

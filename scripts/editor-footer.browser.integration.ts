@@ -55,7 +55,9 @@ window.calls = [];
 export const edits = $state({
  currentImageId: '12', pp3: {}, disabledGroups: [], editStrength: 100,
  effectivePP3: {}, canUndo: true, canRedo: true, hasChanges: false,
+ changeRevision: 0, isSaving: false, isFaulty: false,
  updateThrottledPP3: () => {}, snapshot: async () => { window.calls.push('snapshot'); },
+ noteSavedVersion: (imageId, snapshot) => { (window.versions ??= []).push(imageId + ':' + (snapshot?.id ?? 'none')); },
  reset: () => { window.calls.push('reset'); }, pushHistory: () => { window.calls.push('history'); },
  undo: () => { window.calls.push('default-undo'); }, redo: () => { window.calls.push('default-redo'); }
 });
@@ -98,7 +100,9 @@ try {
 		await page.goto(`http://127.0.0.1:${address.port}/?tool=${tool}`);
 		const footer = page.getByRole('navigation', { name: 'Image navigation' });
 		await footer.getByRole('button', { name: 'Undo', exact: true }).waitFor();
-		assert.equal(await footer.getByRole('button', { name: 'Save edits' }).isVisible(), false);
+		assert.equal(await footer.getByRole('button', { name: 'Save edits' }).count(), 0, 'autosave replaces the manual save button');
+		assert.match(await footer.locator('.save-state').innerText(), /Saved|Unsaved|Saving/);
+		assert.deepEqual(await page.evaluate(() => (window as any).versions), ['12:none'], 'autosave learns the newest saved version');
 		assert.equal(await footer.getByLabel('More photo actions').isVisible(), false);
 		assert.match(await footer.locator('.image-counter').innerText(), /12\s*\/\s*148\s*·\s*filtered/);
 		const previous = await footer.getByLabel('Previous image').boundingBox();
@@ -150,7 +154,7 @@ try {
 	}
 	await page.setViewportSize({ width: 390, height: 700 });
 	const footer = page.getByRole('navigation', { name: 'Image navigation' });
-	assert.equal(await footer.getByRole('button', { name: 'Save edits' }).isVisible(), true);
+	assert.match(await footer.locator('.save-state').innerText(), /Saved|Unsaved|Saving/);
 	assert.equal(await footer.getByLabel('More photo actions').isVisible(), true);
 	assert.equal(await footer.getByLabel('Editing actions').isVisible(), false);
 	assert.deepEqual(errors, []);

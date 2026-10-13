@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { beforeNavigate } from '$app/navigation';
 	import { onDestroy, untrack } from 'svelte';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
 	import { edits } from '$lib/state/editing.svelte';
@@ -209,9 +208,6 @@
 			clearTimeout(timer);
 			controller.abort();
 		};
-	});
-	beforeNavigate(() => {
-		if (edits.hasChanges) void edits.snapshot().catch((error) => app.addToast(String(error), 'error'));
 	});
 
 	function commit(next: Spot[]) {

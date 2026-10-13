@@ -1,0 +1,171 @@
+import assert from 'node:assert/strict';
+import { mkdtemp, writeFile, symlink, rm } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { chromium } from 'playwright';
+import { createServer } from 'vite';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
+import tailwindcss from '@tailwindcss/vite';
+
+// Exercise the real autosave loop: the editing state, the version classifier and
+// the snapshot queue, with the server endpoints stubbed by the route handler.
+const root = resolve(import.meta.dir, '..');
+const temporary = await mkdtemp(join(tmpdir(), 'giraf-autosave-'));
+await symlink(join(root, 'node_modules'), join(temporary, 'node_modules'));
+await writeFile(join(temporary, 'index.html'), '<div id="app"></div><script type="module" src="/main.ts"></script>');
+await writeFile(join(temporary, 'fixture.css'), `@import '${root}/src/app.css'; @source '${root}/src';`);
+await writeFile(
+	join(temporary, 'main.ts'),
+	`import './fixture.css'; import { mount } from 'svelte'; import App from './App.svelte'; mount(App, { target: document.querySelector('#app') });`
+);
+await writeFile(
+	join(temporary, 'App.svelte'),
+	`
+<script>
+ import EditorAutosave from '${root}/src/lib/ui/EditorAutosave.svelte';
+ import { edits } from '$lib/state/editing.svelte';
+ import BasePP3 from '${root}/src/lib/assets/client.pp3?raw';
+ const image = { id: 12, whiteBalance: 5500, tint: 0 };
+ edits.initialize(BasePP3, image);
+ window.fixture = {
+  edits,
+  image,
+  navigate: null,
+  edit(chapter, values) {
+   edits.pp3[chapter] = { ...(edits.pp3[chapter] ?? {}), ...values };
+   edits.pushHistory();
+  },
+  leave() {
+   window.fixture.navigate?.();
+  }
+ };
+</script>
+<EditorAutosave />`
+);
+await writeFile(
+	join(temporary, 'context.svelte.ts'),
+	`
+export const page = $state({
+ url: new URL('http://localhost/editor/12'),
+ params: { img: '12' },
+ data: {
+  image: { id: 12, lastExportedAt: null },
+  snapshots: [{ id: 7, createdAt: new Date().toISOString(), pp3: '' }]
+ }
+});
+export const beforeNavigate = (callback) => { window.fixture.navigate = callback; };
+export const invalidateAll = async () => {};
+`
+);
+await writeFile(join(temporary, 'app.ts'), `export const app = { toasts: [], addToast: (message, type) => { window.toasts.push({ message, type }); return 'toast'; } };`);
+const server = await createServer({
+	root: temporary,
+	configFile: false,
+	plugins: [tailwindcss(), svelte({ configFile: false })],
+	resolve: {
+		alias: [
+			{ find: '$lib/state/app.svelte', replacement: join(temporary, 'app.ts') },
+			{ find: /^\$app\/(state|navigation)$/, replacement: join(temporary, 'context.svelte.ts') },
+			{ find: '$lib', replacement: join(root, 'src/lib') },
+			{ find: '$app/environment', replacement: join(temporary, 'app.ts') }
+		]
+	},
+	server: { host: '127.0.0.1', port: 0, fs: { allow: [root, temporary] } }
+});
+
+type Save = { method: string; body: { pp3: string; snapshotId?: number } };
+let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+try {
+	await server.listen();
+	const address = server.httpServer!.address() as { port: number };
+	browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH });
+	const page = await browser.newPage({ viewport: { width: 1280, height: 700 } });
+	const errors: string[] = [];
+	const saves: Save[] = [];
+	let refuseUpdates = false;
+	let nextId = 70;
+	page.on('pageerror', (error) => errors.push(error.message));
+	await page.addInitScript(() => ((window as any).toasts = []));
+	await page.route('**/api/images/12/snapshots', async (route) => {
+		const request = route.request();
+		const body = request.postDataJSON();
+		saves.push({ method: request.method(), body });
+		if (request.method() === 'PATCH' && refuseUpdates) {
+			await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'Only the latest snapshot can be updated' }) });
+			return;
+		}
+		await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: body.snapshotId ?? ++nextId, createdAt: new Date().toISOString() }) });
+	});
+	async function waitForSaves(target: number, timeout = 8000) {
+		const started = Date.now();
+		while (saves.length < target) {
+			if (Date.now() - started > timeout) throw new Error(`Timed out waiting for ${target} saves, saw ${saves.length}`);
+			await new Promise((resolve) => setTimeout(resolve, 50));
+		}
+	}
+
+	await page.goto(`http://127.0.0.1:${address.port}/`);
+	await page.waitForFunction(() => Boolean((window as any).fixture?.edits?.currentImageId));
+	await page.evaluate(() => {
+		const state = (window as any).fixture.edits;
+		state.noteSavedVersion('12', { id: 7, createdAt: new Date().toISOString(), pp3: state.serialize() }, null);
+	});
+
+	// A still edit waits for the idle delay instead of writing per slider step.
+	await page.evaluate(() => (window as any).fixture.edit('Exposure', { Compensation: 0.2 }));
+	await page.waitForTimeout(600);
+	assert.deepEqual(saves, [], 'autosave must not write while the edit is still moving');
+	await waitForSaves(1);
+	assert.equal(saves.length, 1);
+	assert.equal(saves[0].method, 'PATCH');
+	assert.equal(saves[0].body.snapshotId, 7, 'a small tweak updates the newest version in place');
+
+	// More tweaks keep landing on the same version.
+	await page.evaluate(() => (window as any).fixture.edit('Exposure', { Compensation: 0.4 }));
+	await waitForSaves(2);
+	assert.deepEqual(
+		saves.map((save) => `${save.method} ${save.body.snapshotId ?? ''}`),
+		['PATCH 7', 'PATCH 7']
+	);
+
+	// Structural work earns a version of its own.
+	await page.evaluate(() => (window as any).fixture.edit('Crop', { Enabled: true, X: 40, Y: 20, W: 900, H: 600 }));
+	await waitForSaves(3);
+	assert.equal(saves[2].method, 'POST');
+	assert.equal(saves[2].body.snapshotId, undefined);
+
+	// A version the server no longer accepts is replaced instead of lost.
+	refuseUpdates = true;
+	await page.evaluate(() => (window as any).fixture.edit('Exposure', { Compensation: 0.6 }));
+	await waitForSaves(5);
+	assert.deepEqual(
+		saves.slice(3).map((save) => save.method),
+		['PATCH', 'POST']
+	);
+	refuseUpdates = false;
+
+	// Leaving the editor flushes whatever is still pending.
+	const pending = await page.evaluate(() => {
+		const fixture = (window as any).fixture;
+		fixture.edit('Exposure', { Compensation: 0.9 });
+		const before = fixture.edits.hasChanges;
+		fixture.leave();
+		return before;
+	});
+	assert.equal(pending, true);
+	await waitForSaves(6);
+	assert.equal(await page.evaluate(() => (window as any).fixture.edits.hasChanges), false, 'the pending edit is saved before navigating');
+
+	// Nothing left to save means nothing left to write.
+	const count = saves.length;
+	await page.evaluate(() => (window as any).fixture.leave());
+	await page.waitForTimeout(500);
+	assert.equal(saves.length, count);
+	assert.deepEqual(await page.evaluate(() => (window as any).toasts), []);
+	assert.deepEqual(errors, []);
+	console.log('PASS: autosave debounces, updates in place, versions structural work, replaces refused versions and flushes on leave');
+} finally {
+	await browser?.close();
+	await server.close();
+	await rm(temporary, { recursive: true, force: true });
+}

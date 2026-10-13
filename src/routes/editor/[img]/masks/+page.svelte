@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { beforeNavigate } from '$app/navigation';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
 	import { edits } from '$lib/state/editing.svelte';
 	import { excludePP3, toBase64 } from '$lib/pp3-utils';
@@ -26,7 +25,6 @@
 	let gesture: { x: number; y: number; panX: number; panY: number } | undefined;
 	let pinch: { distance: number; zoom: number; x: number; y: number; panX: number; panY: number } | undefined;
 	let surface = $state<HTMLDivElement>();
-	let saveError = $state('');
 	let loadedImageId: number | undefined;
 	let drag = $state<{ pointer: number; index: number; action: string; x: number; y: number; centerX: number; centerY: number; width: number; height: number }>();
 	const indices = $derived(edits.pp3 ? maskIndices(edits.pp3) : []);
@@ -38,7 +36,18 @@
 	});
 	const src = $derived(`/api/images/${data.image.id}/edit?stage=quick&config=${config}`);
 	let settledSrc = $state('');
+	let geometryImageId = $state<number>();
+	const geometryReady = $derived(geometryImageId === data.image.id);
 	const loading = $derived(settledSrc !== src);
+	function previewLoaded(event: Event) {
+		const image = event.currentTarget as HTMLImageElement;
+		if (image.getAttribute('src') !== src || !image.naturalWidth || !image.naturalHeight) return;
+		// Publish the photo dimensions and its outline together. A new photo
+		// must not inherit the fallback or previous photo's mask geometry.
+		aspect = image.naturalWidth / image.naturalHeight;
+		geometryImageId = data.image.id;
+		settledSrc = src;
+	}
 	$effect(() => {
 		const image = data.image;
 		const pp3 = data.snapshots[0]?.pp3 ?? image.importBaseline ?? BasePP3;
@@ -48,10 +57,9 @@
 			loadedImageId = image.id;
 			zoom = 1; pan = { x: 0, y: 0 }; pointers.clear(); drag = undefined;
 			gesture = undefined; pinch = undefined; tapStart = undefined; lastTap = undefined;
-			compare = false; showOverlay = true; saveError = '';
+			compare = false; showOverlay = true;
 		});
 	});
-	beforeNavigate(() => { if (edits.hasChanges) void edits.snapshot().catch(error => { saveError = String(error); }); });
 	$effect(() => { if (edits.effectivePP3) edits.updateThrottledPP3(edits.effectivePP3); });
 	function start(event: PointerEvent, index: number, action: string) {
 		if (drag || pinch || !event.isPrimary || event.button !== 0) return;
@@ -153,9 +161,9 @@
 	<main class="relative min-h-0 flex-1 bg-black">
 		<div bind:this={surface} role="region" aria-label="Mask photo workspace" class="absolute inset-0 touch-none overflow-hidden p-6 lg:p-10" onpointerdown={surfaceDown} onpointermove={surfaceMove} onpointerup={surfaceEnd} onpointercancel={surfaceEnd} onlostpointercapture={surfaceEnd} onwheel={(event) => { event.preventDefault(); setZoom(zoom * (event.deltaY < 0 ? 1.2 : 1 / 1.2), localPoint(event.clientX, event.clientY)); }}>
 			<div class="flex h-full w-full min-h-0 min-w-0 items-center justify-center" bind:clientWidth={viewportWidth} bind:clientHeight={viewportHeight}>
-			<div bind:this={imageArea} class="relative shrink-0" style:width={`${displayWidth}px`} style:height={`${displayWidth / aspect}px`} style:transform={`translate(${pan.x}px, ${pan.y}px) scale(${zoom})`}>
-				<img {src} alt="Photo with local adjustments" class="block h-full w-full object-contain" draggable="false" onload={(event) => { const image = event.currentTarget as HTMLImageElement; aspect = image.naturalWidth / image.naturalHeight; settledSrc = image.getAttribute('src') ?? ''; }} onerror={(event) => { settledSrc = event.currentTarget.getAttribute('src') ?? ''; }} />
-				{#if showOverlay && !compare}
+			<div bind:this={imageArea} class="relative shrink-0" class:invisible={!geometryReady} style:width={`${displayWidth}px`} style:height={`${displayWidth / aspect}px`} style:transform={`translate(${pan.x}px, ${pan.y}px) scale(${zoom})`}>
+				<img {src} alt="Photo with local adjustments" class="block h-full w-full object-contain" draggable="false" onload={previewLoaded} onerror={(event) => { settledSrc = event.currentTarget.getAttribute('src') ?? ''; }} />
+				{#if geometryReady && showOverlay && !compare}
 					{#each indices as index}
 						{@const w = maskSize(edits.pp3, index, 'width')}
 						{@const h = maskSize(edits.pp3, index, 'height')}
@@ -186,7 +194,6 @@
 	</main>
 	<EditorToolPanel img={String(data.image.id)} tool="masks" {loading}>
 		{#if edits.pp3}<LocalMasks onadd={() => { showOverlay = true; compare = false; }} />{/if}
-		{#if saveError}<p role="alert" class="text-sm text-red-300">{saveError}</p>{/if}
 	</EditorToolPanel>
 </div>
 

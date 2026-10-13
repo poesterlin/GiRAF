@@ -37,6 +37,7 @@
 	let mouseSelecting = false;
 	let suppressClick = false;
 	let fileInput: HTMLInputElement;
+	let scrollContainer = $state<HTMLDivElement>();
 	let importPollingIntervals: Record<number, ReturnType<typeof setInterval>> = {};
 
 	type ImportJobStatus = 'idle' | 'running' | 'success' | 'error' | 'cancelled';
@@ -115,14 +116,9 @@
 			selectedIds = new Set([...selectedIds, ...rangeIds]);
 		}
 
-		const scrollThreshold = 80;
-		if (touch.clientY < scrollThreshold) {
-			startScrolling('up');
-		} else if (touch.clientY > window.innerHeight - scrollThreshold) {
-			startScrolling('down');
-		} else {
-			stopScrolling();
-		}
+		const edge = autoScrollEdge(touch.clientY);
+		if (edge) startScrolling(edge);
+		else stopScrolling();
 	}
 
 	function handleTouchEnd() {
@@ -165,10 +161,23 @@
 		}
 	}
 
+	/**
+	 * Which edge of the photo list the finger is dragging against. The list
+	 * scrolls inside its own container, so the window edges are irrelevant.
+	 */
+	function autoScrollEdge(clientY: number): 'up' | 'down' | null {
+		if (!scrollContainer) return null;
+		const rect = scrollContainer.getBoundingClientRect();
+		const threshold = Math.min(80, rect.height / 3);
+		if (clientY < rect.top + threshold) return 'up';
+		if (clientY > rect.bottom - threshold) return 'down';
+		return null;
+	}
+
 	function startScrolling(direction: 'up' | 'down') {
 		if (scrollInterval) return;
 		scrollInterval = window.setInterval(() => {
-			window.scrollBy(0, direction === 'up' ? -20 : 20);
+			scrollContainer?.scrollBy({ top: direction === 'up' ? -20 : 20 });
 		}, 50);
 	}
 
@@ -359,6 +368,7 @@
 <div class="flex h-full min-h-0 flex-col bg-black">
 	<div class="h-2 shrink-0 px-6 pt-1 lg:px-12"><UploadProgress /></div>
 	<div
+		bind:this={scrollContainer}
 		class="relative min-h-0 flex-1 overflow-y-auto bg-black p-6 lg:p-12"
 		role="presentation"
 		ondragover={handleDragOver}
@@ -475,6 +485,8 @@
 					{@render empty()}
 				{:else}
 					{#each groupedByDate as group (group.key)}
+						{@const groupSelectable = group.images.filter((item) => !unavailable(item.id))}
+						{@const groupSelected = groupSelectable.length > 0 && groupSelectable.every((item) => selectedIds.has(item.id))}
 						<div class="mb-8 mt-12 flex items-center justify-between">
 							<div class="flex flex-wrap items-center gap-3">
 								<h2 class="text-2xl font-bold tracking-tight text-neutral-100">{group.date}</h2>
@@ -482,8 +494,14 @@
 									<span class="rounded-full bg-neutral-800 px-3 py-1 text-sm font-semibold text-neutral-300" role="status">{group.duplicates} duplicate{group.duplicates === 1 ? '' : 's'}</span>
 								{/if}
 							</div>
-							{#if group.images.length}
-								<button onclick={() => toggleDateSelection(group.images)} class="text-sm font-bold text-neutral-500 hover:text-neutral-100 transition-colors"> Select All </button>
+							{#if groupSelectable.length}
+								<button
+									onclick={() => toggleDateSelection(group.images)}
+									class="text-sm font-bold text-neutral-500 hover:text-neutral-100 transition-colors"
+									aria-pressed={groupSelected}
+								>
+									{groupSelected ? 'Deselect All' : 'Select All'}
+								</button>
 							{/if}
 						</div>
 						<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
@@ -593,6 +611,9 @@
 			class="fixed bottom-10 left-1/2 z-30 -translate-x-1/2 overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-900/90 p-2 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.8)] backdrop-blur-xl transition-all"
 			class:translate-y-32={selectedIds.size === 0}
 			class:opacity-0={selectedIds.size === 0}
+			class:pointer-events-none={selectedIds.size === 0}
+			inert={selectedIds.size === 0}
+			aria-hidden={selectedIds.size === 0}
 		>
 			<div class="flex items-center gap-2">
 				<button onclick={clearSelection} class="rounded-2xl px-6 py-3 text-sm font-bold text-neutral-500 transition-colors hover:text-neutral-100"> Cancel </button>

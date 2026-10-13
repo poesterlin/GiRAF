@@ -7,9 +7,12 @@ import { createEditDocument, normalizeEditStrength, type StrengthWhiteBalance } 
 import { lutPreviewSettings } from '$lib/lut-preview';
 import { EditPreviewScheduler } from '$lib/edit-preview-scheduler';
 import { SnapshotQueue } from '$lib/snapshot-queue';
+import { changedStructuralChapters, pp3EditDistance, snapshotDecision } from '$lib/snapshot-classifier';
 import { creativeDefaults } from '$lib/creative-adjustments';
 
 type EditState = { settings: PP3; disabledGroups: string[]; editStrength: number };
+type SavedVersion = { imageId: string; id: number; createdAt: number; settings: PP3; exported: boolean };
+export type SnapshotOutcome = 'create' | 'update' | 'unchanged';
 
 class EditingState {
 	public currentImageId = $state<string | null>(null);
@@ -31,6 +34,9 @@ class EditingState {
 	});
 	public isLoading = $state(false);
 	public isFaulty = $state(false);
+	public isSaving = $state(false);
+	/** Bumped whenever the edit changes, so autosave can debounce on it. */
+	public changeRevision = $state(0);
 	public hasChanges = $derived(this.currentImageId !== null && this.hasChangesFor(this.currentImageId));
 
 	private history = $state<EditState[]>([]);
@@ -38,6 +44,8 @@ class EditingState {
 	private lastChangeKey: string | null = null;
 	private previewScheduler = new EditPreviewScheduler((settings) => { this.throttledPP3 = settings; });
 	private snapshots = new SnapshotQueue();
+	/** The version autosave updates in place until a meaningful change lands. */
+	private savedVersion = $state.raw<SavedVersion | null>(null);
 
 	private resetPreviewPP3(pp3: PP3) {
 		this.previewScheduler.reset($state.snapshot(pp3));
@@ -165,24 +173,71 @@ class EditingState {
 		return this.historyIndex < this.history.length - 1;
 	}
 
-	async snapshot() {
+	/**
+	 * Records the image's newest saved version. Autosave rewrites it in place
+	 * until the classifier asks for a version of its own.
+	 */
+	noteSavedVersion(imageId: string, snapshot?: { id: number; createdAt: string | Date; pp3: string } | null, exportedAt?: string | Date | null) {
+		if (String(imageId) !== this.currentImageId) return;
+		const current = this.savedVersion;
+		// Stale page data must not move the target back to an older version.
+		if (snapshot && current && current.imageId === String(imageId) && current.id > snapshot.id) return;
+		if (!snapshot) {
+			this.savedVersion = null;
+			return;
+		}
+		const createdAt = new Date(snapshot.createdAt).getTime();
+		this.savedVersion = {
+			imageId: String(imageId),
+			id: snapshot.id,
+			createdAt,
+			settings: parsePP3(snapshot.pp3),
+			exported: !!exportedAt && new Date(exportedAt).getTime() >= createdAt
+		};
+	}
+
+	async snapshot(options: { force?: boolean } = {}): Promise<SnapshotOutcome> {
 		const id = this.currentImageId;
 		assert(id, 'No current image to snapshot');
 
 		if (!this.hasChangesFor(id)) {
-			return;
+			return 'unchanged';
 		}
 
 		const saved = this.captureState();
 		const serialized = stringifyPP3Document(createEditDocument(saved.settings, saved.disabledGroups, saved.editStrength, this.strengthWhiteBalance));
+		const version = this.savedVersion?.imageId === id ? this.savedVersion : undefined;
+		const outcome = options.force || !version
+			? 'create'
+			: snapshotDecision({
+				hasSnapshot: true,
+				ageMs: Date.now() - version.createdAt,
+				exported: version.exported,
+				structural: changedStructuralChapters(version.settings, parsePP3(serialized)).length > 0,
+				distance: pp3EditDistance(version.settings, parsePP3(serialized))
+			});
+
+		this.isSaving = true;
 		try {
-			await this.snapshots.save(id, serialized);
+			const updateTarget = outcome === 'update' && version ? version.id : undefined;
+			const written = await this.snapshots.save(id, serialized, updateTarget);
 			this.baselines[id] = saved;
+			// A save that fell back to a new version moved the target forward.
+			this.savedVersion = {
+				imageId: id,
+				id: written.id,
+				createdAt: new Date(written.createdAt).getTime(),
+				settings: parsePP3(serialized),
+				exported: false
+			};
 			if (this.currentImageId === id) this.isFaulty = false;
 		} catch (error) {
 			if (this.currentImageId === id) this.isFaulty = true;
 			throw error;
+		} finally {
+			if (this.currentImageId === id) this.isSaving = false;
 		}
+		return outcome;
 	}
 
 	pushHistory(separate = false) {
@@ -210,6 +265,8 @@ class EditingState {
 		const groupsChanged = JSON.stringify(prev?.disabledGroups ?? []) !== JSON.stringify(snapshot.disabledGroups);
 		const strengthChanged = prev?.editStrength !== snapshot.editStrength;
 		if (changedCount === 0 && !groupsChanged && !strengthChanged) return;
+		// Autosave debounces on this, so a change must always land here.
+		this.changeRevision += 1;
 
 		let changeKey: string | null = null;
 		if (strengthChanged && changedCount === 0 && !groupsChanged) changeKey = 'editStrength';
@@ -238,6 +295,7 @@ class EditingState {
 		this.lastChangeKey = null;
 		this.applyHistorySnapshot(this.history[this.historyIndex]);
 		this.resetPreviewPP3(this.effectivePP3);
+		this.changeRevision += 1;
 	}
 
 	redo() {
@@ -246,6 +304,7 @@ class EditingState {
 		this.lastChangeKey = null;
 		this.applyHistorySnapshot(this.history[this.historyIndex]);
 		this.resetPreviewPP3(this.effectivePP3);
+		this.changeRevision += 1;
 	}
 
 	hasChangesFor(imageId: string) {

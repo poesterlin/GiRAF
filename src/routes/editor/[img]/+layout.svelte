@@ -3,6 +3,7 @@
 	import { setContext, untrack } from 'svelte';
 	import { editorHistoryKey, type EditorHistoryActions } from '$lib/editor-history';
 	import ImageNavigation from '$lib/ui/ImageNavigation.svelte';
+	import EditorAutosave from '$lib/ui/EditorAutosave.svelte';
 	let navigationBusy = $state(false);
 	const historyActions = $state<EditorHistoryActions>({ undo: () => edits.undo(), redo: () => edits.redo(), loading: false });
 	setContext(editorHistoryKey, historyActions);
@@ -20,6 +21,8 @@
 		}
 	});
 </script>
+
+<EditorAutosave />
 
 <div class="editor-layout relative flex h-full min-h-0 flex-col overflow-hidden">
 	<div class="min-h-0 flex-1 overflow-hidden" inert={navigationBusy}>{@render children?.()}</div>

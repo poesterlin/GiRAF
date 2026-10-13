@@ -64,38 +64,56 @@ page cards.
 
 ## #4 — Smart autosave with a "meaningful change" classifier
 
-Replace the manual save with hands-free autosave: update the latest snapshot
-in-place for minor tweaks, and create a new snapshot row only on a meaningful
-change.
+Hands-free autosave: the latest snapshot is updated in place for minor tweaks,
+and a new snapshot row is created only on a meaningful change.
 
-- Debounced background autosave (~1.5–2s after slider idle), flushed on
-  navigation and tab hide. The mobile-only Save button is removed.
+- Debounced background autosave, two seconds after the edit settles, flushed on
+  navigation, tab hide and page hide. The manual Save button is replaced by a
+  save state in the footer (`Saving…` / `Unsaved` / `Saved`), and `S` still
+  writes a version immediately.
 - **New snapshot (`POST`)** when any of these hold:
   1. It is the first edit on the image.
-  2. The latest snapshot is older than a time threshold (about 10 minutes).
-  3. A structural or categorical change occurs — LUT / film simulation,
-     monochrome toggle, crop or rotation, masks, retouch spots, or a pasted or
-     reset profile.
-  4. Cumulative slider adjustment across categories exceeds a distance threshold
-     from the previous snapshot.
-- **Update in place (`PATCH`)** for small iterative slider refinements within the
-  same active editing pass.
+  2. The latest snapshot has already been exported, or is older than ten
+     minutes.
+  3. A structural change occurs — crop, rotation or other geometry, film
+     simulation / LUT, monochrome, masks, or retouch spots.
+  4. Accumulated slider movement exceeds a distance from the saved version.
+- **Update in place (`PATCH`)** for small iterative refinements within the same
+  version. The server only rewrites the newest snapshot; anything older is
+  refused and the client creates a version instead.
+
+`src/lib/snapshot-classifier.ts` holds the rules with unit tests,
+`src/lib/ui/EditorAutosave.svelte` drives the loop for every editor tool, and
+`src/lib/snapshot-queue.ts` performs the write and the fallback.
+`scripts/editor-autosave.browser.integration.ts` exercises the loop end to end
+against a stubbed endpoint.
+
+Distance counts slider movement in units of "a meaningful part of one field's
+range", with per-field ranges for fields whose stored magnitude says nothing
+about the edit (`Temperature`, `Green`, `Feather`, …) and a whole step for
+curves, thresholds and file names. Structural chapters are excluded from the
+distance because they already force a version.
+
+In-place updates deliberately leave the edited thumbnail alone: it belongs to
+the version that was created, so the gallery can show that render until the next
+version is written. See `edited-gallery-thumbnails.md`.
 
 ## #7 — Importer selection and scroll
 
-To validate on implementation:
-
-1. Bind the inner `overflow-y-auto` scroll container in
-   `src/routes/importer/+page.svelte` and call `scrollContainer.scrollBy(...)`
-   instead of `window.scrollBy(...)` during touch drag-selection.
-2. Add `inert` (when nothing is selected) and `pointer-events-none` to the bottom
-   floating action bar so the hidden bar is not focusable.
-3. Toggle the per-date-group `Select All` ↔ `Deselect All` label when all items in
-   that group are selected.
+1. The inner `overflow-y-auto` container in `src/routes/importer/+page.svelte` is
+   bound, and touch drag-selection scrolls it and measures its edges instead of
+   using the window.
+2. The bottom floating action bar is `inert`, `aria-hidden` and
+   `pointer-events-none` while nothing is selected, so the hidden bar cannot be
+   reached by keyboard or pointer.
+3. The per-date-group toggle reads `Select All` or `Deselect All` and reports its
+   state with `aria-pressed`.
 
 ## #8 — Exporter action cleanup and touch unlink
 
-1. Merge the duplicate `Sync` and `Re-export` buttons in
-   `src/routes/exporter/SessionList.svelte`; both call `exportSession(item.id)`.
-2. Make the external album unlink (`×`) reachable on touch devices instead of
-   relying on desktop-only `group-hover`.
+1. The duplicate `Sync` and `Re-export` buttons in
+   `src/routes/exporter/SessionList.svelte` are one button: `Sync` when the
+   session has albums, `Re-export` when it has none. Both still call
+   `exportSession(item.id)`.
+2. The album unlink is always visible where hover does not exist, revealed on
+   hover or keyboard focus where it does, and labelled for screen readers.

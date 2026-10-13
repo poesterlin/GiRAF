@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { beforeNavigate, invalidateAll } from '$app/navigation';
+	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getPreviewDevice, loadEditorPreview } from '$lib/editor-preview';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
@@ -31,11 +31,6 @@
 	let apiPath = $derived(`/api/images/${data.image.id}`);
 	let beforeImage = $derived(apiPath + `/edit?preview&config=${toBase64(filterPP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
 	let savedImage = $derived(apiPath + `/edit?preview&config=${toBase64(edits.lastSavedDocument || data.snapshots[0]?.pp3 || data.image.importBaseline || BasePP3)}`);
-
-	// TODO: Configure autosave behavior in settings
-	beforeNavigate(() => {
-		if (edits.hasChanges) void edits.snapshot().catch(error => app.addToast(String(error), 'error'));
-	});
 
 	$effect(() => {
 		if (!data.hasMatchingImages || data.editorError) return;

@@ -4,6 +4,12 @@ Saving a snapshot queues a 600-pixel WebP thumbnail rendered from the editor TIF
 with the saved PP3 settings. Generation runs serially in the background, so saving
 does not wait for RawTherapee. Pending saves for the same image are coalesced.
 
+Autosave rewrites the newest snapshot in place for small tweaks and leaves its
+thumbnail untouched, so the gallery keeps showing the render made when that
+version was created. Structural work, a version that is ten minutes old or
+already exported, and a manual save all create a new snapshot and render a fresh
+thumbnail.
+
 Files live in `edited-thumbnails/` beside the editor TIFF and are keyed by image,
 image version and snapshot ID. Publishing uses an atomic rename; an older render
 cannot replace a newer snapshot's thumbnail. The directory shares the TIFF's
