@@ -142,9 +142,14 @@ scripts/ir-benchmark.sh /app/import/photo.RAF /path/to/edit.pp3
 
 - **Disk**: 155 MB per cached photo versus ~4 MB for the existing 1000 px preview TIFF. The cache is
   bounded and evicts LRU, but it is the main cost.
-- **Staleness**: the base bakes camera WB, demosaic and auto exposure at build time. Edits that only
-  change downstream tools (tone curve, levels, colour, LUTs, crop, resize, sharpening) are unaffected.
-  Changing WB or demosaic *from the raw* is not possible once a base exists; the source mtime/size
-  key forces a rebuild if the file changes.
+- **Staleness**: the base bakes camera WB, demosaic and auto exposure at build time. Editor white
+  balance sliders still change the rendered image: RawTherapee applies the requested temperature/tint
+  on top of the base. All downstream tools (tone curve, levels, colour, LUTs, crop, resize,
+  sharpening) are unaffected. What the base does not allow is recomputing white balance from the raw
+  sensor data — WB edits are applied relative to the camera-WB base. This is **not** a change in
+  behaviour: previews and exports already rendered from a camera-WB TIFF before caching existed. The
+  source mtime/size key rebuilds the base if the RAW file changes.
+- **Demosaic**: the demosaic method is fixed when the base is built; changing it requires deleting the
+  cached base.
 - **Correctness**: the base is exactly what the app already renders through, so caching changes no
   pixels. A future RT-core change could serialize the demosaiced buffers for a fully flexible IR.
