@@ -6,6 +6,7 @@
 	import { IconAdjustmentsFilled, IconArchive, IconLayoutGrid, IconTransferIn, IconDeviceFloppy } from '$lib/ui/icons';
 	import type { SessionsResponse } from '../../routes/api/sessions/+server';
 	import { app } from '$lib/state/app.svelte';
+	import ConfirmModal from './ConfirmModal.svelte';
 	import Modal from './Modal.svelte';
 
 	type Session = SessionsResponse['sessions'][number];
@@ -168,17 +169,21 @@
 		scroller?.restore(values);
 	}
 
+	let archiveTarget = $state<number | null>(null);
+
 	async function archiveSession(sessionId: number) {
-		if (!confirm('Are you sure you want to archive this session? This will hide all its images from the gallery.')) {
-			return;
+		archiveTarget = null;
+		try {
+			const res = await fetch(`/api/sessions/${sessionId}/archive`, { method: 'POST' });
+			if (res.ok) {
+				sessions = sessions.filter((s) => s.id !== sessionId);
+				await invalidateAll();
+				return;
+			}
+		} catch (error) {
+			console.error('Failed to archive session', error);
 		}
-		const res = await fetch(`/api/sessions/${sessionId}/archive`, { method: 'POST' });
-		if (res.ok) {
-			sessions = sessions.filter((s) => s.id !== sessionId);
-			await invalidateAll();
-		} else {
-			alert('Failed to archive session.');
-		}
+		app.addToast('Failed to archive session.', 'error');
 	}
 
 	const intl = new Intl.DateTimeFormat('de-DE', {
@@ -230,7 +235,7 @@
 					
 					<Tooltip text="Archive Session" position="top">
 						<button 
-							onclick={() => archiveSession(item.id)} 
+							onclick={() => (archiveTarget = item.id)} 
 							aria-label="Archive Session" 
 							class="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-100"
 						>
@@ -360,3 +365,13 @@
 		loading = false;
 	}}
 ></Scroller>
+
+{#if archiveTarget !== null}
+	<ConfirmModal
+		title="Archive session?"
+		message="This will hide all its images from the gallery."
+		confirmLabel="Archive"
+		onConfirm={() => archiveSession(archiveTarget!)}
+		onCancel={() => (archiveTarget = null)}
+	/>
+{/if}

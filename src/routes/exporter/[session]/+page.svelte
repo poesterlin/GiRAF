@@ -1,12 +1,23 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { invalidate } from '$app/navigation';
+	import { goto, invalidate } from '$app/navigation';
 	import { IconChevronRight, IconChevronLeft, IconX, IconAdjustmentsHorizontal } from '$lib/ui/icons';
 
 	let { data } = $props();
 
 	let currentIndex = $state(0);
 	const currentFilename = $derived(data.images.length ? data.images[currentIndex % data.images.length] : undefined);
+	const exportUrl = (filename: string) => `/api/exporter/sessions/${data.session.id}/${filename}`;
+
+	// Warm the neighbouring exports so stepping through them does not flash empty
+	$effect(() => {
+		if (data.images.length < 2) return;
+		for (const offset of [1, -1]) {
+			const filename = data.images[(currentIndex + offset + data.images.length) % data.images.length];
+			new Image().src = exportUrl(filename);
+		}
+	});
+
 	const currentImageId = $derived(currentFilename ? data.imageIds[currentFilename] : undefined);
 
 	function nextImage() {
@@ -20,12 +31,14 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
+		if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+		if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
 		if (event.key === 'ArrowRight') {
 			nextImage();
 		} else if (event.key === 'ArrowLeft') {
 			prevImage();
 		} else if (event.key === 'Escape') {
-			window.location.href = '/exporter';
+			void goto('/exporter');
 		}
 	}
 
@@ -33,7 +46,7 @@
 		window.addEventListener('keydown', handleKeydown);
 		let refreshing = false;
 		const interval = setInterval(async () => {
-			if (data.downloadReady || refreshing) return;
+			if (data.downloadReady || refreshing || document.visibilityState === 'hidden') return;
 			refreshing = true;
 			try { await invalidate('exporter:session'); } catch (error) {
 				console.error('Failed to refresh export status', error);
@@ -135,7 +148,7 @@
 	{#if data.images.length > 0}
 		<div class="relative flex h-full w-full min-h-0 items-center justify-center px-2 pt-32 pb-20 sm:p-12">
 			<img
-				src={`/api/exporter/sessions/${data.session.id}/${currentFilename}`}
+				src={exportUrl(currentFilename!)}
 				alt={`Exported image ${currentIndex + 1} for session ${data.session.name}`}
 				class="h-full w-full max-w-full max-h-full object-contain"
 			/>

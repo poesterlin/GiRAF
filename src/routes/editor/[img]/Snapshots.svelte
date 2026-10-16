@@ -3,7 +3,9 @@
 	import { page } from '$app/state';
 	import { toBase64 } from '$lib/pp3-utils';
 	import type { Profile, Snapshot } from '$lib/server/db/schema';
+	import { app } from '$lib/state/app.svelte';
 	import { edits } from '$lib/state/editing.svelte';
+	import ConfirmModal from '$lib/ui/ConfirmModal.svelte';
 	import { IconDeviceFloppy, IconTrash } from '$lib/ui/icons';
 	import Modal from '$lib/ui/Modal.svelte';
 	import { preventDefault } from '$lib/ui/utils';
@@ -19,42 +21,50 @@
 	let showSaveAsProfile = $state<number | null>(null);
 	let profileName = $state('');
 
-	async function deleteSnapshot(snapshotId: number) {
-		if (confirm('Are you sure you want to delete this snapshot?')) {
-			await fetch(`/api/images/${page.params.img}/snapshots/${snapshotId}`, {
-				method: 'DELETE'
-			});
-			snapshots = snapshots.filter((s) => s.id !== snapshotId);
+	let pendingDelete = $state<{ kind: 'snapshot' | 'profile'; id: number } | null>(null);
+
+	async function request(url: string, init: RequestInit, failure: string) {
+		try {
+			const response = await fetch(url, init);
+			if (response.ok) return response;
+		} catch (error) {
+			console.error(failure, error);
+		}
+		app.addToast(failure, 'error');
+		return null;
+	}
+
+	async function confirmDelete() {
+		const target = pendingDelete;
+		pendingDelete = null;
+		if (!target) return;
+		if (target.kind === 'snapshot') {
+			if (!(await request(`/api/images/${page.params.img}/snapshots/${target.id}`, { method: 'DELETE' }, 'Failed to delete snapshot.'))) return;
+			snapshots = snapshots.filter((s) => s.id !== target.id);
 			invalidateAll();
+		} else {
+			if (!(await request(`/api/profiles/${target.id}`, { method: 'DELETE' }, 'Failed to delete profile.'))) return;
+			profiles = profiles.filter((p) => p.id !== target.id);
 		}
 	}
 
 	async function saveAsProfile(snapshot: Snapshot) {
-		if (!profileName) return;
-
-		const response = await fetch('/api/profiles', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({ name: profileName, pp3: snapshot.pp3 })
-		});
-
-		if (response.ok) {
-			profiles = [await response.json(), ...profiles];
-			showSaveAsProfile = null;
-			profileName = '';
-			activeTab = 'profiles';
+		const name = profileName.trim();
+		if (!name) {
+			app.addToast('Enter a name for the profile.', 'info');
+			return;
 		}
-	}
 
-	async function deleteProfile(profileId: number) {
-		if (confirm('Are you sure you want to delete this profile?')) {
-			await fetch(`/api/profiles/${profileId}`, {
-				method: 'DELETE'
-			});
-			profiles = profiles.filter((p) => p.id !== profileId);
-		}
+		const response = await request(
+			'/api/profiles',
+			{ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, pp3: snapshot.pp3 }) },
+			'Failed to save profile.'
+		);
+		if (!response) return;
+		profiles = [await response.json(), ...profiles];
+		showSaveAsProfile = null;
+		profileName = '';
+		activeTab = 'profiles';
 	}
 </script>
 
@@ -84,17 +94,17 @@
 						<div class="info">
 							<div class="actions">
 								<button class="action-button" onclick={() => edits.initialize(snapshot.pp3, page.data.image)}>Apply</button>
-								<button class="action-button" onclick={() => (showSaveAsProfile = snapshot.id)}>
+								<button class="action-button" aria-label="Save as profile" title="Save as profile" onclick={() => (showSaveAsProfile = snapshot.id)}>
 									<IconDeviceFloppy size={16} />
 								</button>
-								<button class="action-button" onclick={() => deleteSnapshot(snapshot.id)}>
+								<button class="action-button" aria-label="Delete snapshot" title="Delete snapshot" onclick={() => (pendingDelete = { kind: 'snapshot', id: snapshot.id })}>
 									<IconTrash size={16} />
 								</button>
 							</div>
 						</div>
 						{#if showSaveAsProfile === snapshot.id}
 							<form onsubmit={preventDefault(() => saveAsProfile(snapshot))} class="save-form">
-								<input type="text" bind:value={profileName} placeholder="Profile Name" class="input" />
+								<input type="text" bind:value={profileName} placeholder="Profile Name" aria-label="Profile name" class="input" />
 								<button type="submit" class="rounded-md bg-neutral-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-neutral-700">Save</button>
 							</form>
 						{/if}
@@ -113,7 +123,7 @@
 							<span class="font-semibold">{profile.name}</span>
 							<div class="actions">
 								<button class="action-button" onclick={() => edits.initialize(profile.pp3, page.data.image)}>Apply</button>
-								<button class="action-button" onclick={() => deleteProfile(profile.id)}>
+								<button class="action-button" aria-label="Delete profile" title="Delete profile" onclick={() => (pendingDelete = { kind: 'profile', id: profile.id })}>
 									<IconTrash size={16} />
 								</button>
 							</div>
@@ -126,6 +136,16 @@
 		{/if}
 	</div>
 </Modal>
+
+{#if pendingDelete}
+	<ConfirmModal
+		title={pendingDelete.kind === 'snapshot' ? 'Delete snapshot?' : 'Delete profile?'}
+		message={pendingDelete.kind === 'snapshot' ? 'This snapshot will be permanently removed.' : 'This profile will be removed for all images.'}
+		confirmLabel="Delete"
+		onConfirm={confirmDelete}
+		onCancel={() => (pendingDelete = null)}
+	/>
+{/if}
 
 <style>
 	.list {

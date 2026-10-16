@@ -152,7 +152,7 @@
 	</div>
 
 	<!-- Controls Panel Section -->
-	<aside class="flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-neutral-800 bg-neutral-950 transition-all duration-300 lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l h-[36dvh] lg:h-auto">
+	<aside class="flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-neutral-800 bg-neutral-950 transition-all duration-300 lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l h-[46dvh] lg:h-auto">
 		<div class="hidden shrink-0 px-6 pt-2 lg:block"><EditorTools img={page.params.img!} /></div>
 		<EditorHistoryBinding loading={edits.isLoading} />
 

@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import { beforeNavigate, goto, invalidateAll, preloadData } from '$app/navigation';
 	import { page } from '$app/state';
+	import { app } from '$lib/state/app.svelte';
 	import { tagStore } from '$lib/state/tag.svelte';
 	import FlagModal from '$lib/ui/FlagModal.svelte';
 	import Tooltip from '$lib/ui/Tooltip.svelte';
@@ -43,19 +44,32 @@
 				method: 'POST'
 			});
 			if (res.ok) {
+				app.addToast('Image archived.', 'info', { label: 'Undo', run: () => void undoArchive(imageId) });
 				if (nextImage && navigationVersion === version && data.image.id === imageId) {
 					await goto(`/triage/${nextImage}`, { invalidateAll: true, noScroll: true });
 				} else {
 					await invalidateAll();
 				}
 			} else {
-				alert('Failed to archive image.');
+				app.addToast('Failed to archive image.', 'error');
 			}
 		} catch (error) {
 			console.error('Failed to archive image', error);
-			alert('Failed to archive image.');
+			app.addToast('Failed to archive image.', 'error');
 		} finally {
 			isArchiving = false;
+		}
+	}
+
+	async function undoArchive(imageId: number) {
+		try {
+			const res = await fetch(`/api/images/${imageId}/archive`, { method: 'DELETE' });
+			if (!res.ok) throw new Error(`Restore failed with ${res.status}`);
+			await invalidateAll();
+			if (data.image.id !== imageId) await goto(`/triage/${imageId}`, { invalidateAll: true, noScroll: true });
+		} catch (error) {
+			console.error('Failed to undo archive', error);
+			app.addToast('Failed to restore image.', 'error');
 		}
 	}
 
@@ -75,11 +89,11 @@
 					setTimeout(() => (justRestored = false), 1000);
 				}
 			} else {
-				alert('Failed to restore image.');
+				app.addToast('Failed to restore image.', 'error');
 			}
 		} catch (error) {
 			console.error('Failed to restore image', error);
-			alert('Failed to restore image.');
+			app.addToast('Failed to restore image.', 'error');
 		} finally {
 			isRestoring = false;
 		}
@@ -108,9 +122,9 @@
 	);
 
 	function handleKeyUp(event: KeyboardEvent) {
-		if (event.target && (event.target as HTMLElement).tagName === 'INPUT') {
-			return;
-		}
+		if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+		if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+		if (document.querySelector('dialog:modal')) return;
 		const action = keyMap.get(event.key);
 		if (action) {
 			event.preventDefault();

@@ -50,6 +50,9 @@
 	let inSelectionMode = $state(false);
 	let isDragging = $state(false);
 	let longPressTimer: number | null = null;
+	let touchOrigin = { x: 0, y: 0 };
+	// A resting finger still reports tiny moves, so only real movement cancels a long-press
+	const LONG_PRESS_SLOP_PX = 10;
 	let lastSelectedIndex = $state(-1);
 	let dragStartIndex = $state(-1);
 
@@ -79,27 +82,27 @@
 	// --- Event Handlers ---
 
 	function handleTouchStart(event: TouchEvent, id: number, index: number) {
+		touchOrigin = { x: event.touches[0].clientX, y: event.touches[0].clientY };
 		longPressTimer = window.setTimeout(() => {
 			longPressTimer = null;
 			if (unavailable(id)) return;
 			inSelectionMode = true;
 			isDragging = true;
 			dragStartIndex = index;
-			event.preventDefault();
 			selectedIds.add(id);
 			selectedIds = new Set(selectedIds);
 		}, 500);
 	}
 
 	function handleTouchMove(event: TouchEvent) {
-		if (longPressTimer) {
+		const touch = event.touches[0];
+		if (longPressTimer && Math.hypot(touch.clientX - touchOrigin.x, touch.clientY - touchOrigin.y) > LONG_PRESS_SLOP_PX) {
 			clearTimeout(longPressTimer);
 			longPressTimer = null;
 		}
 
 		if (!isDragging) return;
 
-		const touch = event.touches[0];
 		const element = document.elementFromPoint(touch.clientX, touch.clientY);
 		const targetButton = element?.closest<HTMLButtonElement>('[data-index]');
 
@@ -120,6 +123,17 @@
 		if (edge) startScrolling(edge);
 		else stopScrolling();
 	}
+
+	// Svelte's ontouchmove is passive; a native listener lets a selection drag stop the list from scrolling
+	$effect(() => {
+		const container = scrollContainer;
+		if (!container) return;
+		const block = (event: TouchEvent) => {
+			if (isDragging && event.cancelable) event.preventDefault();
+		};
+		container.addEventListener('touchmove', block, { passive: false });
+		return () => container.removeEventListener('touchmove', block);
+	});
 
 	function handleTouchEnd() {
 		if (longPressTimer) {

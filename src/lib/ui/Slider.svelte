@@ -52,7 +52,10 @@
 	let startX = 0;
 	let startY = 0;
 	let trackWidth = 0;
+	// Unquantized position while dragging, so movements smaller than one step accumulate instead of being rounded away
+	let dragLinear = 0;
 	const DRAG_SLOP_PX = 8;
+	const FINE_DRAG_FACTOR = 0.1;
 
 	// Double-tap detection (time + distance threshold)
 	let lastTapTime = 0;
@@ -140,6 +143,8 @@
 		lastX = e.clientX;
 		trackWidth = wrapperRef.clientWidth || 1;
 
+		dragLinear = inverseMap(value);
+
 		if (e.pointerType === 'mouse') {
 			isDragging = true;
 			try {
@@ -165,6 +170,7 @@
 				isDragPending = false;
 				isDragging = true;
 				lastX = e.clientX;
+				dragLinear = inverseMap(value);
 				try {
 					wrapperRef.setPointerCapture(e.pointerId);
 				} catch {
@@ -183,14 +189,12 @@
 		lastX = e.clientX;
 
 		const linearRange = max - min || 1;
-		const linearDelta = (dx / trackWidth) * linearRange;
+		// Holding Shift or Alt slows the drag down for precise adjustments
+		const sensitivity = e.shiftKey || e.altKey ? FINE_DRAG_FACTOR : 1;
+		const linearDelta = (dx / trackWidth) * linearRange * sensitivity;
 
-		// Convert current value to linear, add delta, then re-map
-		const currentLinear = inverseMap(value);
-		let nextLinear = currentLinear + linearDelta;
-
-		// Clamp and quantize in the linear domain
-		nextLinear = quantize(clamp(nextLinear, min, max));
+		dragLinear = clamp(dragLinear + linearDelta, min, max);
+		const nextLinear = quantize(dragLinear);
 
 		const next = map(nextLinear);
 
