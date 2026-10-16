@@ -1,6 +1,7 @@
 import { parsePP3, stringifyPP3 } from '$lib/pp3-utils';
 import { db } from '$lib/server/db';
-import { editImage, generateExportTif, generateImportTif, mapCropFromPreviewToExport } from '$lib/server/image-editor';
+import { editImage, generateImportTif, mapCropFromPreviewToExport } from '$lib/server/image-editor';
+import { acquireDevelopBase } from '$lib/server/develop-cache';
 import { bmvbhash } from 'blockhash-core';
 import { and, asc, desc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
 import { readFile, mkdir, stat } from 'fs/promises';
@@ -197,15 +198,19 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 				const pp3 = parsePP3(edit?.pp3 ?? image.importBaseline ?? '');
 				await ensureDir(outputPath);
 
-				// Two-step pipeline: RAW → full-res TIFF → JPEG
-				const tifPath = await generateExportTif(image.filepath, { signal });
-				const mappedPP3 = await mapCropFromPreviewToExport(pp3, image.tifPath, tifPath);
-				await editImage(tifPath, stringifyPP3(mappedPP3), {
-					signal,
-					outputPath,
-					recordedAt: image.recordedAt,
-					quality: 90
-				});
+				// Two-step pipeline: RAW → cached full-res develop base (intermediate representation) → JPEG
+				const base = await acquireDevelopBase(image.filepath, { signal });
+				try {
+					const mappedPP3 = await mapCropFromPreviewToExport(pp3, image.tifPath, base.path);
+					await editImage(base.path, stringifyPP3(mappedPP3), {
+						signal,
+						outputPath,
+						recordedAt: image.recordedAt,
+						quality: 90
+					});
+				} finally {
+					base.release();
+				}
 				await db.update(imageTable).set({ lastExportedAt: new Date() }).where(eq(imageTable.id, image.id));
 				isReadyForUpload = true;
 			} else {

@@ -1,7 +1,7 @@
 import ImportPP3 from '$lib/assets/import.pp3?raw';
 import { parsePP3, stringifyPP3, type PP3 } from "$lib/pp3-utils";
 import { exiftool } from "exiftool-vendored";
-import { readFile, rm } from "node:fs/promises";
+import { mkdir, readFile, rm } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { createTempDir, runCommand } from "./command-runner";
 import { getFileNameFromPath } from "./utils";
@@ -67,7 +67,9 @@ export async function editImage(imagePath: string, pp3: string, options: { signa
                 'exiftool',
                 `-DateTimeOriginal=${recordedAt}`,
                 '-overwrite_original',
-                imagePath
+                // Stamp the rendered output, not the input: the input may be a shared, cached
+                // develop base that must stay immutable for concurrent renders.
+                output
             ];
             console.log(`Running command: ${exifCommand.join(" ")}`);
             await runCommand(exifCommand, { signal: options.signal });
@@ -125,12 +127,17 @@ export async function generateImportTif(imagePath: string, options: { signal?: A
 /**
  * Generates a full-resolution TIFF from RAW using the same import.pp3 but with Resize disabled.
  * This ensures the same auto-exposure and WB are baked in as the preview TIFF, just at full resolution.
+ *
+ * The resulting TIFF is the "develop base" intermediate representation: RawTherapee can load it
+ * back through StdImageSource, skipping RAW decode and demosaicing on every later render. Pass
+ * outputDir to build the base at a stable location (e.g. a cache) instead of a throwaway temp dir.
  */
-export async function generateExportTif(imagePath: string, options: { signal?: AbortSignal } = {}) {
+export async function generateExportTif(imagePath: string, options: { signal?: AbortSignal, outputDir?: string } = {}) {
     const start = performance.now();
 
     const name = getFileNameFromPath(imagePath) + '-export-tiff-' + randomUUID();
-    const outDir = await createTempDir(name);
+    const outDir = options.outputDir ?? await createTempDir(name);
+    if (options.outputDir) await mkdir(outDir, { recursive: true });
 
     // Parse import PP3 and disable resize for full-resolution output
     const importPP3 = parsePP3(ImportPP3);

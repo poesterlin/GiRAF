@@ -2,49 +2,14 @@ import { createHash } from 'node:crypto';
 import { dirname } from 'node:path';
 import { rm, stat } from 'node:fs/promises';
 import { previewQuality, type PreviewStage } from '$lib/editor-preview-policy';
-import { editImage, generateExportTif, mapCropFromPreviewToExport } from './image-editor';
+import { editImage, mapCropFromPreviewToExport } from './image-editor';
+import { acquireDevelopBase, type DevelopBase } from './develop-cache';
 import { parsePP3, stringifyPP3 } from '$lib/pp3-utils';
 
 const MAX_CACHE_BYTES = 32 * 1024 * 1024;
 const CACHE_LIFETIME = 60_000;
 const renders = new Map<string, { jpeg: Buffer; expires: number }>();
 let cacheBytes = 0;
-
-type FullSource = { path: string; users: number; used: number };
-const fullSources = new Map<string, FullSource>();
-
-async function pruneSources() {
-	for (const [key, entry] of fullSources) {
-		if (!entry.users && (fullSources.size > 2 || Date.now() - entry.used > 600_000)) {
-			fullSources.delete(key);
-			await rm(dirname(entry.path), { recursive: true, force: true });
-		}
-	}
-}
-
-async function acquireSource(rawPath: string, signal: AbortSignal): Promise<FullSource> {
-	await pruneSources();
-	const source = await stat(rawPath);
-	const key = `${rawPath}:${source.mtimeMs}:${source.size}`;
-	let entry = fullSources.get(key);
-	if (!entry) {
-		const path = await generateExportTif(rawPath, { signal });
-		if (signal.aborted) {
-			await rm(dirname(path), { recursive: true, force: true });
-			signal.throwIfAborted();
-		}
-		// Concurrent clients may finish the same RAW source independently.
-		entry = fullSources.get(key);
-		if (entry) await rm(dirname(path), { recursive: true, force: true });
-		else {
-			entry = { path, users: 0, used: Date.now() };
-			fullSources.set(key, entry);
-		}
-	}
-	entry.users++;
-	entry.used = Date.now();
-	return entry;
-}
 
 function remove(key: string) {
 	const entry = renders.get(key);
@@ -74,18 +39,17 @@ export async function editorPreview(path: string, rawPath: string, pp3: string, 
 		renders.delete(key);
 		renders.set(key, entry);
 	} else {
-		let fullSource: FullSource | undefined;
+		let developBase: DevelopBase | undefined;
 		let output: string | undefined;
 		try {
 			let input = path;
 			let profile = pp3;
 			if (stage === 'final' && size > 1000) {
 				const sourceStarted = performance.now();
-				const sourceKey = `${rawPath}:${rawSource!.mtimeMs}:${rawSource!.size}`;
-				sourceCache = fullSources.has(sourceKey) ? 'hit' : 'miss';
-				fullSource = await acquireSource(rawPath, signal);
+				developBase = await acquireDevelopBase(rawPath, { signal });
+				sourceCache = developBase.reused ? 'hit' : 'miss';
 				timings.source = performance.now() - sourceStarted;
-				input = fullSource.path;
+				input = developBase.path;
 				const mappingStarted = performance.now();
 				const settings = await mapCropFromPreviewToExport(parsePP3(pp3), path, input);
 				timings.mapping = performance.now() - mappingStarted;
@@ -108,11 +72,7 @@ export async function editorPreview(path: string, rawPath: string, pp3: string, 
 			}
 		} finally {
 			if (output) await rm(dirname(output), { recursive: true, force: true });
-			if (fullSource) {
-				fullSource.users--;
-				fullSource.used = Date.now();
-				await pruneSources();
-			}
+			developBase?.release();
 		}
 	}
 	signal.throwIfAborted();
