@@ -3,6 +3,7 @@
 	import logo from '$lib/assets/logo.webp';
 	import { onNavigate } from '$app/navigation';
 	import { onDestroy, onMount } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
 	import UploadProgress from '$lib/ui/UploadProgress.svelte';
 	import { uploads } from '$lib/state/uploads.svelte';
 	import { app } from '$lib/state/app.svelte';
@@ -266,25 +267,29 @@
 	</main>
 </div>
 
-<!-- toasts -->
-<div class="fixed right-4 bottom-4 z-80 flex flex-col items-end gap-2">
+<!-- toasts: top of the screen so they never cover bottom action bars -->
+<div class="pointer-events-none fixed inset-x-3 top-16 z-80 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-4 sm:items-end" role="status" aria-live="polite">
 	{#each app.toasts as toast (toast.id)}
-		{@const bg = {
-			success: 'bg-neutral-700/90',
-			error: 'bg-neutral-700/90',
-			info: 'bg-neutral-800/90'
-		}[toast.type]}
-		<div class="rounded-lg {bg} z-80 border border-neutral-400 px-4 py-2 text-sm font-medium text-neutral-50 shadow-lg backdrop-blur-sm">
-			<span class="mr-2 text-xs font-bold uppercase">{toast.type}</span>
-			{toast.message}
+		<div in:fly={{ y: -12, duration: 180 }} out:fade={{ duration: 120 }} class="pointer-events-auto relative flex w-full max-w-md items-center gap-3 overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900/95 py-2 pr-2 pl-4 text-sm text-neutral-50 shadow-xl backdrop-blur-md sm:w-auto sm:min-w-72">
+			<span class="h-2 w-2 shrink-0 rounded-full {toast.type === 'error' ? 'bg-red-400' : toast.type === 'success' ? 'bg-emerald-400' : 'bg-neutral-400'}" aria-hidden="true"></span>
+			<span class="min-w-0 flex-1 py-1 font-medium">{toast.message}</span>
 			{#if toast.action}
-				<button class="ml-3 underline underline-offset-4 text-white" onclick={toast.action.run}>{toast.action.label}</button>
+				<button class="min-h-10 shrink-0 rounded-lg bg-neutral-100 px-3 font-semibold text-neutral-950 hover:bg-white" onclick={() => { toast.action?.run(); app.removeToast(toast.id); }}>{toast.action.label}</button>
 			{/if}
+			<button class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100" aria-label="Dismiss" onclick={() => app.removeToast(toast.id)}>✕</button>
+			<span class="toast-timer absolute inset-x-0 bottom-0 h-0.5 origin-left bg-neutral-500" style:animation-duration="{toast.duration}ms"></span>
 		</div>
 	{/each}
 </div>
 
 <style>
+	.toast-timer {
+		animation: toast-timer linear forwards;
+	}
+	@keyframes toast-timer {
+		from { transform: scaleX(1); }
+		to { transform: scaleX(0); }
+	}
 	@media (max-width: 1023px) {
 		.editor-header > div > button { width: 44px; height: 44px; }
 	}

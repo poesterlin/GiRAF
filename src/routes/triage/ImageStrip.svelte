@@ -1,10 +1,10 @@
  <script lang="ts">
-	import type { Image } from '$lib/server/db/schema';
+	import type { TriageImage } from '$lib/similar-images';
 	import { untrack } from 'svelte';
     import { IconArchive } from '$lib/ui/icons';
     import { fade } from 'svelte/transition';
 
-	let { images, currentImageId }: { images: Image[]; currentImageId: number } = $props();
+	let { images, currentImageId }: { images: TriageImage[]; currentImageId: number } = $props();
     let imageElements: (HTMLAnchorElement | null)[] = [];
 
     $effect(() => {

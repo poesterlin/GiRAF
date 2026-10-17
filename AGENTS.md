@@ -144,6 +144,7 @@ Importer local thumbnails use the separate native browser image/embedded-thumbna
 - **File paths**: Environment variables for directories (IMPORT_DIR, EXPORT_DIR, TMP_DIR, CLUT_DIR)
 - **Error handling**: Commands reject on non-zero exit code with full stdout/stderr
 - **PP3 editing**: Always parse → modify object → stringify, never manipulate strings directly
+- **Bulk images load lazily**: Any `<img>` rendered once per item in a list, grid or strip (gallery, importer, exporter, session pickers, triage strip, similar-shot thumbnails) must set `loading="lazy"` and request a thumbnail-sized preview (`/api/images/:id/preview?size=…`), never the full image. Only the single photo being viewed and its immediate neighbours may be loaded eagerly or preloaded. Pages must stay usable on slow connections, so keep server-rendered payloads small too: send only the fields a page uses and never serialise bulky columns such as `importBaseline` for a whole list.
 
 ## Environment Variables
 

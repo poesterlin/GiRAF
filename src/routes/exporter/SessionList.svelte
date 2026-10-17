@@ -145,6 +145,7 @@
 						<img
 							src="/api/images/{item.images[0].id}/preview"
 							alt={`${item.name} thumbnail`}
+							loading="lazy"
 							class="h-full w-full object-cover"
 						/>
 					</a>

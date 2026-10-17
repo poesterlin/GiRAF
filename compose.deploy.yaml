@@ -21,6 +21,9 @@ services:
       - traefik.docker.network=traefik_web
       - traefik.http.routers.raw-editor.rule=Host(`${HOST_DOMAIN}`)
       - traefik.http.services.raw-editor.loadbalancer.server.port=3000
+      - traefik.http.routers.raw-editor.middlewares=raw-editor-compress
+      - traefik.http.middlewares.raw-editor-compress.compress=true
+      - traefik.http.middlewares.raw-editor-compress.compress.excludedcontenttypes=image/jpeg,image/png,image/webp,image/avif,image/tiff,application/zip,application/octet-stream,text/event-stream
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/"]
       interval: 30s

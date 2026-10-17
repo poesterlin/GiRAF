@@ -4,7 +4,9 @@
 	import { page } from '$app/state';
 	import { app } from '$lib/state/app.svelte';
 	import { tagStore } from '$lib/state/tag.svelte';
+	import { markStackReviewed, nextAfterStack, reviewedStacks, similarCandidates } from '$lib/similar-images';
 	import FlagModal from '$lib/ui/FlagModal.svelte';
+	import SimilarPicker from '$lib/ui/SimilarPicker.svelte';
 	import Tooltip from '$lib/ui/Tooltip.svelte';
 	import { IconArchive, IconChevronLeft, IconChevronRight, IconFlag, IconRestore, IconAdjustmentsFilled } from '$lib/ui/icons';
 	import ImageStrip from '../ImageStrip.svelte';
@@ -27,6 +29,82 @@
 	});
 
 	let showTagModal = $state(false);
+
+	// Similar shots (stacks) are offered for a pick the first time triage reaches them
+	const similar = $derived(similarCandidates(data.sessionImages, data.image));
+	// Everything in the group, archived shots included, so a sorted group can be reopened and corrected
+	const similarAll = $derived(similarCandidates(data.sessionImages, data.image, true));
+	const similarBase = $derived(similar.length > 1 ? similar[0].id : null);
+	const skippedStacks = new Set<number>();
+	let showSimilar = $state(false);
+	let resolvingSimilar = $state(false);
+
+	$effect(() => {
+		const base = similarBase;
+		const count = similar.length;
+		untrack(() => {
+			showSimilar = base !== null && count > 1 && !skippedStacks.has(base) && !reviewedStacks(localStorage).has(base);
+		});
+	});
+
+	function finishSimilar() {
+		const base = similarBase;
+		const next = nextAfterStack(data.sessionImages, similar);
+		showSimilar = false;
+		return { base, next };
+	}
+
+	function postponeSimilar() {
+		if (similarBase !== null) skippedStacks.add(similarBase);
+		showSimilar = false;
+	}
+
+	async function setArchived(ids: number[], archive: boolean) {
+		const results = await Promise.all(ids.map((id) => fetch(`/api/images/${id}/archive`, { method: archive ? 'POST' : 'DELETE' }).then((res) => (res.ok ? id : null)).catch(() => null)));
+		return results.filter((id): id is number => id !== null);
+	}
+
+	async function keepAllSimilar() {
+		const { base, next } = finishSimilar();
+		const restored = await setArchived(similarAll.filter((image) => image.isArchived).map((image) => image.id), false);
+		if (base !== null) markStackReviewed(localStorage, base);
+		if (restored.length) app.addToast('Restored.', 'info', { label: 'Undo', run: () => void undoSimilar([], restored, base) });
+		if (next) await goto(`/triage/${next}`, { invalidateAll: true, noScroll: true });
+		else await invalidateAll();
+	}
+
+	async function keepBestSimilar(keepIds: number[]) {
+		const base = similarBase;
+		const discard = similarAll.filter((image) => !keepIds.includes(image.id) && !image.isArchived);
+		const restore = similarAll.filter((image) => keepIds.includes(image.id) && image.isArchived);
+		const next = nextAfterStack(data.sessionImages, similarAll);
+		const firstIndex = data.sessionImages.findIndex((image) => image.id === similarAll[0]?.id);
+		const before = firstIndex > 0 ? data.sessionImages[firstIndex - 1].id : undefined;
+		resolvingSimilar = true;
+		try {
+			const [archived, restored] = await Promise.all([setArchived(discard.map((image) => image.id), true), setArchived(restore.map((image) => image.id), false)]);
+			if (archived.length < discard.length || restored.length < restore.length) app.addToast('Some photos could not be updated.', 'error');
+			if (base !== null && archived.length === discard.length) markStackReviewed(localStorage, base);
+			if (archived.length || restored.length) {
+				const message = !archived.length ? 'Restored.' : restored.length ? 'Updated.' : keepIds.length ? 'Extras archived.' : 'All archived.';
+				app.addToast(message, 'info', { label: 'Undo', run: () => void undoSimilar(archived, restored, base) });
+			}
+			showSimilar = false;
+			const destination = next ?? keepIds[0] ?? before;
+			if (destination) await goto(`/triage/${destination}`, { invalidateAll: true, noScroll: true });
+			else await invalidateAll();
+		} finally {
+			resolvingSimilar = false;
+		}
+	}
+
+	async function undoSimilar(archived: number[], restored: number[], base: number | null) {
+		const [reRestored, reArchived] = await Promise.all([setArchived(archived, false), setArchived(restored, true)]);
+		if (reRestored.length < archived.length || reArchived.length < restored.length) app.addToast('Some photos could not be reverted.', 'error');
+		if (base !== null) skippedStacks.add(base);
+		await invalidateAll();
+	}
+
 	let isArchiving = $state(false);
 	let justRestored = $state(false);
 	let isRestoring = $state(false);
@@ -122,6 +200,7 @@
 	);
 
 	function handleKeyUp(event: KeyboardEvent) {
+		if (showSimilar) return;
 		if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
 		if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
 		if (document.querySelector('dialog:modal')) return;
@@ -137,7 +216,7 @@
 
 <div class="flex h-full flex-col overflow-hidden bg-neutral-950 font-sans lg:flex-row">
 	<!-- Image Strip (Left on Desktop, Bottom on Mobile) -->
-	<aside class="order-2 border-neutral-800 bg-neutral-950 lg:order-1 lg:w-[240px] lg:border-r border-t lg:border-t-0 flex-shrink-0">
+	<aside class="order-2 {showSimilar ? 'max-lg:hidden' : ''} border-neutral-800 bg-neutral-950 lg:order-1 lg:w-[240px] lg:border-r border-t lg:border-t-0 flex-shrink-0">
 		<div class="h-full overflow-y-auto custom-scrollbar">
 			<ImageStrip images={data.sessionImages} currentImageId={data.image.id} />
 		</div>
@@ -248,6 +327,20 @@
 				</Tooltip>
 			</div>
 		</div>
+
+		{#if similarAll.length > 1}
+			<div class="absolute top-3 left-1/2 z-10 -translate-x-1/2">
+			<Tooltip text="Compare similar photos (C)" position="bottom">
+				<button type="button" onclick={() => (showSimilar = true)} class="min-h-11 rounded-full border border-white/10 bg-neutral-950/70 px-4 text-sm font-semibold text-neutral-100 backdrop-blur-md hover:bg-neutral-100 hover:text-neutral-950">
+					{similarAll.length} similar · Compare
+				</button>
+			</Tooltip>
+			</div>
+		{/if}
+
+		{#if showSimilar && similarAll.length > 1}
+			<SimilarPicker images={similarAll} currentId={data.image.id} busy={resolvingSimilar} onKeep={keepBestSimilar} onKeepAll={keepAllSimilar} onLater={postponeSimilar} />
+		{/if}
 	</main>
 </div>
 

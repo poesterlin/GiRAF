@@ -1,3 +1,4 @@
+import { areSimilar } from '$lib/similar-images';
 import { parsePP3, stringifyPP3 } from '$lib/pp3-utils';
 import { db } from '$lib/server/db';
 import { editImage, generateImportTif, mapCropFromPreviewToExport } from '$lib/server/image-editor';
@@ -23,26 +24,6 @@ import { assert } from '$lib';
 import { makeOutputPath, moveExportFile, findExportPath } from '../export-files';
 import { calculateImportBaseline } from '../auto-exposure';
 export { makeOutputPath, makeSessionPath } from '../export-files';
-
-const SIMILARITY_THRESHOLD = 45; // Hamming distance threshold for considering images similar
-
-function hammingDistance(hex1: string, hex2: string): number {
-	if (hex1.length !== hex2.length) {
-		throw new Error('Strings must have the same length');
-	}
-
-	let distance = 0;
-	for (let i = 0; i < hex1.length; i++) {
-		const n1 = parseInt(hex1[i], 16);
-		const n2 = parseInt(hex2[i], 16);
-		let xor = n1 ^ n2;
-		while (xor > 0) {
-			distance += xor & 1;
-			xor >>= 1;
-		}
-	}
-	return distance;
-}
 
 export async function runImport(payload: ImportPayload, signal?: AbortSignal): Promise<JobResult> {
 	const { sessionId } = payload;
@@ -116,8 +97,7 @@ async function stackSimilarImages(currentImage: Image, currentHash: string, sess
 	for (const otherImage of otherImages) {
 		if (otherImage.id === currentImage.id || !otherImage.phash) continue;
 
-		const distance = hammingDistance(currentHash, otherImage.phash);
-		if (distance <= SIMILARITY_THRESHOLD) {
+		if (areSimilar({ ...currentImage, phash: currentHash }, otherImage)) {
 			similarImages.push(otherImage);
 		}
 	}

@@ -20,6 +20,7 @@
 				<img
 					src={`/api/images/${session.images[0].id}/preview`}
 					alt={session.name}
+					loading="lazy"
 					class="h-full w-full object-cover"
 				/>
 			{:else}

@@ -3,6 +3,7 @@ interface Toast {
     message: string;
     type: 'success' | 'error' | 'info';
 	action?: { label: string; run: () => void };
+	duration: number;
 }
 
 interface NotificationItem {
@@ -52,15 +53,17 @@ class AppState {
 	}
 
     addToast(message: string, type: 'success' | 'error' | 'info', action?: Toast['action']) {
+		// Errors and toasts with an action need longer to be read or acted on
+		const duration = action ? 10000 : type === 'error' ? 6000 : 3500;
         const id = this.createId();
-        const toast = { id, message, type, action };
-		this.toasts.push(toast);
-
-        setTimeout(() => {
-			this.toasts = this.toasts.filter((item) => item.id !== id);
-        }, action ? 10000 : 3000);
+		this.toasts = [...this.toasts, { id, message, type, action, duration }].slice(-3);
+        setTimeout(() => this.removeToast(id), duration);
 		return id;
     }
+
+	removeToast(id: string) {
+		this.toasts = this.toasts.filter((item) => item.id !== id);
+	}
 
 	async markAllNotificationsRead() {
 		const version = ++this.notificationVersion;
