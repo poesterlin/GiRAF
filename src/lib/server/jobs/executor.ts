@@ -23,7 +23,7 @@ import { exiftool } from 'exiftool-vendored';
 import { assert } from '$lib';
 import { makeOutputPath, moveExportFile, findExportPath } from '../export-files';
 import { calculateImportBaseline } from '../auto-exposure';
-import { hasPositionalEdits, sameProfile } from '../redevelop';
+import { sameProfile } from '../redevelop';
 import { withinDirectory } from '../session-delete';
 import { env } from '$env/dynamic/private';
 export { makeOutputPath, makeSessionPath } from '../export-files';
@@ -40,20 +40,8 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 	const failures: string[] = [];
 	let repaired = 0;
 	let redeveloped = 0;
-	let pinned = 0;
-	// A re-import also brings photos up to the current import profile (e.g. lens correction), except
-	// those with crops, spots or masks in any saved version: those stay on the development they were edited on.
+	// A re-import also brings photos up to the current import profile (e.g. lens correction).
 	const currentProfile = await importProfileFor(null);
-	const positional = new Set<number>();
-	if (redevelop && images.length) {
-		const snapshots = await db.query.snapshotTable.findMany({
-			where: inArray(snapshotTable.imageId, images.map((image) => image.id)),
-			columns: { imageId: true, pp3: true }
-		});
-		for (const snapshot of snapshots) {
-			if (!positional.has(snapshot.imageId) && hasPositionalEdits(parsePP3(snapshot.pp3))) positional.add(snapshot.imageId);
-		}
-	}
 	try {
 		for (const image of images) {
 			if (signal?.aborted) {
@@ -68,9 +56,7 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 				if (!(await usable(image.filepath))) throw new Error('Original RAW file is missing or empty');
 				const needsTiff = !(await usable(image.tifPath)) || image.whiteBalance === null || image.tint === null;
 				const needsPreview = !(await usable(image.previewPath));
-				const outdated = redevelop && !needsTiff && !sameProfile(await importProfileFor(image.tifPath), currentProfile);
-				if (outdated && positional.has(image.id)) pinned++;
-				const needsRedevelop = outdated && !positional.has(image.id);
+				const needsRedevelop = redevelop && !needsTiff && !sameProfile(await importProfileFor(image.tifPath), currentProfile);
 				if (!needsTiff && !needsRedevelop && !needsPreview && image.phash) continue;
 				console.log(`[Executor] ${needsRedevelop ? 'Re-developing' : 'Repairing'} image ${image.id}: ${image.filepath}`);
 				if (needsTiff || needsRedevelop) {
@@ -108,7 +94,7 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 			}
 		}
 		console.log(`[Executor] Finished import for session: ${sessionId}.`);
-		const summary = `Checked ${images.length} photos; repaired ${repaired}` + (redevelop ? `; re-developed ${redeveloped}; kept ${pinned} with crops, spots or masks on their original development` : '');
+		const summary = `Checked ${images.length} photos; repaired ${repaired}` + (redevelop ? `; re-developed ${redeveloped}` : '');
 		if (failures.length) return { status: 'error', message: `${summary}; ${failures.length} could not be processed. ${failures.slice(0, 5).join('; ')}` };
 		return { status: 'success', message: `${summary}.` };
 	} catch (e: any) {
