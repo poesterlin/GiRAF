@@ -10,6 +10,7 @@ export const adjustmentCategories = [
 	{ id: 'clarity', label: 'Clarity' },
 	{ id: 'noiseReduction', label: 'Noise Reduction' },
 	{ id: 'detail', label: 'Sharpening' },
+	{ id: 'lens', label: 'Lens' },
 	{ id: 'vignette', label: 'Vignette' },
 	{ id: 'look', label: 'Look' }
 ];

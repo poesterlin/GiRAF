@@ -10,6 +10,7 @@ import { env } from '$env/dynamic/private';
 import { Glob } from 'bun';
 import pLimit from 'p-limit';
 import { cpus } from 'os';
+import { importDirectories } from '$lib/server/import-dirs';
 
 const limit = pLimit(cpus().length);
 const IMPORT_DIR = env.IMPORT_DIR;
@@ -76,11 +77,14 @@ export async function POST() {
 		return json({ message: 'Import directory not found or not configured.', success: false }, { status: 400 });
 	}
 
-	const glob = new Glob('**/*');
-	const matches = glob.scan({ cwd: IMPORT_DIR });
-
-	const files = await Array.fromAsync(matches);
-	const importPromises = files.map(file => limit(() => importFile(path.join(IMPORT_DIR, file))));
+	const files = (
+		await Promise.all(
+			importDirectories(env)
+				.filter((dir) => fs.existsSync(dir))
+				.map(async (dir) => (await Array.fromAsync(new Glob('**/*').scan({ cwd: dir }))).map((file) => path.join(dir, file)))
+		)
+	).flat();
+	const importPromises = files.map(file => limit(() => importFile(file)));
 
 	const existingImports = await db.query.importTable.findMany();
 	for (const imp of existingImports) {

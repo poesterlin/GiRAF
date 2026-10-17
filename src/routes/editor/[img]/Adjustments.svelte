@@ -15,6 +15,8 @@
 	import CreativeAdjustments from '$lib/ui/CreativeAdjustments.svelte';
 	import AdjustmentSubsection from '$lib/ui/AdjustmentSubsection.svelte';
 	import { blackLevelFromPP3, blackLevelToPP3 } from '$lib/black-level';
+	import { whitePointFromPP3, whitePointToPP3, WHITE_POINT_MAX_STOPS, WHITE_POINT_MIN_STOPS } from '$lib/white-point';
+	import Checkbox from '$lib/ui/Checkbox.svelte';
 	import { limitExpandedGroups } from '$lib/ui/adjustment-expansion';
 
 	interface Props {
@@ -129,6 +131,21 @@
 			ignored={edits.pp3.Exposure.Auto as boolean}
 			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
 		/>
+		<Slider
+			label="White Point"
+			value={whitePointFromPP3(Number(edits.pp3.RAW?.PreExposure ?? 1))}
+			min={WHITE_POINT_MIN_STOPS}
+			max={WHITE_POINT_MAX_STOPS}
+			step={0.05}
+			unit=" EV"
+			resetValue={0}
+			centered
+			onchange={(stops) => {
+				edits.pp3.RAW ??= {};
+				edits.pp3.RAW.PreExposure = whitePointToPP3(stops);
+				edits.pushHistory();
+			}}
+		/>
 	
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Dynamic Range" group="dynamicRange">
@@ -223,6 +240,30 @@
 		<Slider label="Amount" bind:value={edits.pp3.Sharpening.Amount as number} min={0} max={200} step={1} resetValue={50} onchange={() => { edits.pp3.Sharpening.Enabled = true; edits.pushHistory(); }} />
 		<Slider label="Radius" bind:value={edits.pp3.Sharpening.Radius as number} min={0.1} max={5} step={0.1} resetValue={1} onchange={() => { edits.pp3.Sharpening.Enabled = true; edits.pushHistory(); }} />
 	
+	</AdjustmentGroup>
+	<AdjustmentGroup title="Lens" group="lens">
+		{@const lens = edits.pp3.LensProfile}
+		<Checkbox
+			label="Automatic lens correction"
+			checked={lens?.LcMode === 'lfauto'}
+			onchange={(checked) => {
+				edits.pp3.LensProfile ??= { UseDistortion: true, UseVignette: true, UseCA: false };
+				edits.pp3.LensProfile.LcMode = checked ? 'lfauto' : 'none';
+				edits.pushHistory();
+			}}
+		/>
+		{#if lens?.LcMode === 'lfauto'}
+			{#each [['UseDistortion', 'Distortion'], ['UseVignette', 'Vignetting'], ['UseCA', 'Chromatic aberration']] as [key, label] (key)}
+				<Checkbox
+					{label}
+					checked={Boolean(lens[key])}
+					onchange={(checked) => {
+						edits.pp3.LensProfile[key] = checked;
+						edits.pushHistory();
+					}}
+				/>
+			{/each}
+		{/if}
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Vignette" group="vignette">
 		<Slider label="Strength" bind:value={edits.pp3.PCVignette.Strength as number} min={-6} max={6} step={0.01} precision={2} centered resetValue={0} map={(value) => -value} inverseMap={(value) => -value} displayValue={(value) => -value} ignored={!edits.pp3.PCVignette.Enabled as boolean && Number(edits.pp3.PCVignette.Strength) !== 0} onchange={() => { edits.pp3.PCVignette.Enabled = true; edits.pushHistory(); }} />

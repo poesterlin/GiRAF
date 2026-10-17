@@ -11,6 +11,7 @@ export const groupNeutralSettings: Record<string, PP3> = {
 	clarity: { Local_Contrast: { Enabled: false }, Dehaze: { Enabled: false } },
 	detail: { Sharpening: { Enabled: false } },
 	noiseReduction: { Directional_Pyramid_Denoising: { Enabled: false } },
+	lens: { LensProfile: { LcMode: 'none' } },
 	vignette: { PCVignette: { Enabled: false } },
 	toneCurve: { Exposure: { Curve2: '0;' } },
 	look: { Film_Simulation: { Enabled: false }, Channel_Mixer: { Enabled: false } },

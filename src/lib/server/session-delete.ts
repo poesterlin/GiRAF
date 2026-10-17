@@ -6,6 +6,7 @@ import { db } from './db';
 import { imageTable, sessionTable, type Session } from './db/schema';
 import { makeSessionPath } from './export-files';
 import { evictDevelopBase } from './develop-cache';
+import { importDirectories } from './import-dirs';
 
 /**
  * True when `path` still sits inside `root`, so a stale or hostile database row can never remove a
@@ -71,7 +72,7 @@ export async function deleteSessionFiles(session: Session, files: SessionDeleteF
 
 	if (files.imports) {
 		for (const image of images) {
-			if (withinDirectory(env.IMPORT_DIR, image.filepath)) await remove(image.filepath);
+			if (importDirectories(env).some((dir) => withinDirectory(dir, image.filepath))) await remove(image.filepath);
 		}
 	}
 

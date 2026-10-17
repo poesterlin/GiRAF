@@ -415,7 +415,7 @@
 			<div class="mb-12 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
 				<div>
 					<p class="text-neutral-400 font-medium max-w-md">
-						Scanning <code class="text-neutral-100 bg-neutral-900 px-1.5 py-0.5 rounded text-sm">IMPORT_DIR</code> for new RAW files.
+						Scanning <code class="text-neutral-100 bg-neutral-900 px-1.5 py-0.5 rounded text-sm">IMPORT_DIR</code> (and IMPORT_EXTRA_DIRS) for new RAW files.
 					</p>
 				</div>
 
