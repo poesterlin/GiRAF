@@ -7,6 +7,8 @@ import { json } from '@sveltejs/kit';
 import { count, desc, eq, exists, max, sql, type SQL } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
+export type SessionSort = 'upload' | 'recorded' | 'edit';
+
 export type SessionsResponse = {
 	sessions: Array<{
 		id: number;
@@ -30,6 +32,18 @@ export type SessionsResponse = {
 export const GET: RequestHandler = async ({ url }) => {
 	const limit = 20;
 	const cursor = Number(url.searchParams.get('cursor')) || 0;
+	const sessionId = Number(url.searchParams.get('session'));
+	const singleSession = Number.isSafeInteger(sessionId) && sessionId > 0;
+	const sortParam = url.searchParams.get('sort');
+	const sort: SessionSort = sortParam === 'recorded' || sortParam === 'edit' ? sortParam : 'upload';
+
+	const lastEditedAt = sql`max((select max(${snapshotTable.createdAt}) from ${snapshotTable} where ${snapshotTable.imageId} = ${imageTable.id}))`;
+	const orderBy =
+		sort === 'recorded'
+			? [desc(sessionTable.startedAt), sql`${max(imageTable.recordedAt)} desc nulls last`, desc(sessionTable.id)]
+			: sort === 'edit'
+				? [sql`${lastEditedAt} desc nulls last`, sql`${max(imageTable.createdAt)} desc nulls last`, desc(sessionTable.startedAt), desc(sessionTable.id)]
+				: [sql`${max(imageTable.createdAt)} desc nulls last`, desc(sessionTable.startedAt), desc(sessionTable.id)];
 
 	const sessions = await db
 		.select({
@@ -51,14 +65,14 @@ export const GET: RequestHandler = async ({ url }) => {
 			imageTable,
 			eq(imageTable.sessionId, sessionTable.id),
 		)
-		.where(eq(sessionTable.isArchived, false))
+		.where(singleSession ? eq(sessionTable.id, sessionId) : eq(sessionTable.isArchived, false))
 		.groupBy(sessionTable.id)
-		.orderBy(sql`${max(imageTable.createdAt)} desc nulls last`, desc(sessionTable.startedAt), desc(sessionTable.id))
-		.limit(limit + 1) // Fetch one extra to check if there's a next page
-		.offset(cursor);
+		.orderBy(...orderBy)
+		.limit(singleSession ? 1 : limit + 1) // Fetch one extra to check if there's a next page
+		.offset(singleSession ? 0 : cursor);
 
 	let nextCursor: number | null = null;
-	if (sessions.length > limit) {
+	if (!singleSession && sessions.length > limit) {
 		sessions.pop(); // remove the extra one
 		nextCursor = cursor + limit;
 	}
@@ -66,6 +80,7 @@ export const GET: RequestHandler = async ({ url }) => {
 	// The dates from the DB are Date objects, need to stringify them.
 	const sessionsWithStringDates = sessions.map((s) => ({
 		...s,
+		images: singleSession ? s.images : s.images.filter((img) => !img.isArchived).slice(0, 4),
 		isImporting: jobManager.getActiveJobType(s.id) === JobType.IMPORT,
 		isExporting: jobManager.getActiveJobType(s.id) === JobType.EXPORT
 	}));

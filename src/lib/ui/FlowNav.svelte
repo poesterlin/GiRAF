@@ -5,8 +5,9 @@
 
 	let {
 		triageEnabled,
-		sessionName = null
-	}: { triageEnabled: boolean; sessionName?: string | null } = $props();
+		sessionName = null,
+		sessionId = null
+	}: { triageEnabled: boolean; sessionName?: string | null; sessionId?: number | null } = $props();
 
 	const linkBase =
 		'flex shrink-0 items-center rounded-full px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-200 sm:px-3.5 sm:text-sm';
@@ -15,6 +16,7 @@
 
 	let nav = $derived(flowNavState({ pathname: page.url.pathname, triageEnabled, sessionName }));
 	let inSession = $derived(nav.sessionStage !== null && nav.sessionName !== null);
+	let inGallerySession = $derived(nav.activePage === 'gallery' && sessionId !== null && sessionName !== null);
 </script>
 
 <nav aria-label="Workflow" class="flex min-w-0 items-center">
@@ -25,7 +27,7 @@
 	{#if inSession}
 		<div class="flex min-w-0 shrink items-center gap-1.5 rounded-full bg-neutral-800/70 px-2.5 py-1.5 sm:px-3">
 			<a
-				href="/gallery"
+				href={sessionId ? `/gallery?session=${sessionId}` : '/gallery'}
 				class="flex min-w-0 items-center gap-0.5 text-xs font-medium whitespace-nowrap text-neutral-400 transition-colors hover:text-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-200 sm:text-sm"
 				aria-label={`Back to gallery, session ${nav.sessionName}`}
 				title={nav.sessionName ?? ''}
@@ -40,6 +42,19 @@
 					<span class="flow-step" class:flow-step-done={step.done} class:flow-step-active={step.active}></span>
 				{/each}
 			</span>
+		</div>
+	{:else if inGallerySession}
+		<div class="flex min-w-0 shrink items-center gap-1.5 rounded-full bg-neutral-800/70 px-2.5 py-1.5 sm:px-3">
+			<a
+				href="/gallery"
+				class="flex min-w-0 items-center gap-0.5 text-xs font-medium whitespace-nowrap text-neutral-400 transition-colors hover:text-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-200 sm:text-sm"
+				aria-label="Back to gallery"
+			>
+				<IconChevronLeft size={14} class="shrink-0" aria-hidden="true" />
+				<span>Gallery</span>
+			</a>
+			<span class="shrink-0 text-xs text-neutral-600" aria-hidden="true">/</span>
+			<span class="max-w-[6rem] truncate text-xs font-semibold whitespace-nowrap text-neutral-100 sm:max-w-[14rem] sm:text-sm" title={sessionName ?? ''}>{sessionName}</span>
 		</div>
 	{:else}
 		<a href="/gallery" class={nav.activePage === 'gallery' ? activeLink : idleLink}>Gallery</a>

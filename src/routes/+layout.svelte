@@ -37,9 +37,11 @@
 	let editorActive = $derived(currentRoute?.startsWith('/editor'));
 
 	let triageEnabled = $derived(data.triageEnabled);
-	let sessionName = $derived(
-		(page.data as { session?: { id: number; name: string } | null } | null)?.session?.name ?? null
+	let session = $derived(
+		(page.data as { session?: { id: number; name: string } | null } | null)?.session ?? null
 	);
+	let sessionName = $derived(session?.name ?? null);
+	let sessionId = $derived(session?.id ?? null);
 	let showNotifications = $state(false);
 	let notificationsButton: HTMLButtonElement;
 	let notificationsPanel: HTMLDivElement;
@@ -199,7 +201,7 @@
 		</a>
 
 		<!-- Main Nav -->
-		<FlowNav {triageEnabled} {sessionName} />
+		<FlowNav {triageEnabled} {sessionName} {sessionId} />
 
 		<!-- Utilities -->
 		<div class="relative flex items-center gap-2">

@@ -2,6 +2,7 @@
 	import SessionList from '$lib/ui/SessionList.svelte';
 	import ContactSheet, { photoThumbnail } from '$lib/ui/ContactSheet.svelte';
 	import ArchivedSessions from '$lib/ui/ArchivedSessions.svelte';
+	import { IconArchive } from '$lib/ui/icons';
 
 	let { data } = $props();
 
@@ -13,25 +14,27 @@
 		{ key: 'recent', label: 'Recent edits', href: '/gallery?view=recent' },
 		...data.tags.map((tag) => ({ key: `tag:${tag.name}`, label: `#${tag.name}`, href: `/gallery?tag=${encodeURIComponent(tag.name)}`, count: tag.count })),
 		// Archived sessions leave the other views; this is where they can be found and restored.
-		...(data.archivedCount || view.kind === 'archived' ? [{ key: 'archived', label: 'Archived sessions', href: '/gallery?view=archived', count: data.archivedCount }] : [])
+		...(data.archivedCount || view.kind === 'archived' ? [{ key: 'archived', label: 'Archive', href: '/gallery?view=archived', icon: IconArchive }] : [])
 	]);
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
-	<nav aria-label="Gallery views" class="views">
-		{#each tabs as tab (tab.key)}
-			<a href={tab.href} aria-current={viewKey === tab.key ? 'page' : undefined} data-sveltekit-noscroll>
-				{tab.label}{#if 'count' in tab}<span class="count">{tab.count}</span>{/if}
-			</a>
-		{/each}
-	</nav>
+	{#if !(view.kind === 'sessions' && view.sessionId)}
+		<nav aria-label="Gallery views" class="views">
+			{#each tabs as tab (tab.key)}
+				<a href={tab.href} aria-current={viewKey === tab.key ? 'page' : undefined} data-sveltekit-noscroll>
+					{#if 'icon' in tab && tab.icon}{@const Icon = tab.icon}<Icon size={16} aria-hidden="true" />{/if}{tab.label}{#if 'count' in tab}<span class="count">{tab.count}</span>{/if}
+				</a>
+			{/each}
+		</nav>
+	{/if}
 
 	<div class="min-h-0 flex-1">
 		{#if view.kind === 'sessions'}
 			{#snippet recentStrip()}
 				{#if data.photos.length}
-					<section aria-label="Recent edits" class="mx-4 mt-2 mb-6 px-3">
-						<div class="mb-3 flex items-center justify-between">
+					<section aria-label="Recent edits" class="px-4 pt-5 pb-1 sm:px-7">
+						<div class="mb-2 flex items-center justify-between">
 							<h2 class="text-sm font-semibold text-neutral-200">Recent edits</h2>
 							<a href="/gallery?view=recent" class="flex min-h-11 items-center px-2 text-sm text-neutral-400 hover:text-white">See all</a>
 						</div>
@@ -50,9 +53,11 @@
 				editedThumbnails
 				{basePath}
 				triageEnabled={data.triageEnabled}
+				activeSessionId={view.sessionId}
+				sort={view.sort}
 				next={data.next}
 				sessions={data.sessions}
-				header={recentStrip}
+				header={view.sessionId ? undefined : recentStrip}
 				onLoaded={({ sessions, next }) => {
 					data.sessions = [...data.sessions, ...sessions];
 					data.next = next;
