@@ -32,6 +32,7 @@ Built for photographers with a self-hosted photo library, GiRAF brings importing
 
 ### 2. Gallery
 ![Gallery](docs/images/2-gallery.png)
+![Session](docs/images/2-session.png)
 
 ### 3. Editor
 ![Editor](docs/images/3-editor.png)
