@@ -11,7 +11,7 @@
 [![Docker image](https://github.com/poesterlin/giraf/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/poesterlin/giraf/pkgs/container/giraf)
 [![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
 
-[Quick start](#quick-start) · [Features](#features) · [Screenshots](#screenshots) · [Integrations](#integrations) · [Roadmap](#roadmap)
+[Quick start](#quick-start) · [Features](#features) · [Screenshots](#screenshots) · [Integrations](#integrations)
 
 <br />
 
@@ -146,27 +146,6 @@ services:
     volumes:
       - ./data:/app/data
 ```
-
-</details>
-
-## Roadmap
-
-- [ ] User authentication
-- [ ] Import folders configurable in the UI
-
-<details>
-<summary>Already shipped</summary>
-
-- [x] Automatic lens correction
-- [x] White point and black level controls
-- [x] Multiple import folders (`IMPORT_EXTRA_DIRS`)
-- [x] Automatic SD-card import (opt-in `sd-card` compose profile)
-- [x] Quick previews that sharpen when they can
-- [x] Crop, local masks and spot retouching
-- [x] Tone curves, color mixer and color grading
-- [x] Vibrance controls
-- [x] Undo/redo
-- [x] Processing notifications
 
 </details>
 
