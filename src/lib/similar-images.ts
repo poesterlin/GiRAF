@@ -12,6 +12,9 @@ const SIMILARITY_TIERS = [
 	{ maxGapMs: 30_000, maxDistance: 30 }
 ];
 
+/** Nothing more than the widest tier apart can ever match, so a scan can stop there. */
+const MAX_SIMILAR_GAP_MS = SIMILARITY_TIERS[SIMILARITY_TIERS.length - 1].maxGapMs;
+
 export interface StackedImage {
 	id: number;
 	isArchived: boolean;
@@ -40,20 +43,51 @@ export function areSimilar(a: StackedImage, b: StackedImage): boolean {
 }
 
 /**
- * The run of back-to-back similar shots around an image, in session order.
- * Neighbours chain, so a slowly changing burst stays together. Archived photos
- * are already decided and do not take part, unless the caller wants to revisit them. Stored import stacks are ignored:
- * they were built with looser rules and miss photos hashed later.
+ * How many positions either side of a shot are compared against it. Comparing a window rather than
+ * only the immediate neighbour means one non-matching frame between two matching ones no longer
+ * hides the group.
+ *
+ * A scan also stops once a shot is more than the widest similarity tier (30 s) away, so this is an
+ * upper bound rather than a fixed cost: for ordinary shooting the time bound is reached first. It
+ * only bites during a fast burst, where it caps how far back a single frame can reach.
  */
-export function similarCandidates<T extends StackedImage>(images: T[], image: StackedImage, includeArchived = false): T[] {
+export const SIMILARITY_WINDOW = 32;
+
+/**
+ * The group of similar shots around an image, in session order. Every photo is compared with the
+ * `window` shots either side of it and matches are chained, so a slowly changing burst stays
+ * together even when a frame in the middle does not match its neighbours. `window = 1` reproduces
+ * plain neighbour chaining. Archived photos are already decided and do not take part, unless the
+ * caller wants to revisit them. Stored import stacks are ignored: they were built with looser rules
+ * and miss photos hashed later.
+ *
+ * `images` must be in capture order, which is what lets the scan stop at the 30 s boundary.
+ */
+export function similarCandidates<T extends StackedImage>(images: T[], image: StackedImage, includeArchived = false, window = SIMILARITY_WINDOW): T[] {
 	const active = includeArchived ? images : images.filter((candidate) => !candidate.isArchived);
 	const index = active.findIndex((candidate) => candidate.id === image.id);
 	if (index === -1) return [];
-	let start = index;
-	while (start > 0 && areSimilar(active[start - 1], active[start])) start--;
-	let end = index;
-	while (end < active.length - 1 && areSimilar(active[end], active[end + 1])) end++;
-	return end > start ? active.slice(start, end + 1) : [];
+
+	// Lists arrive in capture order, so the scan can stop as soon as a shot is too old to match.
+	const times = active.map((candidate) => (candidate.recordedAt ? new Date(candidate.recordedAt).getTime() : NaN));
+
+	// Grow the group outward from the image until no photo inside the window matches a member.
+	const matched = new Set<number>([index]);
+	const queue = [index];
+	while (queue.length) {
+		const current = queue.pop()!;
+		for (const direction of [-1, 1]) {
+			for (let position = current + direction; position >= 0 && position < active.length; position += direction) {
+				if (Math.abs(position - current) > window) break;
+				if (Math.abs(times[position] - times[current]) > MAX_SIMILAR_GAP_MS) break;
+				if (matched.has(position) || !areSimilar(active[current], active[position])) continue;
+				matched.add(position);
+				queue.push(position);
+			}
+		}
+	}
+	if (matched.size === 1) return [];
+	return [...matched].sort((a, b) => a - b).map((position) => active[position]);
 }
 
 /** The photo to continue with after a stack was dealt with: the first one past its last member. */

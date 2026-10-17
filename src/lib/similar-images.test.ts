@@ -50,6 +50,48 @@ describe('similar candidates', () => {
 	});
 });
 
+describe('similar candidates across a window', () => {
+	/** A 256-bit hash with exactly `bits` set, so distances between them are their difference. */
+	const sparse = (bits: number[]) => {
+		const nibbles = new Array(64).fill(0);
+		for (const bit of bits) nibbles[Math.floor(bit / 4)] |= 1 << (bit % 4);
+		return nibbles.map((nibble) => nibble.toString(16)).join('');
+	};
+	const range = (from: number, to: number) => Array.from({ length: to - from }, (_, i) => from + i);
+	// A and B match at exactly the allowed 100 bits; C matches neither, so B is only reachable from A.
+	const a = { id: 1, isArchived: false, phash: sparse([]), recordedAt: new Date(1_000_000) };
+	const c = { id: 2, isArchived: false, phash: sparse(range(100, 210)), recordedAt: new Date(1_001_000) };
+	const b = { id: 3, isArchived: false, phash: sparse(range(0, 100)), recordedAt: new Date(1_002_000) };
+
+	test('a frame that matches neither neighbour no longer hides the group', () => {
+		// Capture order puts the odd one in the middle, as a second-precision timestamp tie can.
+		const images = [a, c, b];
+		expect(areSimilar(a, b)).toBe(true);
+		expect(areSimilar(a, c)).toBe(false);
+		expect(areSimilar(c, b)).toBe(false);
+		expect(similarCandidates(images, images[0]).map((i) => i.id)).toEqual([1, 3]);
+		expect(similarCandidates(images, images[2]).map((i) => i.id)).toEqual([1, 3]);
+		expect(similarCandidates(images, images[1])).toEqual([]);
+	});
+
+	test('window 1 keeps the old neighbour-only chaining', () => {
+		const images = [a, c, b];
+		expect(similarCandidates(images, images[0], false, 1)).toEqual([]);
+	});
+
+	test('a gap wider than the window is not bridged', () => {
+		const images = [a, c, b];
+		expect(similarCandidates(images, images[0], false, 1)).toEqual([]);
+		expect(similarCandidates(images, images[0], false, 2).map((i) => i.id)).toEqual([1, 3]);
+	});
+
+	test('distant shots stay apart even with a wide window', () => {
+		const near = { id: 1, isArchived: false, phash: sparse([]), recordedAt: new Date(1_000_000) };
+		const far = { id: 2, isArchived: false, phash: sparse([]), recordedAt: new Date(1_000_000 + 60_000) };
+		expect(similarCandidates([near, far], near, false, 50)).toEqual([]);
+	});
+});
+
 describe('stack follow-up', () => {
 	const images = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
 
