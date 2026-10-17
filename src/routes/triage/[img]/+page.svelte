@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { app } from '$lib/state/app.svelte';
 	import { tagStore } from '$lib/state/tag.svelte';
-	import { markStackReviewed, nextAfterStack, reviewedStacks, similarCandidates } from '$lib/similar-images';
+	import { markStackReviewed, nextAfterStack, similarCandidates } from '$lib/similar-images';
 	import FlagModal from '$lib/ui/FlagModal.svelte';
 	import SimilarPicker from '$lib/ui/SimilarPicker.svelte';
 	import Tooltip from '$lib/ui/Tooltip.svelte';
@@ -30,22 +30,19 @@
 
 	let showTagModal = $state(false);
 
-	// Similar shots (stacks) are offered for a pick the first time triage reaches them
+	// Similar shots (stacks) are compared on request, from the button or the C key
 	const similar = $derived(similarCandidates(data.sessionImages, data.image));
 	// Everything in the group, archived shots included, so a sorted group can be reopened and corrected
 	const similarAll = $derived(similarCandidates(data.sessionImages, data.image, true));
 	// Keyed on the whole group, archived shots included, so archiving the first shot does not change its identity
 	const similarBase = $derived(similarAll.length > 1 ? similarAll[0].id : null);
-	const skippedStacks = new Set<number>();
 	let showSimilar = $state(false);
 	let resolvingSimilar = $state(false);
 
+	// Moving on to a different group of similar shots closes the comparison.
 	$effect(() => {
-		const base = similarBase;
-		const count = similar.length;
-		untrack(() => {
-			showSimilar = base !== null && count > 1 && !skippedStacks.has(base) && !reviewedStacks(localStorage).has(base);
-		});
+		similarBase;
+		untrack(() => (showSimilar = false));
 	});
 
 	function finishSimilar() {
@@ -56,7 +53,6 @@
 	}
 
 	function postponeSimilar() {
-		if (similarBase !== null) skippedStacks.add(similarBase);
 		showSimilar = false;
 	}
 
@@ -102,7 +98,6 @@
 	async function undoSimilar(archived: number[], restored: number[], base: number | null) {
 		const [reRestored, reArchived] = await Promise.all([setArchived(archived, false), setArchived(restored, true)]);
 		if (reRestored.length < archived.length || reArchived.length < restored.length) app.addToast('Some photos could not be reverted.', 'error');
-		if (base !== null) skippedStacks.add(base);
 		await invalidateAll();
 	}
 
