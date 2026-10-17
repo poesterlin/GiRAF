@@ -22,6 +22,11 @@
 	function captureStyling() {
 		return { imageId: edits.currentImageId!, settings: $state.snapshot(edits.pp3), groups: [...edits.disabledGroups], strength: edits.editStrength };
 	}
+	/** Autosave clears unsaved changes within seconds, so remember which photo was edited during this visit. */
+	let editedImageId: string | undefined;
+	$effect(() => {
+		if (edits.hasChanges && edits.currentImageId) editedImageId = edits.currentImageId;
+	});
 	function dismissStylingToast() {
 		app.toasts = app.toasts.filter(toast => toast.id !== stylingToast);
 		stylingToast = undefined;
@@ -98,8 +103,9 @@
 		navigationError = '';
 		try {
 			const sourceId = edits.currentImageId;
-			const styling = edits.hasChanges ? captureStyling() : savedStyling?.imageId === sourceId ? savedStyling : undefined;
+			const styling = edits.hasChanges || editedImageId === sourceId ? captureStyling() : savedStyling?.imageId === sourceId ? savedStyling : undefined;
 			const offerStyling = id === page.data.nextImage;
+			editedImageId = undefined;
 			await edits.snapshot();
 			await goto(destination);
 			await tick();
