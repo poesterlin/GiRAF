@@ -20,7 +20,6 @@
 
 	let { sessions, next, onLoaded, integrations }: Props = $props();
 
-	let scroller = $state<Scroller<Session>>();
 	let loading = $state(false);
 	let jobStates = $state<Record<number, ExportJobState>>({});
 	let pollingIntervals: Record<number, ReturnType<typeof setInterval>> = {};
@@ -273,7 +272,6 @@
 {/snippet}
 
 <Scroller
-	bind:this={scroller}
 	items={sessions}
 	{item}
 	{empty}

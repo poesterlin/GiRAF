@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, untrack, type Snippet } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 	import Scroller from '$lib/ui/Scroller.svelte';
 	import Tooltip from '$lib/ui/Tooltip.svelte';
@@ -18,6 +18,7 @@
 		triageEnabled?: boolean;
 		allowRename?: boolean;
 		editedThumbnails?: boolean;
+		header?: Snippet;
 	}
 
 	type ImportJobStatus = 'idle' | 'running' | 'success' | 'error' | 'cancelled';
@@ -26,7 +27,7 @@
 		message?: string;
 	};
 
-	let { sessions, next, onLoaded, basePath = 'editor', triageEnabled = true, allowRename = false, editedThumbnails = false }: Props = $props();
+	let { sessions, next, onLoaded, basePath = 'editor', triageEnabled = true, allowRename = false, editedThumbnails = false, header }: Props = $props();
 	let renaming = $state<Session | null>(null);
 	let renameValue = $state('');
 	let savingName = $state(false);
@@ -70,7 +71,6 @@
 
 	let initialImports = $derived(sessions.filter((s) => s.isImporting).map((s) => s.id));
 
-	let scroller = $state<Scroller<Session>>();
 	let loading = $state(false);
 	let importJobStates = $state<Set<number>>(new Set());
 	let pollingIntervals: Record<number, ReturnType<typeof setInterval>> = {};
@@ -159,14 +159,6 @@
 
 		app.addToast(response.status === 409 ? 'Import is already running.' : 'Import started.', 'info');
 		startImportPolling(sessionId, true);
-	}
-
-	export function capture() {
-		return scroller?.capture();
-	}
-
-	export function restore(values: any) {
-		scroller?.restore(values);
 	}
 
 	let archiveTarget = $state<number | null>(null);
@@ -348,9 +340,9 @@
 {/snippet}
 
 <Scroller
-	bind:this={scroller}
 	items={sessions}
 	{item}
+	{header}
 	{empty}
 	{footer}
 	onMore={async () => {
