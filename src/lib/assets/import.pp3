@@ -21,3 +21,10 @@ Height=1000
 LongEdge=1000
 ShortEdge=1000
 AllowUpscaling=false
+
+# Corrected once while developing the RAW, so previews and exports share the same geometry.
+[LensProfile]
+LcMode=lfauto
+UseDistortion=true
+UseVignette=true
+UseCA=true

@@ -63,11 +63,5 @@ Threshold=30
 Amount=20
 Anchor=50
 
-[LensProfile]
-LcMode=none
-UseDistortion=true
-UseVignette=true
-UseCA=false
-
 [RAW]
 PreExposure=1
