@@ -1,58 +1,52 @@
 import { db } from '$lib/server/db';
-import { imageTable, snapshotTable } from '$lib/server/db/schema';
+import { imageTable } from '$lib/server/db/schema';
 import { editorFilterQuery, readEditorFilters } from '$lib/editor-filters';
+import { editorFilterConditions, finishedInPass } from '$lib/server/editor-filter-conditions';
 import { error, redirect } from '@sveltejs/kit';
-import { and, asc, count, desc, eq, exists, gt, isNull, isNotNull, lt, notExists, or } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, lt, or } from 'drizzle-orm';
 import type { LayoutServerLoad } from './$types';
+
+const filterKeys = ['show', 'since', 'archived', 'imported', 'edited', 'cutoff', 'filter', 'uneditedSince'];
 
 export const load: LayoutServerLoad = async ({ params, url }) => {
 	const selectedFilters = readEditorFilters(url.searchParams);
-	if (selectedFilters.edited === 'edited' && selectedFilters.cutoff !== 'export' && !selectedFilters.since) {
-		const query = new URLSearchParams(editorFilterQuery({ ...selectedFilters, since: new Date().toISOString() }).slice(1));
-		for (const [key, value] of query) url.searchParams.set(key, value);
-		url.searchParams.delete('filter');
-		url.searchParams.delete('uneditedSince');
-		redirect(307, url.pathname + url.search);
+	const canonical = editorFilterQuery({ ...selectedFilters, ...(selectedFilters.show === 'todo' && !selectedFilters.since ? { since: new Date().toISOString() } : {}) });
+	// Pin a new "To edit" pass to now, and rewrite older filter links to the current form.
+	if (filterKeys.some((key) => url.searchParams.has(key)) || canonical) {
+		const rewritten = new URL(url);
+		for (const key of filterKeys) rewritten.searchParams.delete(key);
+		for (const [key, value] of new URLSearchParams(canonical.slice(1))) rewritten.searchParams.set(key, value);
+		if (rewritten.search !== url.search) redirect(307, rewritten.pathname + rewritten.search);
 	}
 	const image = await db.query.imageTable.findFirst({
 		where: eq(imageTable.id, Number(params.img)),
 		with: { session: { columns: { id: true, name: true } } }
 	});
 	if (!image) error(404, { message: 'Image or session not found' });
-	const filters = [eq(imageTable.sessionId, image.sessionId)];
-	if (selectedFilters.newlyImported) {
-		const latestExport = await db.query.imageTable.findFirst({
-			where: and(eq(imageTable.sessionId, image.sessionId), isNotNull(imageTable.lastExportedAt)),
-			columns: { lastExportedAt: true }, orderBy: desc(imageTable.lastExportedAt)
-		});
-		if (latestExport?.lastExportedAt) filters.push(gt(imageTable.createdAt, latestExport.lastExportedAt));
-	}
-	if (selectedFilters.archived !== 'any') filters.push(eq(imageTable.isArchived, selectedFilters.archived === 'only'));
-	if (selectedFilters.edited === 'unedited') {
-		filters.push(notExists(db.select().from(snapshotTable).where(eq(snapshotTable.imageId, imageTable.id))));
-	} else if (selectedFilters.edited === 'edited') {
-		filters.push(exists(db.select().from(snapshotTable).where(and(
-			eq(snapshotTable.imageId, imageTable.id),
-			selectedFilters.cutoff !== 'export' ? lt(snapshotTable.createdAt, new Date(selectedFilters.since!))
-				: or(isNull(imageTable.lastExportedAt), gt(snapshotTable.createdAt, imageTable.lastExportedAt))
-		))));
-	}
+	const filters = await editorFilterConditions(image.sessionId, selectedFilters);
 	const beforeCurrent = or(
 		lt(imageTable.recordedAt, image.recordedAt), and(eq(imageTable.recordedAt, image.recordedAt), lt(imageTable.id, image.id))
 	);
-	const [totals, preceding, currentMatch, nextImage, previousImage, navigationImages] = await Promise.all([
+	const [totals, preceding, [currentMatch], [nextImage], [previousImage], navigationImages, finished] = await Promise.all([
 		db.select({ total: count() }).from(imageTable).where(and(...filters)),
 		db.select({ total: count() }).from(imageTable).where(and(...filters, beforeCurrent)),
-		db.query.imageTable.findFirst({ columns: { id: true }, where: and(...filters, eq(imageTable.id, image.id)) }),
-		db.query.imageTable.findFirst({ columns: { id: true }, where: and(...filters, or(
+		// Plain selects: the filters' snapshot subqueries refer to the unaliased image table.
+		db.select({ id: imageTable.id }).from(imageTable).where(and(...filters, eq(imageTable.id, image.id))).limit(1),
+		db.select({ id: imageTable.id }).from(imageTable).where(and(...filters, or(
 			gt(imageTable.recordedAt, image.recordedAt), and(eq(imageTable.recordedAt, image.recordedAt), gt(imageTable.id, image.id))
-		)), orderBy: [asc(imageTable.recordedAt), asc(imageTable.id)] }),
-		db.query.imageTable.findFirst({ columns: { id: true }, where: and(...filters, beforeCurrent), orderBy: [desc(imageTable.recordedAt), desc(imageTable.id)] }),
-		db.query.imageTable.findMany({ columns: { id: true, name: true, version: true, isArchived: true }, where: and(...filters), orderBy: [asc(imageTable.recordedAt), asc(imageTable.id)] })
+		))).orderBy(asc(imageTable.recordedAt), asc(imageTable.id)).limit(1),
+		db.select({ id: imageTable.id }).from(imageTable).where(and(...filters, beforeCurrent)).orderBy(desc(imageTable.recordedAt), desc(imageTable.id)).limit(1),
+		db.select({ id: imageTable.id, name: imageTable.name, version: imageTable.version, isArchived: imageTable.isArchived }).from(imageTable)
+			.where(and(...filters)).orderBy(asc(imageTable.recordedAt), asc(imageTable.id)),
+		selectedFilters.show === 'todo'
+			? db.select({ id: imageTable.id }).from(imageTable).where(and(...filters, finishedInPass()))
+			: Promise.resolve([])
 	]);
 	return {
 		session: image.session ?? null,
 		navigationImages,
+		/** Photos in a "To edit" list that were finished during the pass. */
+		finishedImageIds: finished.map(({ id }) => id),
 		hasMatchingImages: totals[0].total > 0,
 		matchingImageCount: totals[0].total,
 		currentImagePosition: currentMatch ? preceding[0].total + 1 : null,

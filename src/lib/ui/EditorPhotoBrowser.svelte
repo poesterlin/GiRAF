@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { tick } from 'svelte';
 	import { edits } from '$lib/state/editing.svelte';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
@@ -8,16 +8,32 @@
 	import { restoreGroupedSettings } from '$lib/adjustment-groups';
 	import { resetEditorTool } from '$lib/editor-reset';
 	import { IconArchive, IconRestore, IconFilter, IconCheck } from './icons';
-	import IconPhoto from '@tabler/icons-svelte/icons/photo';
 	import IconDots from '@tabler/icons-svelte/icons/dots';
-	import { hasEditorFilters } from '$lib/editor-filters';
+	import { editorFilterQuery, filterSummary, isFiltered, matchingTask, passProgress, readEditorFilters } from '$lib/editor-filters';
 	import IconCopy from '@tabler/icons-svelte/icons/copy';
 	import IconX from '@tabler/icons-svelte/icons/x';
 	let { busy = $bindable(false), onnavigate, onclose, onfilter }: { busy?: boolean; onnavigate: (id: number) => Promise<void>; onclose: () => void; onfilter: () => void } = $props();
-	const filtered = $derived(hasEditorFilters(page.url.searchParams));
+	const activeFilters = $derived(readEditorFilters(page.url.searchParams));
+	const filtered = $derived(isFiltered(activeFilters));
 	const images: { id: number; name: string; version: number; isArchived: boolean }[] = $derived(page.data.navigationImages ?? []);
+	const progress = $derived(activeFilters.show === 'todo'
+		? passProgress(images.map((image) => image.id), page.data.finishedImageIds ?? [], Number(page.params.img), edits.hasSavedVersion)
+		: undefined);
+	/** Restarting drops the photos finished so far by pinning the pass to now. */
+	function restartPass() {
+		const url = new URL(page.url);
+		for (const key of ['show', 'since', 'archived', 'imported']) url.searchParams.delete(key);
+		for (const [key, value] of new URLSearchParams(editorFilterQuery({ ...activeFilters, since: new Date().toISOString() }).slice(1))) url.searchParams.set(key, value);
+		void goto(url);
+	}
+	const count = $derived(`${images.length} photo${images.length === 1 ? '' : 's'}`);
+	const task = $derived(matchingTask(activeFilters));
+	const status = $derived(progress
+		? (progress.remaining ? `${progress.remaining} of ${images.length} left` : 'All edited')
+		: filtered && !task ? `${filterSummary(activeFilters)} · ${count}` : count);
+	const heading = $derived(task && filtered ? task.label : 'Photos');
+	const done = $derived(progress && images.length ? progress.finished.size / images.length : 0);
 	let selected = $state<number>();
-	const currentPosition = $derived(images.findIndex(image => image.id === Number(page.params.img)) + 1);
 	const active = $derived(images.find(image => image.id === selected));
 	let message = $state('');
 	let error = $state('');
@@ -65,17 +81,18 @@
 <svelte:window onpointerdown={(event) => { if (!(event.target as Element).closest('.photo-actions')) selected = undefined; }} />
 <section id="editor-photo-browser" aria-label="Session photo browser" class="browser">
 	<header>
-		<div class="heading"><span class="gallery-mark" aria-hidden="true"><IconPhoto size={19} /></span><h2>Photos</h2><button class="position" aria-label="Jump to current photo" title="Jump to current photo" disabled={!currentPosition} onclick={revealCurrent}><strong>{currentPosition || '—'}</strong><span>/ {images.length}</span></button></div>
-		<div class="header-actions"><button class="icon" class:filter-active={filtered} aria-label={filtered ? 'Filter photos (active)' : 'Filter photos'} aria-pressed={filtered} disabled={busy} onclick={onfilter}><IconFilter size={18} /></button><button class="icon" aria-label="Close photo browser" onclick={onclose}><IconX size={18} /></button></div>
+		<div class="heading"><h2>{heading}</h2><p class="subtitle">{status}</p></div>
+		<div class="header-actions">{#if progress && progress.finished.size}<button class="text-action" disabled={busy} onclick={restartPass} title="Hide edited photos">Restart</button>{/if}<button class="icon" class:filter-active={filtered} aria-label={filtered ? 'Filter photos (active)' : 'Filter photos'} aria-pressed={filtered} disabled={busy} onclick={onfilter}><IconFilter size={18} /></button><button class="icon" aria-label="Close photo browser" onclick={onclose}><IconX size={18} /></button></div>
+		{#if progress}<i class="progress" aria-hidden="true"><i style:width={`${done * 100}%`}></i></i>{/if}
 	</header>
 	{#if images.length}
 	<div bind:this={strip} class="filmstrip" aria-label="Photos">
 		{#each images as image, index (image.id)}
 			<div class="photo" class:current={image.id === Number(page.params.img)} class:selected={image.id === selected}>
-				<button class="thumbnail" disabled={busy} aria-label={`Open ${image.name}${image.id === Number(page.params.img) ? ', current photo' : ''}`} aria-current={image.id === Number(page.params.img) ? 'true' : undefined} onclick={() => onnavigate(image.id)}>
+				<button class="thumbnail" disabled={busy} aria-label={`Open ${image.name}${image.id === Number(page.params.img) ? ', current photo' : ''}${progress?.finished.has(image.id) ? ', edited' : ''}`} aria-current={image.id === Number(page.params.img) ? 'true' : undefined} onclick={() => onnavigate(image.id)}>
 					<img src={`/api/images/${image.id}/preview?version=${image.version}`} alt="" loading="lazy" draggable="false" />
-					<span class="photo-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-					{#if image.id === Number(page.params.img)}<span class="badge"><IconCheck size={12} />Editing</span>{:else if image.isArchived}<span class="badge">Archived</span>{/if}
+					<span class="photo-number" aria-hidden="true">{index + 1}</span>
+					{#if image.id === Number(page.params.img)}<span class="badge">{#if progress?.finished.has(image.id)}<IconCheck size={12} stroke={2.5} aria-label="Edited" />{/if}Editing</span>{:else if progress?.finished.has(image.id)}<span class="finished" title="Edited"><IconCheck size={13} stroke={2.5} aria-hidden="true" /></span>{:else if image.isArchived}<span class="badge">Archived</span>{/if}
 				</button>
 				<div class="photo-actions">
 					<button class="more" disabled={busy} aria-label={`Actions for ${image.name}`} aria-expanded={selected === image.id} aria-controls={`photo-actions-${image.id}`} onclick={() => { selected = selected === image.id ? undefined : image.id; message = ''; error = ''; }}><IconDots size={20} /></button>
@@ -97,24 +114,27 @@
 
 <style>
 	.browser { position: absolute; right: 8px; bottom: 0; z-index: 2; width: min(380px, calc(100vw - 16px)); height: min(680px, 65dvh); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #525252; border-radius: 12px; background: #111; color: #e5e5e5; box-shadow: 0 16px 60px #000b; }
-	header { display: flex; flex-shrink: 0; justify-content: space-between; align-items: center; padding: 6px 8px 6px 16px; border-bottom: 1px solid #525252; background: linear-gradient(135deg, #333, #1a1a1a); }
-	h2 { font-size: 14px; font-weight: 650; letter-spacing: -.02em; }
-	.heading { display: flex; align-items: center; gap: 12px; }
-	.gallery-mark { display: flex; align-items: center; justify-content: center; color: #a3a3a3; }
-	.heading .position { border: 1px solid #ffffff20; border-radius: 999px; min-height: 30px; background: #0003; }
-	.position { gap: 5px; padding: 0 8px; font-variant-numeric: tabular-nums; } .position span { color: #a3a3a3; } .position strong { color: #fff; }
-	.header-actions { display: flex; gap: 4px; } .filter-active { background: #404040; color: #fff; }
+	header { position: relative; display: flex; flex-shrink: 0; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px 6px 16px; border-bottom: 1px solid #262626; }
+	.progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: #262626; }
+	.progress > i { display: block; height: 100%; background: #d4d4d4; transition: width 300ms ease-out; }
+	h2 { font-size: 14px; font-weight: 600; }
+	.heading { min-width: 0; }
+	.subtitle { overflow: hidden; color: #a3a3a3; font-size: 12px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+	.header-actions { display: flex; flex-shrink: 0; align-items: center; gap: 2px; } .filter-active { color: var(--color-accent-soft); }
+	.text-action { color: #d4d4d4; }
 	.filmstrip { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 12px; overflow-y: auto; padding: 12px; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #737373 #111; scroll-snap-type: y proximity; scroll-padding-block: 12px; }
-	.photo { position: relative; width: 100%; flex-shrink: 0; border: 2px solid #303030; border-radius: 8px; background: #171717; transition: border-color 150ms, box-shadow 150ms; scroll-snap-align: start; }
-	.photo:hover { border-color: #737373; }
-	.photo.current { border-color: #fafafa; box-shadow: 0 0 0 1px #fafafa, 0 6px 20px #0008; } .photo.selected { border-color: #a3a3a3; }
+	.photo { position: relative; width: 100%; flex-shrink: 0; border-radius: 8px; background: #171717; outline: 1px solid #262626; transition: outline-color 150ms; scroll-snap-align: start; }
+	.photo:hover { outline-color: #525252; }
+	.photo.current { outline: 2px solid #e5e5e5; } .photo.selected { outline-color: #a3a3a3; }
 	.thumbnail { position: relative; display: block; width: 100%; aspect-ratio: 3 / 2; background: #080808; padding: 0; border-radius: 5px; overflow: hidden; }
-	img { width: 100%; height: 100%; object-fit: contain; } .badge { position: absolute; left: 8px; bottom: 8px; display: flex; align-items: center; gap: 4px; background: #111e; padding: 4px 8px; border-radius: 5px; font-size: 10px; box-shadow: 0 2px 8px #0005; }
-	.current .badge { background: #fafafa; color: #171717; font-weight: 650; }
-	.photo-number { position: absolute; top: 10px; left: 10px; min-width: 28px; padding: 4px 6px; border-radius: 4px; background: #111c; color: #e5e5e5; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+	img { width: 100%; height: 100%; object-fit: contain; } .badge { position: absolute; left: 8px; bottom: 8px; display: flex; align-items: center; gap: 4px; background: #000a; padding: 3px 8px; border-radius: 999px; color: #e5e5e5; font-size: 11px; }
+	.finished { position: absolute; left: 8px; bottom: 8px; display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #000a; color: #e5e5e5; }
+	.photo:has(.finished) img { opacity: .6; }
+	.photo-number { position: absolute; top: 8px; left: 10px; color: #fffb; font-size: 11px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px #000; }
 	button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 12px; border-radius: 6px; font-size: 12px; white-space: nowrap; }
 	button:hover:not(:disabled) { background: #333; } button:disabled { opacity: .35; } button:focus-visible { outline: 2px solid white; outline-offset: -3px; }
-	.icon, .more { min-width: 44px; } .more { background: #111d; border: 1px solid #ffffff30; backdrop-filter: blur(8px); }
+	.icon, .more { min-width: 44px; } .more { background: #000a; }
+	@media (hover: hover) { .more:not([aria-expanded='true']) { opacity: 0; } .photo:hover .more, .more:focus-visible { opacity: 1; } }
 	.more[aria-expanded='true'] { background: #fafafa; color: #111; }
 	.photo-actions { position: absolute; top: 8px; right: 8px; }
 	.action-menu { position: absolute; right: 0; top: 48px; width: 176px; padding: 4px; background: #171717; border: 1px solid #737373; border-radius: 8px; box-shadow: 0 6px 24px #000a; z-index: 2; }

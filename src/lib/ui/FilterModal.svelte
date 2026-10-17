@@ -2,80 +2,102 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import Modal from '$lib/ui/Modal.svelte';
-	import { editorFilterQuery, readEditorFilters, type EditorFilters } from '$lib/editor-filters';
+	import { editorFilterQuery, editorTasks, matchingTask, readEditorFilters, taskFilters, type EditorFilters, type EditorTask } from '$lib/editor-filters';
+	import IconSparkles from '@tabler/icons-svelte/icons/sparkles';
+	import IconSearch from '@tabler/icons-svelte/icons/search';
+	import IconUpload from '@tabler/icons-svelte/icons/upload';
+	import IconBrush from '@tabler/icons-svelte/icons/brush';
+	import IconArchive from '@tabler/icons-svelte/icons/archive';
+	import IconPhoto from '@tabler/icons-svelte/icons/photo';
+	import IconCheck from '@tabler/icons-svelte/icons/check';
 	let { onClose }: { onClose: () => void } = $props();
-	let filters = $state<EditorFilters>(readEditorFilters(page.url.searchParams));
-	function localTimestamp(value: string | Date) {
-		const date = new Date(value);
-		const pad = (value: number) => String(value).padStart(2, '0');
-		return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+	const current = readEditorFilters(page.url.searchParams);
+	const icons = { new: IconSparkles, missed: IconSearch, export: IconUpload, touchup: IconBrush, archived: IconArchive, all: IconPhoto } as const;
+	const preferenceKey = 'giraf_editor_archived';
+	function readPreference() {
+		if (current.archived !== 'only') return current.archived === 'any';
+		try { return localStorage.getItem(preferenceKey) === 'include'; } catch { return false; }
 	}
-	let customTimestamp = $state(localTimestamp(filters.since ?? new Date()));
-	const validCustomTimestamp = $derived(!!customTimestamp && Number.isFinite(new Date(customTimestamp).getTime()));
-	function changeCutoff(event: Event) {
-		const cutoff = (event.target as HTMLSelectElement).value as EditorFilters['cutoff'];
-		if (cutoff === 'custom' && filters.cutoff !== 'custom') {
-			const lastExport = page.data.image?.lastExportedAt;
-			customTimestamp = localTimestamp(filters.cutoff === 'export' ? lastExport ?? new Date() : filters.since ?? new Date());
-		}
-		if (cutoff === 'workflow' && filters.cutoff !== 'workflow') filters.since = new Date().toISOString();
-		filters.cutoff = cutoff;
+	let includeArchived = $state(readPreference());
+	const currentTask = $derived(matchingTask(readEditorFilters(page.url.searchParams)));
+
+	/** A running "To edit" list keeps its start; starting one fresh begins now. */
+	function withStart(next: EditorFilters): EditorFilters {
+		const { since: _, ...result } = next;
+		if (result.show !== 'todo') return result;
+		const sameList = current.show === 'todo' && !!current.newlyImported === !!result.newlyImported;
+		return { ...result, since: sameList && current.since ? current.since : new Date().toISOString() };
 	}
-	const statuses = [{ value: 'any', label: 'Any' }, { value: 'unedited', label: 'Unedited' }, { value: 'edited', label: 'Edited' }] as const;
-	const archives = [{ value: 'any', label: 'Any' }, { value: 'hide', label: 'Hide archived' }, { value: 'only', label: 'Only archived' }] as const;
-	function apply() {
-		if (filters.edited === 'edited' && filters.cutoff === 'custom' && !validCustomTimestamp) return;
+	function apply(next: EditorFilters) {
 		const url = new URL(page.url);
-		for (const key of ['filter', 'uneditedSince', 'edited', 'archived', 'cutoff', 'since', 'imported']) url.searchParams.delete(key);
-		const selected = { ...filters };
-		if (selected.cutoff === 'custom' && validCustomTimestamp) selected.since = new Date(customTimestamp).toISOString();
-		if (selected.cutoff === 'workflow' && selected.edited === 'edited') selected.since ??= new Date().toISOString();
-		for (const [key, value] of new URLSearchParams(editorFilterQuery(selected).slice(1))) url.searchParams.set(key, value);
-		goto(url);
+		for (const key of ['filter', 'uneditedSince', 'edited', 'cutoff', 'show', 'since', 'archived', 'imported']) url.searchParams.delete(key);
+		for (const [key, value] of new URLSearchParams(editorFilterQuery(withStart(next)).slice(1))) url.searchParams.set(key, value);
+		return goto(url, { keepFocus: true, noScroll: true });
+	}
+	function choose(task: EditorTask) {
+		void apply(taskFilters(task, includeArchived));
 		onClose();
 	}
+	function setArchived(include: boolean) {
+		includeArchived = include;
+		try { localStorage.setItem(preferenceKey, include ? 'include' : 'hide'); } catch { /* Device storage may be unavailable. */ }
+		// The open task follows the preference straight away.
+		if (currentTask && currentTask.filters.archived !== 'only') void apply(taskFilters(currentTask, include));
+	}
+
+	let counts = $state<Record<string, number | undefined>>({});
+	$effect(() => {
+		const sessionId = page.data.session?.id;
+		const include = includeArchived;
+		if (!sessionId) return;
+		const controller = new AbortController();
+		for (const task of editorTasks) {
+			fetch(`/api/sessions/${sessionId}/filter-count${editorFilterQuery(withStart(taskFilters(task, include)))}`, { signal: controller.signal })
+				.then((response) => (response.ok ? response.json() : undefined))
+				.then((result) => (counts[task.id] = result?.count))
+				.catch(() => {});
+		}
+		return () => controller.abort();
+	});
 </script>
 
 <Modal {onClose} class="p-0">
-	<div class="space-y-6 p-5">
-		<h2 class="text-xl font-semibold text-white">Filters</h2>
-		<fieldset class="space-y-3">
-			<legend class="mb-3 font-semibold text-neutral-300">Edited</legend>
-			<div class="grid grid-cols-3 gap-2">
-				{#each statuses as status}
-					<button type="button" class="min-h-12 rounded-xl border border-neutral-600 px-3 text-sm font-semibold" class:bg-neutral-100={filters.edited === status.value} class:text-neutral-950={filters.edited === status.value} aria-pressed={filters.edited === status.value} onclick={() => (filters.edited = status.value)}>{status.label}</button>
-				{/each}
+	<div class="p-5">
+		<h2 class="mb-4 text-lg font-semibold text-white">Filter</h2>
+		<div class="tasks">
+			{#each editorTasks as task}
+				{@const Icon = icons[task.id as keyof typeof icons]}
+				<button type="button" class="task" aria-current={currentTask?.id === task.id ? 'true' : undefined} disabled={counts[task.id] === 0} onclick={() => choose(task)}>
+					<Icon size={18} stroke={1.75} aria-hidden="true" />
+					<span class="flex-1 text-left">{task.label}</span>
+					{#if currentTask?.id === task.id}<IconCheck size={16} aria-label="current" />{/if}
+					<span class="count">{counts[task.id] === 0 ? 'None' : (counts[task.id] ?? '')}</span>
+				</button>
+			{/each}
+		</div>
+		<div class="mt-4 flex items-center justify-between gap-4 border-t border-neutral-800 pt-4">
+			<span id="archived-preference" class="text-sm text-neutral-400">Archived photos</span>
+			<div class="segments" role="group" aria-labelledby="archived-preference">
+				<button type="button" class="choice" aria-pressed={!includeArchived} onclick={() => setArchived(false)}>Hide</button>
+				<button type="button" class="choice" aria-pressed={includeArchived} onclick={() => setArchived(true)}>Include</button>
 			</div>
-			{#if filters.edited === 'edited'}
-				<label class="flex flex-col gap-2 text-sm text-neutral-300">Editing cutoff
-					<select value={filters.cutoff} onchange={changeCutoff} class="min-h-12 rounded-xl border border-neutral-600 bg-neutral-900 px-3 text-neutral-100">
-						<option value="workflow">Current timestamp</option>
-						<option value="export">Last export</option>
-						<option value="custom">Custom timestamp</option>
-					</select>
-				</label>
-				{#if filters.cutoff === 'custom'}
-					<label class="flex flex-col gap-2 text-sm text-neutral-300">Cutoff date and time
-						<input type="datetime-local" step="1" required bind:value={customTimestamp} class="min-h-12 w-full min-w-0 rounded-xl border border-neutral-600 bg-neutral-900 px-3 text-neutral-100 [color-scheme:dark]" />
-					</label>
-				{/if}
-			{/if}
-		</fieldset>
-		<fieldset>
-			<legend class="mb-3 font-semibold text-neutral-300">Archived</legend>
-			<div class="grid grid-cols-3 gap-2">
-				{#each archives as status}
-					<button type="button" class="min-h-12 rounded-xl border border-neutral-600 px-3 text-sm font-semibold" class:bg-neutral-100={filters.archived === status.value} class:text-neutral-950={filters.archived === status.value} aria-pressed={filters.archived === status.value} onclick={() => (filters.archived = status.value)}>{status.label}</button>
-				{/each}
-			</div>
-		</fieldset>
-		<label class="flex min-h-12 cursor-pointer items-center gap-3 font-semibold text-neutral-300">
-			<input type="checkbox" bind:checked={filters.newlyImported} class="h-5 w-5 accent-accent" />
-			Newly imported since last session export
-		</label>
-		<div class="flex justify-between gap-3">
-			<button type="button" class="min-h-12 rounded-xl border border-neutral-600 px-5 font-semibold" onclick={() => (filters = { edited: 'any', archived: 'hide', cutoff: 'workflow' })}>Reset filters</button>
-			<button type="button" disabled={filters.edited === 'edited' && filters.cutoff === 'custom' && !validCustomTimestamp} class="min-h-12 rounded-xl bg-neutral-100 px-5 font-semibold text-neutral-950 disabled:opacity-40" onclick={apply}>Apply</button>
 		</div>
 	</div>
 </Modal>
+
+<style>
+	.tasks { display: grid; gap: 2px; }
+	.task { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 12px; border-radius: 10px; color: #d4d4d4; font-size: 14px; transition: background-color 120ms; }
+	.task:hover:not(:disabled) { background: #262626; color: #fff; }
+	.task:disabled { color: #8a8a8a; cursor: default; }
+	.task:disabled :global(svg) { color: #6b6b6b; }
+	.task[aria-current='true'] { background: #262626; color: #fff; }
+	.task :global(svg) { flex-shrink: 0; color: #a3a3a3; }
+	.task[aria-current='true'] :global(svg) { color: #fff; }
+	.count { min-width: 2ch; color: #8a8a8a; font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
+	.task:focus-visible, .choice:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+	.segments { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; border-radius: 10px; background: #0a0a0a; }
+	.choice { min-height: 44px; min-width: 76px; padding: 0 12px; border-radius: 8px; color: #a3a3a3; font-size: 13px; font-weight: 500; transition: background-color 120ms, color 120ms; }
+	.choice:hover { color: #f5f5f5; }
+	.choice[aria-pressed='true'] { background: #333; color: #fff; }
+</style>

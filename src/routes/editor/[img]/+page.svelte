@@ -115,7 +115,7 @@
 			<h1 class="text-2xl font-bold">No photos match this filter</h1>
 			<div class="flex flex-wrap justify-center gap-3">
 				<button class="min-h-12 rounded-xl border border-neutral-600 px-5 font-semibold hover:bg-neutral-800" onclick={() => (showFilterModal = true)}>Change filter</button>
-				<a href={`/editor/${data.image.id}?filter=none`} class="flex min-h-12 items-center rounded-xl bg-neutral-100 px-5 font-semibold text-neutral-950 hover:bg-white">Show all photos</a>
+				<a href={`/editor/${data.image.id}?archived=any`} class="flex min-h-12 items-center rounded-xl bg-neutral-100 px-5 font-semibold text-neutral-950 hover:bg-white">Show all photos</a>
 			</div>
 		</div>
 	</div>

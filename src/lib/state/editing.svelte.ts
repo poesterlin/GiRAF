@@ -46,6 +46,8 @@ class EditingState {
 	private snapshots = new SnapshotQueue();
 	/** The version autosave updates in place until a meaningful change lands. */
 	private savedVersion = $state.raw<SavedVersion | null>(null);
+	/** Whether the current photo has any saved version, including one autosave just wrote. */
+	public hasSavedVersion = $derived(!!this.currentImageId && this.savedVersion?.imageId === this.currentImageId);
 
 	private resetPreviewPP3(pp3: PP3) {
 		this.previewScheduler.reset($state.snapshot(pp3));

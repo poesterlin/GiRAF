@@ -1,44 +1,75 @@
 import { expect, test } from 'bun:test';
-import { editorFilterQuery, hasEditorFilters, readEditorFilters, type EditorFilters } from './editor-filters';
+import { editorFilterQuery, editorTasks, filterSummary, hasEditorFilters, matchingTask, passProgress, readEditorFilters, taskFilters, type EditorFilters } from './editor-filters';
 
-test('all combinations preserve independent filter states and the workflow timestamp', () => {
-	for (const edited of ['any', 'unedited', 'edited'] as const) {
+const since = '2026-10-09T15:00:00.000Z';
+
+test('every combination survives a round trip through the address', () => {
+	for (const show of ['all', 'todo', 'changed', 'edited'] as const) {
 		for (const archived of ['any', 'hide', 'only'] as const) {
-			const filters: EditorFilters = { edited, archived, cutoff: 'workflow', since: '2026-10-09T15:00:00.000Z' };
-			const query = new URLSearchParams(editorFilterQuery(filters).slice(1));
-			expect(readEditorFilters(query)).toEqual(filters);
-			expect(hasEditorFilters(query)).toBe(edited !== 'any' || archived !== 'any');
+			for (const newlyImported of [false, true]) {
+				const filters: EditorFilters = { show, archived, ...(show === 'todo' ? { since } : {}), ...(newlyImported ? { newlyImported } : {}) };
+				const query = new URLSearchParams(editorFilterQuery(filters).slice(1));
+				expect(readEditorFilters(query)).toEqual(filters);
+				expect(hasEditorFilters(query)).toBe(show !== 'all' || archived !== 'hide' || newlyImported);
+			}
 		}
 	}
 });
 
-test('last export drops the workflow cutoff from navigation', () => {
-	const query = new URLSearchParams(editorFilterQuery({ edited: 'edited', archived: 'hide', cutoff: 'export', since: '2026-10-09T15:00:00Z' }).slice(1));
-	expect(query.has('since')).toBe(false);
-	expect(readEditorFilters(query)).toEqual({ edited: 'edited', archived: 'hide', cutoff: 'export' });
+test('the default view adds nothing to the address and does not count as filtered', () => {
+	expect(editorFilterQuery({ show: 'all', archived: 'hide' })).toBe('');
+	expect(hasEditorFilters(new URLSearchParams())).toBe(false);
+	expect(filterSummary(readEditorFilters(new URLSearchParams()))).toBe('');
 });
 
-test('custom timestamps preserve the chosen instant through navigation', () => {
-	const filters: EditorFilters = { edited: 'unedited', archived: 'only', cutoff: 'custom', since: '2026-10-08T12:34:56.000Z' };
-	expect(readEditorFilters(new URLSearchParams(editorFilterQuery(filters).slice(1)))).toEqual(filters);
-	expect(readEditorFilters(new URLSearchParams('edited=unedited&cutoff=custom&since=invalid'))).toEqual({ edited: 'unedited', archived: 'hide', cutoff: 'custom' });
+test('only a To edit pass keeps a start time', () => {
+	expect(editorFilterQuery({ show: 'changed', archived: 'hide', since })).toBe('?show=changed');
+	expect(readEditorFilters(new URLSearchParams(`show=edited&since=${since}`))).toEqual({ show: 'edited', archived: 'hide' });
+	expect(readEditorFilters(new URLSearchParams('show=todo&since=invalid'))).toEqual({ show: 'todo', archived: 'hide' });
 });
 
-test('legacy bookmarks remain usable and explicit categories override legacy defaults', () => {
-	expect(readEditorFilters(new URLSearchParams('filter=unedited&uneditedSince=2026-10-09T15:00:00Z'))).toEqual({ edited: 'unedited', archived: 'hide', cutoff: 'workflow', since: '2026-10-09T15:00:00Z' });
-	expect(readEditorFilters(new URLSearchParams('filter=changed'))).toEqual({ edited: 'edited', archived: 'hide', cutoff: 'export' });
-	expect(readEditorFilters(new URLSearchParams('filter=archived&archived=hide&edited=unedited'))).toEqual({ edited: 'unedited', archived: 'hide', cutoff: 'workflow' });
+test('older links open the matching view', () => {
+	expect(readEditorFilters(new URLSearchParams(`filter=unedited&uneditedSince=${since}`))).toEqual({ show: 'todo', archived: 'hide', since });
+	expect(readEditorFilters(new URLSearchParams(`edited=unedited&archived=hide&cutoff=workflow&since=${since}`))).toEqual({ show: 'todo', archived: 'hide', since });
+	expect(readEditorFilters(new URLSearchParams('filter=changed'))).toEqual({ show: 'changed', archived: 'hide' });
+	expect(readEditorFilters(new URLSearchParams('edited=edited&cutoff=export'))).toEqual({ show: 'changed', archived: 'hide' });
+	expect(readEditorFilters(new URLSearchParams(`edited=edited&cutoff=workflow&since=${since}`))).toEqual({ show: 'edited', archived: 'hide' });
+	expect(readEditorFilters(new URLSearchParams('edited=any&archived=hide&cutoff=workflow'))).toEqual({ show: 'all', archived: 'hide' });
+	expect(readEditorFilters(new URLSearchParams('filter=none'))).toEqual({ show: 'all', archived: 'any' });
+	expect(readEditorFilters(new URLSearchParams('filter=archived&archived=hide&edited=unedited'))).toEqual({ show: 'todo', archived: 'hide' });
 });
 
-test('invalid categories and timestamps fall back to valid defaults', () => {
-	expect(readEditorFilters(new URLSearchParams('edited=bad&archived=bad&since=bad'))).toEqual({ edited: 'any', archived: 'hide', cutoff: 'workflow' });
+test('invalid values fall back to the defaults', () => {
+	expect(readEditorFilters(new URLSearchParams('show=bad&archived=bad&since=bad'))).toEqual({ show: 'all', archived: 'hide' });
 });
 
-test('newly imported filter works independently and combines with edited and archive states', () => {
-	for (const edited of ['any', 'unedited', 'edited'] as const) {
-		const filters: EditorFilters = { edited, archived: 'hide', cutoff: 'export', newlyImported: true };
-		expect(readEditorFilters(new URLSearchParams(editorFilterQuery(filters).slice(1)))).toEqual(filters);
-	}
-	expect(hasEditorFilters(new URLSearchParams('imported=new'))).toBe(true);
-	expect(editorFilterQuery({ edited: 'any', archived: 'any', cutoff: 'workflow' })).not.toContain('imported=');
+test('the summary names the matching task, or the settings for a custom filter', () => {
+	expect(filterSummary({ show: 'todo', archived: 'hide', since })).toBe('Missed');
+	expect(filterSummary({ show: 'todo', archived: 'hide', newlyImported: true })).toBe('New imports');
+	expect(filterSummary({ show: 'all', archived: 'hide' })).toBe('');
+	expect(filterSummary({ show: 'changed', archived: 'only', newlyImported: true })).toBe('Changed · Archived · New imports');
+});
+
+test('every task is distinct and found again from its own settings', () => {
+	for (const task of editorTasks) expect(matchingTask(task.filters)).toBe(task);
+	expect(matchingTask({ show: 'changed', archived: 'only' })).toBeUndefined();
+});
+
+test('the archived preference applies to every task but Archived', () => {
+	const touchUp = editorTasks.find((task) => task.id === 'touchup')!;
+	const archived = editorTasks.find((task) => task.id === 'archived')!;
+	expect(taskFilters(touchUp, true)).toEqual({ show: 'edited', archived: 'any' });
+	expect(taskFilters(archived, false)).toEqual({ show: 'all', archived: 'only' });
+	expect(matchingTask({ show: 'edited', archived: 'any' })).toBe(touchUp);
+	expect(filterSummary({ show: 'edited', archived: 'any' })).toBe('Edited + archived');
+	expect(filterSummary({ show: 'all', archived: 'any' })).toBe('With archived');
+});
+
+test('a To edit pass counts the open photo as finished once it is saved', () => {
+	expect(passProgress([1, 2, 3], [1], 2, false).remaining).toBe(2);
+	const progress = passProgress([1, 2, 3], [1], 2, true);
+	expect(progress.remaining).toBe(1);
+	expect([...progress.finished]).toEqual([1, 2]);
+	// A photo outside the list does not change the count
+	expect(passProgress([1, 2, 3], [], 9, true).remaining).toBe(3);
 });
