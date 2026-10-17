@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SessionList from '$lib/ui/SessionList.svelte';
 	import ContactSheet, { photoThumbnail } from '$lib/ui/ContactSheet.svelte';
+	import ArchivedSessions from '$lib/ui/ArchivedSessions.svelte';
 
 	let { data } = $props();
 
@@ -10,7 +11,9 @@
 	const tabs = $derived([
 		{ key: 'sessions', label: 'Sessions', href: '/gallery' },
 		{ key: 'recent', label: 'Recent edits', href: '/gallery?view=recent' },
-		...data.tags.map((tag) => ({ key: `tag:${tag.name}`, label: `#${tag.name}`, href: `/gallery?tag=${encodeURIComponent(tag.name)}`, count: tag.count }))
+		...data.tags.map((tag) => ({ key: `tag:${tag.name}`, label: `#${tag.name}`, href: `/gallery?tag=${encodeURIComponent(tag.name)}`, count: tag.count })),
+		// Archived sessions leave the other views; this is where they can be found and restored.
+		...(data.archivedCount || view.kind === 'archived' ? [{ key: 'archived', label: 'Archived sessions', href: '/gallery?view=archived', count: data.archivedCount }] : [])
 	]);
 </script>
 
@@ -55,6 +58,10 @@
 					data.next = next;
 				}}
 			></SessionList>
+		{:else if view.kind === 'archived'}
+			<div class="h-full overflow-y-auto px-4 pt-2 pb-12 sm:px-7">
+				<ArchivedSessions sessions={data.archived} />
+			</div>
 		{:else}
 			<div class="h-full overflow-y-auto px-4 pt-2 pb-12 sm:px-7">
 				{#if data.photos.length}

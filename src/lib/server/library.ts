@@ -54,3 +54,53 @@ export async function taggedPhotos(tag: string): Promise<LibraryPhoto[]> {
 		.where(and(visible, eq(tagTable.name, tag)))
 		.orderBy(desc(sessionTable.startedAt), asc(imageTable.recordedAt), asc(imageTable.id));
 }
+
+export type ArchivedSession = { id: number; name: string; startedAt: string; imageCount: number; cover: LibraryPhoto[] };
+
+export async function archivedSessionCount(): Promise<number> {
+	const [{ total }] = await db.select({ total: count() }).from(sessionTable).where(eq(sessionTable.isArchived, true));
+	return total;
+}
+
+/** A cover is usable while its preview or its source file still exists; the preview route regenerates from the source. */
+async function coverExists(photo: { previewPath: string | null; filepath: string }): Promise<boolean> {
+	return (photo.previewPath ? await Bun.file(photo.previewPath).exists() : false) || Bun.file(photo.filepath).exists();
+}
+
+/** Archived sessions with a few photos each, so they can be recognised before restoring. */
+export async function archivedSessions(): Promise<ArchivedSession[]> {
+	const sessions = await db
+		.select({ id: sessionTable.id, name: sessionTable.name, startedAt: sessionTable.startedAt, imageCount: count(imageTable.id) })
+		.from(sessionTable)
+		.leftJoin(imageTable, eq(imageTable.sessionId, sessionTable.id))
+		.where(eq(sessionTable.isArchived, true))
+		.groupBy(sessionTable.id)
+		.orderBy(desc(sessionTable.startedAt), desc(sessionTable.id));
+	return Promise.all(
+		sessions.map(async (session) => {
+			// Archived sessions can outlive their files, so read a few extra candidates and keep the ones still on disk.
+			const candidates = await db
+				.select({
+					id: imageTable.id,
+					version: imageTable.version,
+					sessionId: imageTable.sessionId,
+					sessionName: sql<string>`${session.name}`,
+					editedAt: sql<null>`null`,
+					snapshotId: latestSnapshotId,
+					previewPath: imageTable.previewPath,
+					filepath: imageTable.filepath
+				})
+				.from(imageTable)
+				.where(and(eq(imageTable.sessionId, session.id), eq(imageTable.isArchived, false)))
+				.orderBy(asc(imageTable.recordedAt), asc(imageTable.id))
+				.limit(8);
+			const cover: LibraryPhoto[] = [];
+			for (const candidate of candidates) {
+				if (cover.length === 4) break;
+				const { previewPath, filepath, ...photo } = candidate;
+				if (await coverExists({ previewPath, filepath })) cover.push(photo);
+			}
+			return { ...session, startedAt: new Date(session.startedAt).toISOString(), cover };
+		})
+	);
+}

@@ -361,7 +361,7 @@
 {#if archiveTarget !== null}
 	<ConfirmModal
 		title="Archive session?"
-		message="This will hide all its images from the gallery."
+		message="It moves to Archived sessions in the gallery, where you can restore it."
 		confirmLabel="Archive"
 		onConfirm={() => archiveSession(archiveTarget!)}
 		onCancel={() => (archiveTarget = null)}
