@@ -13,6 +13,8 @@ export interface Job<T> {
 
 export interface ImportPayload {
 	sessionId: JobId;
+	/** Also re-develop photos whose editor TIFF predates the current import profile (see runImport). */
+	redevelop?: boolean;
 }
 
 export interface ExportPayload {

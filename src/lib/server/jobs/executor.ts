@@ -1,11 +1,11 @@
 import { areSimilar } from '$lib/similar-images';
 import { parsePP3, stringifyPP3 } from '$lib/pp3-utils';
 import { db } from '$lib/server/db';
-import { editImage, generateImportTif, mapCropFromPreviewToExport } from '$lib/server/image-editor';
+import { editImage, generateImportTif, importProfileFor, mapCropFromPreviewToExport } from '$lib/server/image-editor';
 import { acquireDevelopBase } from '$lib/server/develop-cache';
 import { bmvbhash } from 'blockhash-core';
 import { and, asc, desc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
-import { readFile, mkdir, stat } from 'fs/promises';
+import { readFile, mkdir, rm, stat } from 'fs/promises';
 import { decode } from 'jpeg-js';
 import { dirname, join } from 'path';
 
@@ -23,10 +23,13 @@ import { exiftool } from 'exiftool-vendored';
 import { assert } from '$lib';
 import { makeOutputPath, moveExportFile, findExportPath } from '../export-files';
 import { calculateImportBaseline } from '../auto-exposure';
+import { hasPositionalEdits, sameProfile } from '../redevelop';
+import { withinDirectory } from '../session-delete';
+import { env } from '$env/dynamic/private';
 export { makeOutputPath, makeSessionPath } from '../export-files';
 
 export async function runImport(payload: ImportPayload, signal?: AbortSignal): Promise<JobResult> {
-	const { sessionId } = payload;
+	const { sessionId, redevelop = false } = payload;
 
 	const images = await db.query.imageTable.findMany({
 		where: eq(imageTable.sessionId, sessionId),
@@ -36,6 +39,21 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 	console.log(`[Executor] Starting import for session: ${sessionId}`);
 	const failures: string[] = [];
 	let repaired = 0;
+	let redeveloped = 0;
+	let pinned = 0;
+	// A re-import also brings photos up to the current import profile (e.g. lens correction), except
+	// those with crops, spots or masks in any saved version: those stay on the development they were edited on.
+	const currentProfile = await importProfileFor(null);
+	const positional = new Set<number>();
+	if (redevelop && images.length) {
+		const snapshots = await db.query.snapshotTable.findMany({
+			where: inArray(snapshotTable.imageId, images.map((image) => image.id)),
+			columns: { imageId: true, pp3: true }
+		});
+		for (const snapshot of snapshots) {
+			if (!positional.has(snapshot.imageId) && hasPositionalEdits(parsePP3(snapshot.pp3))) positional.add(snapshot.imageId);
+		}
+	}
 	try {
 		for (const image of images) {
 			if (signal?.aborted) {
@@ -50,9 +68,12 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 				if (!(await usable(image.filepath))) throw new Error('Original RAW file is missing or empty');
 				const needsTiff = !(await usable(image.tifPath)) || image.whiteBalance === null || image.tint === null;
 				const needsPreview = !(await usable(image.previewPath));
-				if (!needsTiff && !needsPreview && image.phash) continue;
-				console.log(`[Executor] Repairing image ${image.id}: ${image.filepath}`);
-				if (needsTiff) {
+				const outdated = redevelop && !needsTiff && !sameProfile(await importProfileFor(image.tifPath), currentProfile);
+				if (outdated && positional.has(image.id)) pinned++;
+				const needsRedevelop = outdated && !positional.has(image.id);
+				if (!needsTiff && !needsRedevelop && !needsPreview && image.phash) continue;
+				console.log(`[Executor] ${needsRedevelop ? 'Re-developing' : 'Repairing'} image ${image.id}: ${image.filepath}`);
+				if (needsTiff || needsRedevelop) {
 					const { pp3, tif } = await generateImportTif(image.filepath, { signal });
 					if (!(await usable(tif))) throw new Error('Generated editor TIFF is missing or empty');
 					// Save the repaired TIFF even if preview extraction subsequently fails.
@@ -60,8 +81,16 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 						tifPath: tif,
 						importBaseline: await calculateImportBaseline(tif, signal),
 						whiteBalance: pp3.White_Balance?.Temperature as number,
-						tint: pp3.White_Balance?.Green as number
+						tint: pp3.White_Balance?.Green as number,
+						// Bumping the version refreshes thumbnails browsers cached for the old development.
+						...(needsRedevelop ? { version: image.version + 1 } : {})
 					}).where(eq(imageTable.id, image.id));
+					if (needsRedevelop) {
+						// The old folder also holds edited thumbnails for the old development.
+						if (withinDirectory(env.TMP_DIR, image.tifPath)) await rm(dirname(image.tifPath), { recursive: true, force: true });
+						redeveloped++;
+						if (!needsPreview && image.phash) continue;
+					}
 				}
 				const previewPath = needsPreview ? '/tmp/' + image.id + '_preview.jpg' : image.previewPath!;
 				if (needsPreview) await exiftool.extractPreview(image.filepath, previewPath, { ignoreMinorErrors: true, forceWrite: true });
@@ -79,8 +108,9 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 			}
 		}
 		console.log(`[Executor] Finished import for session: ${sessionId}.`);
-		if (failures.length) return { status: 'error', message: `Checked ${images.length} photos; repaired ${repaired}; ${failures.length} could not be processed. ${failures.slice(0, 5).join('; ')}` };
-		return { status: 'success', message: `Checked ${images.length} photos; repaired ${repaired}.` };
+		const summary = `Checked ${images.length} photos; repaired ${repaired}` + (redevelop ? `; re-developed ${redeveloped}; kept ${pinned} with crops, spots or masks on their original development` : '');
+		if (failures.length) return { status: 'error', message: `${summary}; ${failures.length} could not be processed. ${failures.slice(0, 5).join('; ')}` };
+		return { status: 'success', message: `${summary}.` };
 	} catch (e: any) {
 		console.error(`[Executor] Failed import for session: ${sessionId}`, e);
 		return { status: 'error', message: e.message };

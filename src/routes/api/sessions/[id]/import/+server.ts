@@ -33,7 +33,7 @@ export const POST: RequestHandler = async ({ params }) => {
         return json({ message: 'No images found for this session' }, { status: 404 });
     }
 
-    const submitted = jobManager.submit(JobType.IMPORT, { sessionId });
+    const submitted = jobManager.submit(JobType.IMPORT, { sessionId, redevelop: true });
     if (!submitted) {
         return json({ message: 'An import job is already running for this session' }, { status: 409 });
     }
