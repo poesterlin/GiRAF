@@ -18,9 +18,11 @@ Built for photographers with a self-hosted photo library, GiRAF brings importing
 - **Your server, your library:** Docker-based self-hosting with server-side RawTherapee processing.
 - **Browser-based, touch-friendly editing:** work from a tablet, laptop, or desktop without installing a RAW editor on each device.
 - **Session-based organization and triage:** browse thumbnails, inspect EXIF metadata, and cull before editing.
-- **Non-destructive adjustments:** exposure, white balance, tone curves, color mixing and grading, black & white, noise reduction, sharpening, vignette, and film simulation LUTs.
+- **Non-destructive adjustments:** exposure, black and white point, white balance, tone curves, color mixing and grading, black & white, noise reduction, sharpening, vignette, and film simulation LUTs.
 - **Local editing tools:** crop and rotate, local masks, and spot retouching.
+- **Automatic lens correction:** distortion, vignetting and chromatic aberration are corrected on import using lensfun. Re-importing a session brings older photos up to date.
 - **Room to experiment:** undo/redo, before/after comparison, versioned snapshots, and reusable profiles.
+- **Flexible import:** upload from the browser, scan extra folders (`IMPORT_EXTRA_DIRS`), or copy new photos from an SD card automatically (opt-in `sd-card` compose profile).
 - **Background import and export:** processing notifications, export previews, and direct integrations with Immich and Google Photos.
 
 ## Screenshots
