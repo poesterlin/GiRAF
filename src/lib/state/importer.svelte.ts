@@ -117,13 +117,16 @@ export class ImporterState {
 	async assign(items: ImageItem[], target: UploadSessionTarget) {
 		this.assigningIds = new Set([...this.assigningIds, ...items.map((item) => item.id)]);
 		try {
-			await assignPendingUploads(items.map((item) => this.transfers.get(item.id)?.promise ?? Promise.resolve(item.importId ?? (item.id >= 0 ? item.id : undefined))), target, (index) => {
+			await assignPendingUploads(items.map((item) => this.transfers.get(item.id)?.promise ?? Promise.resolve(item.importId ?? (item.id >= 0 ? item.id : undefined))), target, (indices) => {
 				if (this.alive) {
-					const item = items[index];
-					const local = this.items.find((entry) => entry.id === item.id);
-					if (local) local.status = 'assigned';
-					else this.items.push({ ...item, importId: item.id, status: 'assigned' });
+					for (const index of indices) {
+						const item = items[index];
+						const local = this.items.find((entry) => entry.id === item.id);
+						if (local) local.status = 'assigned';
+						else this.items.push({ ...item, importId: item.id, status: 'assigned' });
+					}
 				}
+				// One refresh per batch; the page data is large.
 				void invalidateAll();
 			}, (error) => app.addToast(error instanceof Error ? error.message : 'Session assignment failed', 'error'));
 		} finally {

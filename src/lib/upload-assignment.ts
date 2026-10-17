@@ -1,20 +1,58 @@
 export type UploadSessionTarget = { name?: string; sessionId?: number };
 
-/** Capture the target now, then assign each file as its existing transfer finishes. */
-export function assignPendingUploads(uploads: Promise<number | undefined>[], target: UploadSessionTarget, onAssigned: (index: number) => void, onError: (error: unknown) => void) {
+/** The server assigns a batch in one transaction, so this bounds how long one request holds it. */
+export const ASSIGNMENT_BATCH_SIZE = 50;
+
+/**
+ * Capture the target now, then assign files in batches: everything already on the server goes
+ * together, and files still transferring join the next batch as they finish.
+ */
+export async function assignPendingUploads(uploads: Promise<number | undefined>[], target: UploadSessionTarget, onAssigned: (indices: number[]) => void, onError: (error: unknown) => void) {
 	const assign = createUploadAssignment({ ...target }, () => {});
-	return Promise.all(
+	const waiting: { id: number; index: number }[] = [];
+	let draining: Promise<void> | undefined;
+
+	async function send(batch: { id: number; index: number }[]) {
+		try {
+			await assign(batch.map(({ id }) => id));
+			onAssigned(batch.map(({ index }) => index));
+		} catch (error) {
+			if (batch.length === 1) return onError(error);
+			// The server rejects a whole batch for one missing file; retry singly so the rest still land.
+			const reported = new Set<string>();
+			for (const entry of batch) {
+				try {
+					await assign([entry.id]);
+					onAssigned([entry.index]);
+				} catch (single) {
+					const message = single instanceof Error ? single.message : String(single);
+					if (!reported.has(message)) onError(single);
+					reported.add(message);
+				}
+			}
+		}
+	}
+	async function drain() {
+		while (waiting.length) await send(waiting.splice(0, ASSIGNMENT_BATCH_SIZE));
+		draining = undefined;
+	}
+	function queue(entry: { id: number; index: number }) {
+		waiting.push(entry);
+		// Start after the current microtasks so files that resolve together share one request.
+		draining ??= Promise.resolve().then(drain);
+	}
+
+	await Promise.all(
 		uploads.map(async (upload, index) => {
 			try {
 				const id = await upload;
-				if (id === undefined) return;
-				await assign([id]);
-				onAssigned(index);
+				if (id !== undefined) queue({ id, index });
 			} catch (error) {
 				onError(error);
 			}
 		})
 	);
+	while (draining) await draining;
 }
 
 /** Serialize assignment (not transfer) so a new session is created only once. */

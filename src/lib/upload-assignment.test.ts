@@ -1,8 +1,8 @@
 import { afterEach, expect, test } from 'bun:test';
-import { assignPendingUploads, createUploadAssignment } from './upload-assignment';
+import { ASSIGNMENT_BATCH_SIZE, assignPendingUploads, createUploadAssignment } from './upload-assignment';
 
 const originalFetch = globalThis.fetch;
-test('one mixed selection assigns uploaded photos immediately and pending photos into the same session', async () => {
+test('one mixed selection assigns uploaded photos together and pending photos into the same session', async () => {
 	const requests: Record<string, unknown>[] = [];
 	globalThis.fetch = (async (input: Parameters<typeof fetch>[0], options?: RequestInit) => {
 		expect(input).toBe('/api/imports');
@@ -17,20 +17,17 @@ test('one mixed selection assigns uploaded photos immediately and pending photos
 	const done = assignPendingUploads(
 		[uploading, Promise.resolve(101), Promise.resolve(102)],
 		{ name: 'Mixed selection' },
-		(index) => assigned.push(index),
+		(indices) => assigned.push(...indices),
 		(error) => {
 			throw error;
 		}
 	);
 	await new Promise((resolve) => setTimeout(resolve, 0));
-	expect(requests).toEqual([
-		{ name: 'Mixed selection', importIds: [101], enqueue: true },
-		{ sessionId: 27, importIds: [102], enqueue: true }
-	]);
+	expect(requests).toEqual([{ name: 'Mixed selection', importIds: [101, 102], enqueue: true }]);
 	expect(assigned).toEqual([1, 2]);
 	finishUpload(103);
 	await done;
-	expect(requests[2]).toEqual({ sessionId: 27, importIds: [103], enqueue: true });
+	expect(requests[1]).toEqual({ sessionId: 27, importIds: [103], enqueue: true });
 	expect(assigned).toEqual([1, 2, 0]);
 });
 test('captures pending grouping without transferring again and reuses the created session', async () => {
@@ -53,7 +50,7 @@ test('captures pending grouping without transferring again and reuses the create
 	const done = assignPendingUploads(
 		[first, second, Promise.resolve(undefined)],
 		target,
-		(index) => assigned.push(index),
+		(indices) => assigned.push(...indices),
 		(error) => {
 			throw error;
 		}
@@ -120,4 +117,35 @@ test('retains a committed session after an assignment error and continues subseq
 	expect(resolved).toBe(8);
 	await assign([2]);
 	expect(requests[1]).toEqual({ sessionId: 8, importIds: [2], enqueue: true });
+});
+
+test('a large selection goes in batches rather than one request per photo', async () => {
+	const requests: { importIds: number[] }[] = [];
+	globalThis.fetch = (async (_input: Parameters<typeof fetch>[0], options?: RequestInit) => {
+		requests.push(JSON.parse(String(options?.body)));
+		return Response.json({ sessionId: 5 });
+	}) as unknown as typeof fetch;
+	const ids = Array.from({ length: ASSIGNMENT_BATCH_SIZE * 2 + 3 }, (_, index) => index + 1);
+	const batches: number[][] = [];
+	await assignPendingUploads(ids.map((id) => Promise.resolve(id)), { name: 'Big shoot' }, (indices) => batches.push(indices), (error) => {
+		throw error;
+	});
+	expect(requests.map((request) => request.importIds.length)).toEqual([ASSIGNMENT_BATCH_SIZE, ASSIGNMENT_BATCH_SIZE, 3]);
+	expect(batches.flat()).toEqual(ids.map((_, index) => index));
+});
+
+test('one missing photo does not stop the rest of its batch, and repeated errors are reported once', async () => {
+	const requests: { importIds: number[] }[] = [];
+	globalThis.fetch = (async (_input: Parameters<typeof fetch>[0], options?: RequestInit) => {
+		const body = JSON.parse(String(options?.body));
+		requests.push(body);
+		if (body.importIds.includes(2) || body.importIds.includes(3)) return Response.json({ message: 'One or more imports no longer exist' }, { status: 404 });
+		return Response.json({ sessionId: 9 });
+	}) as unknown as typeof fetch;
+	const assigned: number[] = [];
+	const errors: string[] = [];
+	await assignPendingUploads([1, 2, 3, 4].map((id) => Promise.resolve(id)), { sessionId: 9 }, (indices) => assigned.push(...indices), (error) => errors.push((error as Error).message));
+	expect(requests[0].importIds).toEqual([1, 2, 3, 4]);
+	expect(assigned).toEqual([0, 3]);
+	expect(errors).toEqual(['One or more imports no longer exist']);
 });
