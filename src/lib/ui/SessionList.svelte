@@ -191,12 +191,12 @@
 {#snippet item({ item }: { item: Session })}
 	<section class="mx-4 mb-12">
 		<div class="sticky top-0 z-10 flex items-center justify-between bg-neutral-950/90 py-6 backdrop-blur-md">
-			<div class="flex items-center gap-6 pl-3">
-				<div class="flex flex-col">
-					<div class="flex items-center gap-2">
-						<h2 class="text-2xl font-bold tracking-tight text-neutral-100">{item.name}</h2>
+			<div class="flex w-full items-center justify-between gap-3 px-3 sm:w-auto sm:justify-start sm:gap-6 sm:pr-0">
+				<div class="flex min-w-0 flex-col">
+					<div class="flex min-w-0 items-center gap-2">
+						<h2 class="truncate text-2xl font-bold tracking-tight text-neutral-100">{item.name}</h2>
 						{#if allowRename}
-							<button type="button" disabled={item.isExporting} title={item.isExporting ? 'Wait for the export to finish' : 'Rename session'} class="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed" aria-label={`Rename ${item.name}`} onclick={() => { renaming = item; renameValue = item.name; }}>
+							<button type="button" disabled={item.isExporting} title={item.isExporting ? 'Wait for the export to finish' : 'Rename session'} class="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed" aria-label={`Rename ${item.name}`} onclick={() => { renaming = item; renameValue = item.name; }}>
 								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m16 3 5 5-12 12H4v-5Z" /><path d="m14 5 5 5" /></svg>
 							</button>
 						{/if}
@@ -204,7 +204,7 @@
 					<p class="text-xs font-medium tracking-widest uppercase text-neutral-500">{formatDate(item.startedAt)} • {item.imageCount} images</p>
 				</div>
 				
-				<div class="flex items-center gap-1 rounded-full border border-neutral-800 bg-neutral-900/50 p-1">
+				<div class="flex shrink-0 items-center gap-1 rounded-full border border-neutral-800 bg-neutral-900/50 p-1">
 					{#if importJobStates.has(item.id)}
 						<div class="flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold text-neutral-400">
 							<span class="flex h-2 w-2">
