@@ -3,10 +3,13 @@
 	import { app } from '$lib/state/app.svelte';
 	import type { ArchivedSession } from '$lib/server/library';
 	import { photoThumbnail } from './ContactSheet.svelte';
-	import { IconArchive } from './icons';
+	import DeleteSessionModal from './DeleteSessionModal.svelte';
+	import { IconArchive, IconTrash } from './icons';
 
 	let { sessions }: { sessions: ArchivedSession[] } = $props();
 	let restoring = $state<number>();
+	let deleting = $state<ArchivedSession>();
+	let deletingBusy = $state(false);
 	// Cover files can be gone once a session is archived, so drop any that fail to load.
 	let broken = $state<Set<number>>(new Set());
 
@@ -30,6 +33,25 @@
 			restoring = undefined;
 		}
 	}
+
+	async function remove(session: ArchivedSession, files: { imports: boolean; exports: boolean }) {
+		deletingBusy = true;
+		try {
+			const query = new URLSearchParams();
+			if (files.imports) query.set('imports', '1');
+			if (files.exports) query.set('exports', '1');
+			const suffix = query.size ? `?${query}` : '';
+			const response = await fetch(`/api/sessions/${session.id}${suffix}`, { method: 'DELETE' });
+			if (!response.ok) throw new Error();
+			deleting = undefined;
+			app.addToast(`Deleted ${session.name}.`, 'success');
+			await invalidateAll();
+		} catch {
+			app.addToast(`Could not delete ${session.name}.`, 'error');
+		} finally {
+			deletingBusy = false;
+		}
+	}
 </script>
 
 {#if sessions.length}
@@ -49,15 +71,24 @@
 						<h2 class="truncate text-sm font-semibold text-neutral-100">{session.name}</h2>
 						<p class="text-xs text-neutral-500">{dates.format(new Date(session.startedAt))} · {session.imageCount} photo{session.imageCount === 1 ? '' : 's'}</p>
 					</div>
-					<button type="button" class="restore" disabled={restoring !== undefined} onclick={() => restore(session)}>
-						{restoring === session.id ? 'Restoring…' : 'Restore'}
-					</button>
+					<div class="actions">
+						<button type="button" class="restore" disabled={restoring !== undefined} onclick={() => restore(session)}>
+							{restoring === session.id ? 'Restoring…' : 'Restore'}
+						</button>
+						<button type="button" class="delete" disabled={deletingBusy} aria-label={`Delete ${session.name}`} onclick={() => (deleting = session)}>
+							<IconTrash size={16} />
+						</button>
+					</div>
 				</div>
 			</li>
 		{/each}
 	</ul>
 {:else}
 	<p class="py-16 text-center text-sm text-neutral-500">No archived sessions.</p>
+{/if}
+
+{#if deleting}
+	<DeleteSessionModal session={deleting} busy={deletingBusy} onConfirm={(files) => remove(deleting!, files)} onCancel={() => (deleting = undefined)} />
 {/if}
 
 <style>
@@ -70,8 +101,13 @@
 	.mosaic:hover img { opacity: 1; }
 	.mosaic:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
 	.empty { display: flex; grid-column: 1 / -1; align-items: center; justify-content: center; color: #525252; }
+	.actions { display: flex; flex-shrink: 0; gap: 6px; }
 	.restore { flex-shrink: 0; min-height: 44px; padding: 0 16px; border-radius: 10px; background: #262626; color: #f5f5f5; font-size: 13px; font-weight: 600; transition: background-color 120ms; }
 	.restore:hover:not(:disabled) { background: #f5f5f5; color: #0a0a0a; }
 	.restore:disabled { opacity: .5; }
 	.restore:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+	.delete { display: flex; flex-shrink: 0; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; border-radius: 10px; color: #a3a3a3; transition: background-color 120ms, color 120ms; }
+	.delete:hover:not(:disabled) { background: #7f1d1d; color: #fecaca; }
+	.delete:disabled { opacity: .5; }
+	.delete:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 </style>

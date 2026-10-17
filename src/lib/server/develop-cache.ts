@@ -49,6 +49,8 @@ interface Entry {
 	size: number;
 	refs: number;
 	lastUsed: number;
+	/** Source RAW the base was built from, when known. */
+	source?: string;
 }
 
 const entries = new Map<string, Entry>();
@@ -89,6 +91,28 @@ async function scan() {
 		} catch {
 			// Ignore files that disappear during the scan.
 		}
+	}
+}
+
+/**
+ * Drops any cached develop base derived from `rawPath`, whether or not the source still exists.
+ * Called when a session is deleted so its intermediates leave with it.
+ */
+export async function evictDevelopBase(rawPath: string): Promise<void> {
+	await scan();
+	const keys = new Set<string>();
+	try {
+		const info = await stat(rawPath);
+		keys.add(keyFor(rawPath, info.mtimeMs, info.size));
+	} catch {
+		// The source is already gone; fall back to entries that recorded where they came from.
+	}
+	for (const [key, entry] of entries) {
+		if (entry.refs > 0) continue;
+		if (!keys.has(key) && entry.source !== rawPath) continue;
+		entries.delete(key);
+		cachedBytes -= entry.size;
+		await rm(entry.path, { force: true });
 	}
 }
 
@@ -178,6 +202,7 @@ export async function acquireDevelopBase(rawPath: string, options: { signal?: Ab
 
 	options.signal?.throwIfAborted();
 	entry.refs++;
+	entry.source = rawPath;
 	await touch(entry);
 
 	let released = false;

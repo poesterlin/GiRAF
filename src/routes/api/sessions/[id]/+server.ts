@@ -4,6 +4,7 @@ import { rename, stat } from 'node:fs/promises';
 import { db } from '$lib/server/db';
 import { sessionTable } from '$lib/server/db/schema';
 import { makeSessionPath } from '$lib/server/export-files';
+import { deleteSession } from '$lib/server/session-delete';
 import { jobManager } from '$lib/server/jobs/manager';
 import { JobType } from '$lib/server/jobs/types';
 
@@ -39,4 +40,20 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 		throw cause;
 	}
 	return json({ id, name });
+};
+
+/** Fully deletes an archived session. `imports`/`exports` opt the on-disk originals into deletion. */
+export const DELETE: RequestHandler = async ({ params, url }) => {
+	const id = Number(params.id);
+	if (!Number.isSafeInteger(id)) error(400, 'Invalid session ID');
+	const session = await db.query.sessionTable.findFirst({ where: eq(sessionTable.id, id) });
+	if (!session) error(404, 'Session not found');
+	// Deliberately archive-only: deleting a session the user is still working in should not be one click away.
+	if (!session.isArchived) error(409, 'Archive the session before deleting it.');
+	if (jobManager.getActiveJobs().includes(id)) error(409, 'Wait for session processing to finish before deleting.');
+
+	const imports = url.searchParams.get('imports') === '1';
+	const exports = url.searchParams.get('exports') === '1';
+	await deleteSession(session, { imports, exports });
+	return json({ id, deletions: { imports, exports } });
 };
