@@ -32,7 +32,6 @@
 		for (const field of ['Auto', 'Compensation', 'Brightness', 'Contrast', 'Black', 'HighlightCompr', 'HighlightComprThreshold']) {
 			edits.pp3.Exposure[field] = defaults[field];
 		}
-		edits.pp3.Exposure.Curve = '0;';
 		edits.pp3.Exposure.Enabled = true;
 		edits.pushHistory(true);
 	}
@@ -116,31 +115,6 @@
 			ignored={edits.pp3.Exposure.Auto as boolean}
 			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
 		/>
-
-		<Slider
-			label="Black Level"
-			bind:value={edits.pp3.Exposure.Black as number}
-			min={-100}
-			max={100}
-			step={0.1}
-			map={blackLevelToPP3}
-			inverseMap={blackLevelFromPP3}
-			displayValue={(value) => Number(blackLevelFromPP3(value).toFixed(1))}
-			resetValue={0}
-			centered
-			ignored={edits.pp3.Exposure.Auto as boolean}
-			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
-		/>
-		<Slider
-			label="White Point"
-			bind:value={() => whitePointFromCurve(edits.pp3.Exposure.Curve), (value) => (edits.pp3.Exposure.Curve = whitePointToCurve(value))}
-			min={-100}
-			max={100}
-			step={1}
-			resetValue={0}
-			centered
-			onchange={() => edits.pushHistory()}
-		/>
 	
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Dynamic Range" group="dynamicRange">
@@ -162,6 +136,30 @@
 			step={1}
 			ignored={toolIgnored('Shadows_&_Highlights', ['Highlights', 'Shadows'])}
 			onchange={() => { shadowsHighlights.Enabled = true; edits.pushHistory(); }}
+		/>
+		<Slider
+			label="White Point"
+			bind:value={() => whitePointFromCurve(edits.pp3.Exposure.Curve), (value) => (edits.pp3.Exposure.Curve = whitePointToCurve(value))}
+			min={-100}
+			max={100}
+			step={1}
+			resetValue={0}
+			centered
+			onchange={() => edits.pushHistory()}
+		/>
+		<Slider
+			label="Black Level"
+			bind:value={edits.pp3.Exposure.Black as number}
+			min={-100}
+			max={100}
+			step={0.1}
+			map={blackLevelToPP3}
+			inverseMap={blackLevelFromPP3}
+			displayValue={(value) => Number(blackLevelFromPP3(value).toFixed(1))}
+			resetValue={0}
+			centered
+			ignored={edits.pp3.Exposure.Auto as boolean}
+			onchange={() => { edits.pp3.Exposure.Auto = false; edits.pushHistory(); }}
 		/>
 	
 	</AdjustmentGroup>
