@@ -1,178 +1,60 @@
-This file provides guidance to AI Agents when working with code in this repository.
+Guidance for anyone working on this repository, human or AI agent.
 
-## Project Overview
+## Project
 
-GiRAF is a web-based RAW photo editor that uses RawTherapee CLI for remote-controlled RAW image editing from low-power devices. Built with SvelteKit 5, Bun runtime, PostgreSQL + Drizzle ORM, and TailwindCSS 4.
+GiRAF is a self-hosted RAW photo editor. The browser edits, and the server renders with `rawtherapee-cli`.
 
-The application imports RAW images, generates TIFF intermediates and preview images, allows web-based editing via PP3 configuration files, and exports to external integrations (Google Photos, Immich).
+Stack: SvelteKit 5, Bun, PostgreSQL with Drizzle ORM, TailwindCSS 4.
 
-## Development Commands
-
-### Running the Application
+## Commands
 
 ```bash
-# Development server (uses Bun)
-bun run dev
+bun run dev       # development server
+bun run check     # type check (svelte-check)
+bun test          # unit tests
+bun run lint      # Prettier check + ESLint
+bun run format    # format with Prettier
+bun run build     # production build
 
-# Build for production
-bun run build
-
-# Preview production build
-bun run preview
+bun run db:push      # apply schema changes (development)
+bun run db:generate  # create a migration from the schema
+bun run db:migrate   # run migrations
 ```
 
-### Database
+Run `bun run check` and `bun test` before you hand in a change.
 
-```bash
-# Start PostgreSQL via Docker Compose
-bun run db:start
+## How it works
 
-# Push schema changes to database (development)
-bun run db:push
+- **Edits are PP3 files.** RawTherapee's text format is parsed into `PP3 = Record<chapter, Record<key, value>>` by `src/lib/pp3-utils.ts`. Each saved edit is a snapshot row holding a PP3 string.
+- **Import** develops each RAW once into a TIFF with `src/lib/assets/import.pp3`, which also applies lens correction. The profile used is saved as `edit.pp3` beside the TIFF.
+- **Previews and exports** render from developed TIFFs, never from the RAW. Settings RawTherapee only applies to RAWs, such as `[RAW]` and `[LensProfile]`, have no effect in an edit.
+- **Develop bases** in `src/lib/server/develop-cache.ts` are cached full-size TIFFs for exports and large previews. They reuse each photo's recorded profile, so a photo always keeps the look it was edited with.
+- **Jobs** for import and export run in-process from `src/lib/server/jobs/`, one per session, and can be cancelled.
+- **Integrations** for Immich and Google Photos live in `src/lib/server/integrations/`.
+- **The schema** is in `src/lib/server/db/schema.ts`.
 
-# Generate migrations from schema
-bun run db:generate
+## Conventions
 
-# Run migrations
-bun run db:migrate
+- Use Bun, not Node or npm.
+- Use Svelte 5 runes (`$state`, `$derived`, `$effect`), not stores.
+- Use Drizzle relational queries, not raw SQL.
+- Edit PP3 by parsing, changing the object and stringifying. Never edit PP3 text directly.
+- Take directories from environment variables (`IMPORT_DIR`, `EXPORT_DIR`, `TMP_DIR`, `CLUT_DIR`).
+- Keep pages fast on slow connections:
+  - Any `<img>` repeated in a list or grid uses `loading="lazy"` and a thumbnail (`/api/images/:id/preview?size=…`).
+  - Only the photo on screen and its direct neighbours may load eagerly.
+  - Send only the fields a page needs. Never send bulky columns such as `importBaseline` for a whole list.
 
-# Open Drizzle Studio (database GUI)
-bun run db:studio
-```
+Settings and environment variables are documented in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
-### Code Quality
+## Maintainer deployment
 
-```bash
-# Type checking
-bun run check
+This applies only on the maintainer's deployment server. Contributors can skip it.
 
-# Watch mode for type checking
-bun run check:watch
-
-# Format code
-bun run format
-
-# Lint (runs Prettier check + ESLint)
-bun run lint
-```
-
-## Architecture
-
-### PP3 File System
-
-The core editing mechanism uses RawTherapee's PP3 files (text-based configuration format):
-
-- **Base PP3**: Template file in `src/lib/assets/` (import.pp3, export.pp3, client.pp3, base.pp3)
-- **PP3 Utils** (`src/lib/pp3-utils.ts`): Parse, stringify, diff, apply, filter PP3 files
-- **Snapshots**: Each edit state is saved as a PP3 string in the database (snapshot table)
-- **Image Editor** (`src/lib/server/image-editor.ts`): Wraps `rawtherapee-cli` to apply PP3 to RAW files
-
-The PP3 format is parsed into a typed object structure `PP3 = Record<string, Record<string, string | number | boolean>>`, where top-level keys are "chapters" (sections like `White_Balance`, `Film_Simulation`) and nested keys are settings.
-
-### Data Model (Drizzle ORM)
-
-Schema in `src/lib/server/db/schema.ts`:
-
-- **Session**: Groups images from an import session (e.g., a photoshoot)
-- **Image**: RAW file metadata, preview path, TIFF path, EXIF data, rating, tags, stacking
-- **Snapshot**: Versioned PP3 edits for an image (multiple snapshots per image)
-- **Import**: Tracks files pending import
-- **Tag**: User-created tags with many-to-many relationship to images
-- **Profile**: Saved PP3 presets that can be applied to images
-- **Album**: External integration albums (Google Photos, Immich)
-- **Media**: Links images to external album items
-
-Key relationships:
-- Images belong to Sessions
-- Images have many Snapshots
-- Images can be stacked (stackId self-reference, isStackBase flag)
-- Images have perceptual hash (phash) for duplicate detection
-
-### Job System
-
-Background job processing for long-running operations (`src/lib/server/jobs/`):
-
-- **JobManager** (singleton): Manages import/export jobs, one active job per session
-- **JobType**: `IMPORT` (RAW → database), `EXPORT` (database → external integrations)
-- Jobs are keyed by sessionId, support cancellation via AbortController
-- Jobs run in-process (not a separate queue worker)
-
-### External Integrations
-
-Photo storage integrations (`src/lib/server/integrations/`):
-
-- **PhotoIntegration interface**: Common API for uploading, creating albums, managing media
-- **Google Photos**: OAuth2 flow, uses Google Photos Library API
-- **Immich**: Self-hosted photo management integration
-- Each integration implements: configure, createAlbum, uploadFile, addToAlbum, removeFromAlbum, replaceInAlbum
-
-### Image Processing Workflow
-
-1. **Import**: RAW file → generate TIFF with `generateImportTif()` → extract EXIF → create preview → save to database
-2. **Edit**: User adjusts PP3 settings in UI (Svelte reactive state) → staged server-rendered JPEG previews → save snapshot
-3. **Export**: Job reads images + snapshots → renders final JPEG with PP3 → uploads to integration → tracks in Media table
-
-### State Management (Svelte 5)
-
-- **editing.svelte.ts**: Global reactive state for current image PP3, undo/redo history, throttled updates
-- **tag.svelte.ts**: Tag autocomplete and management
-- **app.svelte.ts**: App-level state
-- Uses Svelte 5 runes (`$state`, `$derived`, `$effect`)
-
-### RawTherapee CLI Integration
-
-Commands are executed via `runCommand()` in `src/lib/server/command-runner.ts`:
-
-- **Edit image**: `rawtherapee-cli --no-gui -p <pp3> -o <output> -j<quality> -Y -c <input>`
-- **Generate TIFF**: `rawtherapee-cli --no-gui -p <pp3> -b16 -t -O <outdir> -Y -c <input>`
-- Supports AbortSignal for cancellation
-- Uses temp directories for intermediate files
-
-### Server Editor Previews
-
-`src/lib/editor-preview.ts` fetches quick and final server-rendered JPEGs and decodes them before publishing. Final previews probe the browser cache, then the server JPEG cache; cache hits bypass settling and cache-only probes never start a RAW render. Cache misses retain the settling delay. Constrained devices/connections skip refinement after a successful quick preview. A failed quick preview can recover at final quality, and a failed refinement retains the successful quick preview.
-
-`src/lib/preview-analytics.ts` reports preview timing, response reuse, cache lookups, refinement skips, and paint opportunities to the browser debug console only.
-
-Importer local thumbnails use the separate native browser image/embedded-thumbnail path in `src/lib/local-photo-preview.ts` and `src/lib/local-preview.worker.ts`.
-
-## Key Conventions
-
-- **Bun runtime**: Package manager and dev server (not Node.js)
-- **Svelte 5 syntax**: Use runes (`$state`, `$derived`, `$effect`) not legacy stores
-- **Database queries**: Use Drizzle ORM relational queries, not raw SQL
-- **File paths**: Environment variables for directories (IMPORT_DIR, EXPORT_DIR, TMP_DIR, CLUT_DIR)
-- **Error handling**: Commands reject on non-zero exit code with full stdout/stderr
-- **PP3 editing**: Always parse → modify object → stringify, never manipulate strings directly
-- **Bulk images load lazily**: Any `<img>` rendered once per item in a list, grid or strip (gallery, importer, exporter, session pickers, triage strip, similar-shot thumbnails) must set `loading="lazy"` and request a thumbnail-sized preview (`/api/images/:id/preview?size=…`), never the full image. Only the single photo being viewed and its immediate neighbours may be loaded eagerly or preloaded. Pages must stay usable on slow connections, so keep server-rendered payloads small too: send only the fields a page uses and never serialise bulky columns such as `importBaseline` for a whole list.
-
-## Environment Variables
-
-Required in `.env` (see `.env.example`):
-
-- `DATABASE_URL`: PostgreSQL connection string
-- `CLUT_DIR`: Directory containing LUT files for film simulation
-- `IMPORT_DIR`: Directory watched for automatic imports
-- `EXPORT_DIR`: Directory for exported images
-- `HOST_DOMAIN`: Domain for Traefik routing (production)
-
-## Docker Deployment
-
-After completing changes, deploy the local checkout and confirm the editor passes its health check only when working directly on the deployment server, unless the user explicitly asks not to deploy. Establish that the current machine is the deployment server from explicit user context or known environment information; having Docker installed or deployment files in the checkout is not sufficient. In other environments, complete local checks and leave deployment to the server. If the environment is uncertain, skip automatic deployment and state that it was not performed.
-
-When working directly on the deployment server, deploy the local checkout (including local edits) through Traefik:
+On that server, deploy after finishing a change, unless asked not to. Only treat the machine as the deployment server when the user or the environment says so. Having Docker or these compose files is not enough. If unsure, don't deploy, and say so.
 
 ```bash
 docker compose -f docker-compose.yml -f compose.deploy.yaml up -d --build --wait --wait-timeout 180 editor
 ```
 
-The deployment override removes the development host-port binding, joins
-`traefik_web`, routes `HOST_DOMAIN`, sets the SvelteKit origin, and checks the
-application root for health. Use the same two compose files for logs and status.
-
-Two services in `docker-compose.yml`:
-
-1. **editor**: Main SvelteKit app (Node adapter), port 3000
-2. **watchers**: Separate service running file watchers for SD card import
-
-Both share volumes for import/export directories and CLUT files.
+Use the same two compose files for logs and status.
