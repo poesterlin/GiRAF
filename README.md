@@ -1,129 +1,161 @@
+<div align="center">
+
+<img src="src/lib/assets/logo.webp" alt="GiRAF logo" width="96" />
+
 # GiRAF
 
-**Develop your RAW photos from any browser, on your own server, and publish directly to Immich.**
+**Develop your RAW photos from any browser, on your own server.**
 
-GiRAF is a self-hosted RAW photo editor powered by [RawTherapee](https://rawtherapee.com/). Edit from a tablet or lightweight laptop while your server handles RAW processing and stores your photo collection—no desktop editor required on the device you use to edit.
+Import, cull, edit and publish your photos in one self-hosted workflow, powered by [RawTherapee](https://rawtherapee.com/).
+Your tablet or laptop just needs a browser; the server does the heavy lifting.
 
-Built for photographers with a self-hosted photo library, GiRAF brings importing, culling, non-destructive editing, and exporting into one browser-based workflow.
+[![Latest version](https://img.shields.io/github/v/tag/poesterlin/giraf?label=version&sort=semver)](https://github.com/poesterlin/giraf/tags)
+[![Docker image](https://github.com/poesterlin/giraf/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/poesterlin/giraf/pkgs/container/giraf)
+[![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
 
-## Your workflow
+[Quick start](#quick-start) · [Features](#features) · [Screenshots](#screenshots) · [Integrations](#integrations) · [Roadmap](#roadmap)
 
-1. **Import** RAW files from your server's import directory or upload them from your device.
-2. **Cull** a session in Triage, inspect camera metadata, and archive the shots you don't want to keep in the active workflow.
-3. **Develop** your selections with before/after comparison, film looks, local adjustments, and versioned snapshots.
-4. **Publish** finished photos to Immich or Google Photos, or keep local exports and download completed sessions as ZIP files.
+<br />
 
-## Highlights
+<img src="docs/images/3-editor.png" alt="The GiRAF editor with a before/after split of hot-air balloons over Cappadocia" width="900" />
 
-- **Your server, your library:** Docker-based self-hosting with server-side RawTherapee processing.
-- **Browser-based, touch-friendly editing:** work from a tablet, laptop, or desktop without installing a RAW editor on each device.
-- **Session-based organization and triage:** browse thumbnails, inspect EXIF metadata, and cull before editing.
-- **Non-destructive adjustments:** exposure, black and white point, white balance, tone curves, color mixing and grading, black & white, noise reduction, sharpening, vignette, and film simulation LUTs.
-- **Local editing tools:** crop and rotate, local masks, and spot retouching.
-- **Automatic lens correction:** distortion, vignetting and chromatic aberration are corrected on import using lensfun. Re-importing a session brings older photos up to date.
-- **Room to experiment:** undo/redo, before/after comparison, versioned snapshots, and reusable profiles.
-- **Flexible import:** upload from the browser, scan extra folders (`IMPORT_EXTRA_DIRS`), or copy new photos from an SD card automatically (opt-in `sd-card` compose profile).
-- **Background import and export:** processing notifications, export previews, and direct integrations with Immich and Google Photos.
+</div>
+
+## Why GiRAF?
+
+Editing RAW files usually means a powerful desktop and a library that lives on it. GiRAF moves both to your server. Your photos stay in one place you control. Any device with a browser, even a low-power tablet on the couch, becomes a full RAW editor, and finished photos go straight to Immich or Google Photos.
+
+## How it works
+
+| | Step | What you do |
+|:-:|---|---|
+| 📥 | **Import** | Drop RAW files into a watched folder, upload them from your device, or let an SD card import itself. |
+| 🗂️ | **Cull** | Flip through a session in Triage, compare similar shots and archive the ones you don't want. |
+| 🎨 | **Develop** | Edit with before/after comparison, film looks, masks and versioned snapshots. |
+| 🚀 | **Publish** | Export to Immich or Google Photos, or download finished sessions as ZIP files. |
+
+## Features
+
+**Editing**
+- **Non-destructive adjustments:** exposure, black and white point, white balance, tone curves, color mixer, color grading, black & white, clarity, noise reduction, sharpening and vignette.
+- **Film looks:** browse film simulation LUTs (hundreds with the Hald CLUT pack), each previewed on your own photo.
+- **Local tools:** crop and rotate, local masks and spot retouching.
+- **Automatic lens correction:** distortion, vignetting and chromatic aberration are corrected on import using lensfun.
+- **Room to experiment:** undo/redo, before/after comparison, versioned snapshots and reusable profiles.
+
+**Workflow**
+- **Sessions:** photos are grouped into sessions with mosaic covers, sorting and an archive.
+- **Triage:** cull before you edit and stack similar shots together.
+- **Flexible import:** scan your import folder and any extra folders, upload from the browser or command line, or copy new photos from an SD card automatically.
+- **Background jobs:** imports and exports run on the server with progress notifications.
+
+**Built for small devices**
+- **Touch-friendly:** the editor works on phones and tablets as well as on desktops.
+- **Light on the network:** quick previews appear first and sharpen when the connection allows.
+- **Self-hosted:** one Docker Compose file runs the app and PostgreSQL.
 
 ## Screenshots
 
-### 1. Import
-![Import](docs/images/1-import.png)
-
-### 2. Gallery
-![Gallery](docs/images/2-gallery.png)
-![Session](docs/images/2-session.png)
-
-### 3. Editor
-![Editor](docs/images/3-editor.png)
-![Editor Mobile](docs/images/3-editor-mobile.png)
-![LUTs](docs/images/3-luts.png)
-
-### 4. Export
-![Export](docs/images/4-export.png)
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/2-gallery.png" alt="Gallery with session cards" /><p align="center"><b>Gallery</b>: sessions at a glance</p></td>
+    <td width="50%"><img src="docs/images/2-session.png" alt="A session's photos in a grid" /><p align="center"><b>Session</b>: every photo in a shoot</p></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/3-luts.png" alt="Film look picker with previews" /><p align="center"><b>Looks</b>: film simulations previewed on your photo</p></td>
+    <td><img src="docs/images/1-import.png" alt="Importer with selected photos" /><p align="center"><b>Import</b>: pick what to bring in</p></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/4-export.png" alt="Exporter with sessions ready to publish" /><p align="center"><b>Export</b>: publish to your photo services</p></td>
+    <td align="center"><img src="docs/images/3-editor-mobile.png" alt="The editor on a phone" width="45%" /><p align="center"><b>Mobile</b>: the full editor on a phone</p></td>
+  </tr>
+</table>
 
 ## Quick start
 
-1) Download [docker-compose.selfhost.yml](https://raw.githubusercontent.com/poesterlin/giraf/main/docker-compose.selfhost.yml) into a new folder.
-
-2) Create an empty env file:
-
-Use this file to configure the optional export integrations described below.
+You need Docker with Docker Compose.
 
 ```bash
+mkdir giraf && cd giraf
+curl -O https://raw.githubusercontent.com/poesterlin/giraf/main/docker-compose.selfhost.yml
 touch .env
-```
-
-3) Start the stack (app + PostgreSQL):
-
-```bash
 docker compose -f docker-compose.selfhost.yml up -d
 ```
 
-4) Optionally add film emulation profiles. Download the [Hald CLUT pack](http://rawtherapee.com/shared/HaldCLUT.zip) and unzip it into `./cluts`.
+Open [http://localhost:4893](http://localhost:4893), or `http://<your-server-address>:4893` from another device on your network.
 
-5) Open [http://localhost:4893](http://localhost:4893), or `http://<your-server-address>:4893` from another device that can reach your server.
-
-Place RAW files in `./import` and use **Scan Directory**, or use **Manual Upload** in the importer. Local exports are stored in `./export`.
+Then:
+- Put RAW files in `./import` and press **Scan Directory**, or use **Manual Upload** in the importer.
+- Find local exports in `./export`.
+- *Optional:* for film looks, download the [Hald CLUT pack](http://rawtherapee.com/shared/HaldCLUT.zip) and unzip it into `./cluts`.
 
 ## Configuration
 
-- Edit `docker-compose.selfhost.yml` for database settings and storage paths when using the quick start.
-- See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for environment variables.
-- See [docs/local-imports.md](docs/local-imports.md) for device uploads and [docs/raw-upload-cli.md](docs/raw-upload-cli.md) for command-line uploads.
+- Database settings and storage paths live in `docker-compose.selfhost.yml`.
+- Environment variables, extra import folders and automatic SD-card import are described in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+- Uploading from devices is covered in [docs/local-imports.md](docs/local-imports.md), and uploading from the command line in [docs/raw-upload-cli.md](docs/raw-upload-cli.md).
 
 ## Integrations
 
-GiRAF supports exporting to external photo management services.
+GiRAF exports finished photos straight into your photo library.
 
-### Immich
+<details>
+<summary><b>Immich</b></summary>
 
-1) Get an **API Key** from your Immich user settings.
-2) Add the following to your `.env`:
-   - `IMMICH_BASE_URL`: Your Immich instance URL (e.g., `https://immich.example.com`)
-   - `IMMICH_API_KEY`: Your generated API key
+1. Create an **API key** in your Immich user settings.
+2. Add it to your `.env`:
+   ```bash
+   IMMICH_BASE_URL=https://immich.example.com
+   IMMICH_API_KEY=your-api-key
+   ```
 
-### Google Photos
+</details>
 
-1) Create a project in the [Google Cloud Console](https://console.cloud.google.com/).
-2) Enable the **Photos Library API**.
-3) Create an **OAuth 2.0 Client ID** (Type: Web Application).
-4) Add your full GiRAF URL followed by `/api/auth/google/callback` as a **Redirect URI** (e.g., `https://photos.example.com/api/auth/google/callback`).
-5) Add the following to your `.env`:
-   - `GOOGLE_CLIENT_ID`
-   - `GOOGLE_CLIENT_SECRET`
+<details>
+<summary><b>Google Photos</b></summary>
 
-#### Token Persistence (Self-Hosting)
+1. Create a project in the [Google Cloud Console](https://console.cloud.google.com/).
+2. Enable the **Photos Library API**.
+3. Create an **OAuth 2.0 Client ID** of type *Web application*.
+4. Add your GiRAF URL followed by `/api/auth/google/callback` as a **redirect URI**, for example `https://photos.example.com/api/auth/google/callback`.
+5. Add the credentials to your `.env`:
+   ```bash
+   GOOGLE_CLIENT_ID=...
+   GOOGLE_CLIENT_SECRET=...
+   ```
 
-When you authenticate with Google, tokens are saved to `/app/data/google_tokens.json` inside the container. The self-hosting compose file already maps `./data:/app/data` to persist them across container restarts. If you use a custom compose file, include this volume:
+GiRAF saves the Google tokens to `/app/data/google_tokens.json` inside the container. The self-hosting compose file already maps `./data:/app/data` so they survive restarts. If you use your own compose file, add the same volume:
 
 ```yaml
 services:
   editor:
-    # ...
     volumes:
       - ./data:/app/data
 ```
 
+</details>
+
 ## Roadmap
 
 - [ ] User authentication
-- [x] Undo/Redo functionality
-- [x] Processing notifications
-- [x] Tone curves
-- [x] Vibrance controls (Muted Saturation)
-- [x] Color grading
-- [x] Color mixer (HSV adjustments)
-- [x] Crop, local masks, and spot retouching
-- [x] Progressive editor previews (quick preview followed by refinement on supported devices/connections)
-- More editing tools
-   - [x] Black level
-   - [x] White point control
-   - [x] Automatic lens corrections (lensfun, applied on import)
-- [x] Multiple import directories (`IMPORT_EXTRA_DIRS`)
-- [ ] Import directories configurable in the UI
+- [ ] Import folders configurable in the UI
+
+<details>
+<summary>Already shipped</summary>
+
+- [x] Automatic lens corrections (lensfun, applied on import)
+- [x] White point and black level controls
+- [x] Multiple import folders (`IMPORT_EXTRA_DIRS`)
 - [x] Automatic SD-card import (opt-in `sd-card` compose profile)
+- [x] Progressive editor previews (a quick preview that refines on capable devices and connections)
+- [x] Crop, local masks and spot retouching
+- [x] Tone curves, color mixer and color grading
+- [x] Vibrance controls
+- [x] Undo/redo
+- [x] Processing notifications
+
+</details>
 
 ## License
 
-See `LICENSE` for GPLv3 terms.
+GiRAF is free software under the [GNU GPL v3](LICENSE).
