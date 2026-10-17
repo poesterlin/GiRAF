@@ -1,26 +1,21 @@
 import type { SessionsResponse } from "../api/sessions/+server";
+import { libraryTags, recentlyEdited, taggedPhotos, type LibraryPhoto } from '$lib/server/library';
 import type { PageServerLoad } from "./$types";
 
-// function minimumDate(dates: Array<Date | undefined>): Date | null {
-//     if (dates.length === 0) return null;
-//     return new Date(Math.min(...dates.map(d => d?.getTime() ?? Infinity)));
-// }
+/** How many edits the sessions view previews, and how many the full contact sheet shows. */
+const RECENT_STRIP = 24;
+const RECENT_SHEET = 150;
 
-export const load: PageServerLoad = async ({ fetch }) => {
-    const req = await fetch('/api/sessions');
+export type GalleryView = { kind: 'sessions' } | { kind: 'recent' } | { kind: 'tag'; tag: string };
 
-    // fix session min dates
-    // const allSessions = await db.select().from(sessionTable);
-    // for (const session of allSessions) {
-    //     const images = await db.select().from(imageTable).where(eq(imageTable.sessionId, session.id));
-    //     const minDate = minimumDate(images.map(ni => ni.recordedAt));
-
-    //     if (minDate) {
-    //         if (session && session.startedAt > minDate) {
-    //             await db.update(sessionTable).set({ startedAt: minDate }).where(eq(sessionTable.id, session.id));
-    //         }
-    //     }
-    // }
-
-    return await req.json() as SessionsResponse;
+export const load: PageServerLoad = async ({ fetch, url }) => {
+	const tag = url.searchParams.get('tag');
+	const view: GalleryView = tag ? { kind: 'tag', tag } : url.searchParams.get('view') === 'recent' ? { kind: 'recent' } : { kind: 'sessions' };
+	const [tags, photos, sessions] = await Promise.all([
+		libraryTags(),
+		view.kind === 'tag' ? taggedPhotos(view.tag) : recentlyEdited(view.kind === 'recent' ? RECENT_SHEET : RECENT_STRIP),
+		// Only the sessions view lists sessions; the contact sheets skip that payload.
+		view.kind === 'sessions' ? fetch('/api/sessions').then((response) => response.json() as Promise<SessionsResponse>) : Promise.resolve({ sessions: [], next: null } as SessionsResponse)
+	]);
+	return { ...sessions, view, tags, photos: photos as LibraryPhoto[] };
 };

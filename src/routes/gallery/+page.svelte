@@ -1,24 +1,87 @@
 <script lang="ts">
 	import SessionList from '$lib/ui/SessionList.svelte';
+	import ContactSheet, { photoThumbnail } from '$lib/ui/ContactSheet.svelte';
 
 	let { data } = $props();
 
 	let basePath = $derived(data.triageEnabled ? 'triage' as const : 'editor' as const);
+	const view = $derived(data.view);
+	const viewKey = $derived(view.kind === 'tag' ? `tag:${view.tag}` : view.kind);
+	const tabs = $derived([
+		{ key: 'sessions', label: 'Sessions', href: '/gallery' },
+		{ key: 'recent', label: 'Recent edits', href: '/gallery?view=recent' },
+		...data.tags.map((tag) => ({ key: `tag:${tag.name}`, label: `#${tag.name}`, href: `/gallery?tag=${encodeURIComponent(tag.name)}`, count: tag.count }))
+	]);
 </script>
 
-<SessionList
-	allowRename
-	editedThumbnails
-	{basePath}
-	triageEnabled={data.triageEnabled}
-	next={data.next}
-	sessions={data.sessions}
-	onLoaded={({ sessions, next }) => {
-		data.sessions = [...data.sessions, ...sessions];
-		data.next = next;
-	}}
-></SessionList>
+<div class="flex h-full min-h-0 flex-col">
+	<nav aria-label="Gallery views" class="views">
+		{#each tabs as tab (tab.key)}
+			<a href={tab.href} aria-current={viewKey === tab.key ? 'page' : undefined} data-sveltekit-noscroll>
+				{tab.label}{#if 'count' in tab}<span class="count">{tab.count}</span>{/if}
+			</a>
+		{/each}
+	</nav>
+
+	<div class="min-h-0 flex-1">
+		{#if view.kind === 'sessions'}
+			{#snippet recentStrip()}
+				{#if data.photos.length}
+					<section aria-label="Recent edits" class="mx-4 mt-2 mb-6 px-3">
+						<div class="mb-3 flex items-center justify-between">
+							<h2 class="text-sm font-semibold text-neutral-200">Recent edits</h2>
+							<a href="/gallery?view=recent" class="flex min-h-11 items-center px-2 text-sm text-neutral-400 hover:text-white">See all</a>
+						</div>
+						<div class="strip">
+							{#each data.photos as photo (photo.id)}
+								<a href={`/editor/${photo.id}`} aria-label={`Edit photo from ${photo.sessionName}`}>
+									<img src={photoThumbnail(photo)} alt="" width="300" height="200" loading="lazy" decoding="async" draggable="false" />
+								</a>
+							{/each}
+						</div>
+					</section>
+				{/if}
+			{/snippet}
+			<SessionList
+				allowRename
+				editedThumbnails
+				{basePath}
+				triageEnabled={data.triageEnabled}
+				next={data.next}
+				sessions={data.sessions}
+				header={recentStrip}
+				onLoaded={({ sessions, next }) => {
+					data.sessions = [...data.sessions, ...sessions];
+					data.next = next;
+				}}
+			></SessionList>
+		{:else}
+			<div class="h-full overflow-y-auto px-4 pt-2 pb-12 sm:px-7">
+				{#if data.photos.length}
+					<ContactSheet photos={data.photos} groupBy={view.kind === 'tag' ? 'session' : 'day'} />
+				{:else}
+					<p class="py-16 text-center text-sm text-neutral-500">{view.kind === 'tag' ? 'No photos carry this tag.' : 'No edited photos yet.'}</p>
+				{/if}
+			</div>
+		{/if}
+	</div>
+</div>
 
 <style>
-	
+	.views { display: flex; flex-shrink: 0; gap: 4px; overflow-x: auto; padding: 10px 16px; scrollbar-width: none; }
+	@media (min-width: 640px) { .views { padding: 12px 28px; } }
+	.views::-webkit-scrollbar { display: none; }
+	.views a { display: flex; flex-shrink: 0; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 999px; color: #a3a3a3; font-size: 13px; font-weight: 500; white-space: nowrap; transition: background-color 120ms, color 120ms; }
+	.views a:hover { color: #fff; background: #1f1f1f; }
+	.views a[aria-current='page'] { background: #f5f5f5; color: #0a0a0a; }
+	.views a:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+	.count { color: #737373; font-variant-numeric: tabular-nums; }
+	.views a[aria-current='page'] .count { color: #525252; }
+	/* One scrolling row of recent edits, each at its real shape. */
+	.strip { display: flex; gap: 6px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; padding-bottom: 2px; }
+	.strip::-webkit-scrollbar { display: none; }
+	.strip a { flex-shrink: 0; height: 132px; overflow: hidden; border-radius: 6px; background: #171717; scroll-snap-align: start; }
+	@media (min-width: 768px) { .strip a { height: 168px; } }
+	.strip img { display: block; height: 100%; width: auto; }
+	.strip a:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 </style>

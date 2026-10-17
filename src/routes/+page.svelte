@@ -49,7 +49,7 @@
 		</a>
 
 		<!-- Editor -->
-		<a href="/editor" class="group flex flex-col items-start rounded-3xl bg-neutral-900/40 border border-neutral-800 p-8 transition-all hover:bg-neutral-900 hover:border-neutral-700 hover:shadow-2xl">
+		<a href="/gallery?view=recent" class="group flex flex-col items-start rounded-3xl bg-neutral-900/40 border border-neutral-800 p-8 transition-all hover:bg-neutral-900 hover:border-neutral-700 hover:shadow-2xl">
 			<div class="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-neutral-800 text-neutral-400 group-hover:bg-neutral-100 group-hover:text-neutral-950 transition-colors">
 				<IconAdjustmentsHorizontal size={32} />
 			</div>
