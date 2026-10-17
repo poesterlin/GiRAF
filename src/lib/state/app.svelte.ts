@@ -4,6 +4,16 @@ interface Toast {
     type: 'success' | 'error' | 'info';
 	action?: { label: string; run: () => void };
 	duration: number;
+	/** Repeats of the same event fold into one toast instead of stacking. */
+	key?: string;
+	count: number;
+}
+
+/** Repeats of a keyed toast keep counting instead of adding another. */
+export interface ToastOptions {
+	key?: string;
+	/** Message once more than one repeat has folded in. */
+	countMessage?: (count: number) => string;
 }
 
 interface NotificationItem {
@@ -26,6 +36,7 @@ class AppState {
 	notificationVersion = 0;
 	notificationMutations = 0;
     toasts = $state<Toast[]>([]);
+	private toastTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	notifications = $state<NotificationItem[]>([]);
 	private notificationQueue: Promise<void> = Promise.resolve();
 
@@ -52,16 +63,42 @@ class AppState {
 		this.notifications = notifications;
 	}
 
-    addToast(message: string, type: 'success' | 'error' | 'info', action?: Toast['action']) {
+    addToast(message: string, type: 'success' | 'error' | 'info', action?: Toast['action'], options?: ToastOptions) {
 		// Errors and toasts with an action need longer to be read or acted on
 		const duration = action ? 10000 : type === 'error' ? 6000 : 3500;
+		// A repeat of a toast still on screen folds into it, so rapid actions read as one
+		const index = options?.key ? this.toasts.findIndex((toast) => toast.key === options.key) : -1;
+		if (index !== -1) {
+			const existing = this.toasts[index];
+			const previous = existing.action;
+			const merged: Toast = {
+				...existing,
+				count: existing.count + 1,
+				message: options?.countMessage?.(existing.count + 1) ?? message,
+				duration,
+				action: action ? (previous ? { label: action.label, run: () => { previous.run(); action.run(); } } : action) : previous
+			};
+			this.toasts = this.toasts.map((toast, position) => (position === index ? merged : toast));
+			this.scheduleRemoval(merged);
+			return merged.id;
+		}
         const id = this.createId();
-		this.toasts = [...this.toasts, { id, message, type, action, duration }].slice(-3);
-        setTimeout(() => this.removeToast(id), duration);
+		const toast: Toast = { id, message, type, action, duration, key: options?.key, count: 1 };
+		this.toasts = [...this.toasts, toast].slice(-3);
+        this.scheduleRemoval(toast);
 		return id;
     }
 
+	private scheduleRemoval(toast: Toast) {
+		const timer = this.toastTimers.get(toast.id);
+		if (timer) clearTimeout(timer);
+		this.toastTimers.set(toast.id, setTimeout(() => this.removeToast(toast.id), toast.duration));
+	}
+
 	removeToast(id: string) {
+		const timer = this.toastTimers.get(id);
+		if (timer) clearTimeout(timer);
+		this.toastTimers.delete(id);
 		this.toasts = this.toasts.filter((item) => item.id !== id);
 	}
 

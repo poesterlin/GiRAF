@@ -118,18 +118,18 @@
 				method: 'POST'
 			});
 			if (res.ok) {
-				app.addToast('Image archived.', 'info', { label: 'Undo', run: () => void undoArchive(imageId) });
+				app.addToast('Image archived.', 'info', { label: 'Undo', run: () => void undoArchive(imageId) }, { key: 'triage-archive', countMessage: (count) => `${count} images archived.` });
 				if (nextImage && navigationVersion === version && data.image.id === imageId) {
 					await goto(`/triage/${nextImage}`, { invalidateAll: true, noScroll: true });
 				} else {
 					await invalidateAll();
 				}
 			} else {
-				app.addToast('Failed to archive image.', 'error');
+				app.addToast('Failed to archive image.', 'error', undefined, { key: 'triage-archive-failed', countMessage: (count) => `Failed to archive ${count} images.` });
 			}
 		} catch (error) {
 			console.error('Failed to archive image', error);
-			app.addToast('Failed to archive image.', 'error');
+			app.addToast('Failed to archive image.', 'error', undefined, { key: 'triage-archive-failed', countMessage: (count) => `Failed to archive ${count} images.` });
 		} finally {
 			isArchiving = false;
 		}
