@@ -59,11 +59,11 @@
 				}}
 			></SessionList>
 		{:else if view.kind === 'archived'}
-			<div class="h-full overflow-y-auto px-4 pt-2 pb-12 sm:px-7">
+			<div class="h-full overflow-y-auto px-4 pt-5 pb-12 sm:px-7">
 				<ArchivedSessions sessions={data.archived} />
 			</div>
 		{:else}
-			<div class="h-full overflow-y-auto px-4 pt-2 pb-12 sm:px-7">
+			<div class="h-full overflow-y-auto px-4 pt-5 pb-12 sm:px-7">
 				{#if data.photos.length}
 					<ContactSheet photos={data.photos} groupBy={view.kind === 'tag' ? 'session' : 'day'} />
 				{:else}
@@ -75,15 +75,15 @@
 </div>
 
 <style>
-	.views { display: flex; flex-shrink: 0; gap: 4px; overflow-x: auto; padding: 10px 16px; scrollbar-width: none; }
-	@media (min-width: 640px) { .views { padding: 12px 28px; } }
+	.views { display: flex; flex-shrink: 0; align-items: stretch; gap: 20px; overflow-x: auto; padding: 0 20px; border-bottom: 1px solid #262626; scrollbar-width: none; }
+	@media (min-width: 640px) { .views { gap: 24px; padding: 0 28px; } }
 	.views::-webkit-scrollbar { display: none; }
-	.views a { display: flex; flex-shrink: 0; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 999px; color: #a3a3a3; font-size: 13px; font-weight: 500; white-space: nowrap; transition: background-color 120ms, color 120ms; }
-	.views a:hover { color: #fff; background: #1f1f1f; }
-	.views a[aria-current='page'] { background: #f5f5f5; color: #0a0a0a; }
-	.views a:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-	.count { color: #737373; font-variant-numeric: tabular-nums; }
-	.views a[aria-current='page'] .count { color: #525252; }
+	.views a { display: flex; flex-shrink: 0; align-items: center; gap: 6px; min-height: 44px; padding: 10px 2px; border-bottom: 2px solid transparent; color: #737373; font-size: 13px; font-weight: 500; white-space: nowrap; transition: color 120ms, border-color 120ms; }
+	.views a:hover { color: #d4d4d4; }
+	.views a[aria-current='page'] { border-bottom-color: #f5f5f5; color: #f5f5f5; }
+	.views a:focus-visible { outline: 2px solid #fff; outline-offset: -2px; border-radius: 4px; }
+	.count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #1f1f1f; color: #a3a3a3; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; transition: background-color 120ms, color 120ms; }
+	.views a[aria-current='page'] .count { background: #2e2e2e; color: #f5f5f5; }
 	/* One scrolling row of recent edits, each at its real shape. */
 	.strip { display: flex; gap: 6px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; padding-bottom: 2px; }
 	.strip::-webkit-scrollbar { display: none; }
