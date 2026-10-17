@@ -89,7 +89,8 @@ export async function editImage(imagePath: string, pp3: string, options: { signa
 export async function generateImportTif(imagePath: string, options: { signal?: AbortSignal } = {}) {
     const start = performance.now();
 
-    const name = getFileNameFromPath(imagePath) + '-tiff';
+    // Cards reuse file names (DSC00001.ARW); a shared folder would let one import overwrite another's TIFF
+    const name = getFileNameFromPath(imagePath) + '-tiff-' + randomUUID();
     const outDir = await createTempDir(name);
 
     const pp3FilePath = join(outDir, 'edit.pp3');

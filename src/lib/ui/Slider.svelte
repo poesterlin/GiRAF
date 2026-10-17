@@ -97,6 +97,49 @@
 		onchange?.(value);
 	};
 
+	const applyLinear = (linear: number) => {
+		const next = map(quantize(clamp(linear, min, max)));
+		if (next === value) return;
+		value = next;
+		onchange?.(value);
+	};
+
+	// The native range steps by `step`, which is useless for sliders with thousands of steps,
+	// so arrows move by a visible amount and Shift drops to the finest step.
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.altKey || e.ctrlKey || e.metaKey) return;
+		const range = max - min || 1;
+		const coarse = Math.max(step, range / 200);
+		const current = inverseMap(value);
+		let next: number;
+		switch (e.key) {
+			case 'ArrowRight':
+			case 'ArrowUp':
+				next = current + (e.shiftKey ? step : coarse);
+				break;
+			case 'ArrowLeft':
+			case 'ArrowDown':
+				next = current - (e.shiftKey ? step : coarse);
+				break;
+			case 'PageUp':
+				next = current + range / 10;
+				break;
+			case 'PageDown':
+				next = current - range / 10;
+				break;
+			case 'Home':
+				next = min;
+				break;
+			case 'End':
+				next = max;
+				break;
+			default:
+				return;
+		}
+		e.preventDefault();
+		applyLinear(next);
+	}
+
 	const handleInput = (e: Event) => {
 		const target = e.target as HTMLInputElement;
 		let nextLinear = Number(target.value);
@@ -344,6 +387,8 @@
 			{step}
 			value={linearValue}
 			aria-label={label}
+			aria-valuetext={`${formatNumber(displayValue(value))}${unit}`.trim()}
+			onkeydown={handleKeydown}
 			oninput={handleInput}
 			onchange={() => onchange(value)}
 			onfocusin={handleFocusIn}

@@ -34,7 +34,8 @@
 	const similar = $derived(similarCandidates(data.sessionImages, data.image));
 	// Everything in the group, archived shots included, so a sorted group can be reopened and corrected
 	const similarAll = $derived(similarCandidates(data.sessionImages, data.image, true));
-	const similarBase = $derived(similar.length > 1 ? similar[0].id : null);
+	// Keyed on the whole group, archived shots included, so archiving the first shot does not change its identity
+	const similarBase = $derived(similarAll.length > 1 ? similarAll[0].id : null);
 	const skippedStacks = new Set<number>();
 	let showSimilar = $state(false);
 	let resolvingSimilar = $state(false);
@@ -144,7 +145,8 @@
 			const res = await fetch(`/api/images/${imageId}/archive`, { method: 'DELETE' });
 			if (!res.ok) throw new Error(`Restore failed with ${res.status}`);
 			await invalidateAll();
-			if (data.image.id !== imageId) await goto(`/triage/${imageId}`, { invalidateAll: true, noScroll: true });
+			// The toast outlives the page: only steer back to the photo while still in triage
+			if (page.url.pathname.startsWith('/triage/') && data.image.id !== imageId) await goto(`/triage/${imageId}`, { invalidateAll: true, noScroll: true });
 		} catch (error) {
 			console.error('Failed to undo archive', error);
 			app.addToast('Failed to restore image.', 'error');
@@ -339,7 +341,9 @@
 		{/if}
 
 		{#if showSimilar && similarAll.length > 1}
+			{#key similarBase}
 			<SimilarPicker images={similarAll} currentId={data.image.id} busy={resolvingSimilar} onKeep={keepBestSimilar} onKeepAll={keepAllSimilar} onLater={postponeSimilar} />
+			{/key}
 		{/if}
 	</main>
 </div>

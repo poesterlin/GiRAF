@@ -49,6 +49,7 @@ export const imageTable = pgTable('image', {
 	index('image_is_archived_idx').on(table.isArchived),
 	index('image_phash_idx').on(table.phash),
 	index('image_rating_idx').on(table.rating),
+	index('image_session_recorded_idx').on(table.sessionId, table.recordedAt),
 	foreignKey({
 		name: 'stack_id_fkey',
 		columns: [table.stackId],
@@ -68,6 +69,8 @@ export const snapshotTable = pgTable('snapshot', {
 	isMarkedForExport: boolean('is_marked_for_export').notNull().default(false)
 }, (table) => [
 	index('snapshot_created_at_idx').on(table.createdAt),
+	// The newest snapshot of an image is looked up constantly
+	index('snapshot_image_created_idx').on(table.imageId, table.createdAt),
 ]);
 
 export type Snapshot = typeof snapshotTable.$inferSelect;
@@ -128,6 +131,7 @@ export const albumTable = pgTable('album', {
 		.references(() => sessionTable.id, { onDelete: 'cascade' }),
 }, (table) => [
 	index('album_integration_external_id_idx').on(table.integration, table.externalId),
+	index('album_session_idx').on(table.sessionId),
 ]);
 
 export type Album = typeof albumTable.$inferSelect;
@@ -144,6 +148,8 @@ export const mediaTable = pgTable('media', {
 	integration: text('integration').notNull(),
 }, (table) => [
 	index('media_integration_external_id_idx').on(table.integration, table.externalId),
+	index('media_image_idx').on(table.imageId),
+	index('media_album_idx').on(table.albumId),
 ]);
 export type Media = typeof mediaTable.$inferSelect;
 

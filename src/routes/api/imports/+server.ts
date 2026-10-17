@@ -51,6 +51,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		error(400, 'Missing name/sessionId or importIds');
 	}
 
+	// The name becomes a folder; renaming already rejects these, creation must too
+	if (name !== undefined && (/[\/\\\x00]/.test(name) || ['.', '..'].includes(name.trim()))) error(400, 'Enter a valid session name.');
+
 	let sessionId: number | null = existingSessionId ?? null;
 	const ids = [...new Set<number>(importIds)];
 	let assigned = false;

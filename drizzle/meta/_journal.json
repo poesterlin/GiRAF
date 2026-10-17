@@ -29,6 +29,13 @@
       "when": 1791581828265,
       "tag": "0003_peaceful_the_leader",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792221726097,
+      "tag": "0004_icy_maggott",
+      "breakpoints": true
     }
   ]
 }

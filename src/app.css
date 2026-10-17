@@ -10,6 +10,23 @@ button {
     cursor: pointer;
 }
 
+/* Baseline keyboard focus ring. :where() keeps specificity at zero, so any component's own focus style wins. */
+:where(a, button, summary, select, input, textarea, [role='slider'], [tabindex]):focus-visible {
+  outline: 2px solid #e5e5e5;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 .floating-pill {
   display: flex;
   align-items: center;

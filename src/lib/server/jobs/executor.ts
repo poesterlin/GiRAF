@@ -170,6 +170,8 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 
 			if (needsExport) {
 				console.log(`[Executor] Exporting ${image.filepath}`);
+				// Stamp the export with when it started, so an edit saved while rendering is exported again
+				const exportStartedAt = new Date();
 				const edit = await db.query.snapshotTable.findFirst({
 					where: eq(snapshotTable.imageId, image.id),
 					orderBy: desc(snapshotTable.createdAt)
@@ -191,7 +193,7 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 				} finally {
 					base.release();
 				}
-				await db.update(imageTable).set({ lastExportedAt: new Date() }).where(eq(imageTable.id, image.id));
+				await db.update(imageTable).set({ lastExportedAt: exportStartedAt }).where(eq(imageTable.id, image.id));
 				isReadyForUpload = true;
 			} else {
 				outputPath = existingPath;

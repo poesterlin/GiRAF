@@ -137,7 +137,7 @@
 {:else}
 <div class="flex h-full flex-col overflow-hidden bg-neutral-950 text-neutral-200 lg:flex-row">
 	<!-- Image Preview Section -->
-	<div class="relative min-h-0 flex-1 overflow-hidden bg-neutral-900 shadow-inner">
+	<div role="region" aria-label="Photo preview" class="relative min-h-0 flex-1 overflow-hidden bg-neutral-900 shadow-inner">
 		<div class="flex h-full items-center justify-center p-0 lg:p-2">
 			<BeforeAfter {beforeImage} {savedImage} isLoading={edits.isLoading} imageId={data.image.id} afterImage={sampleImageId === String(data.image.id) ? sampleImage : ''} />
 		</div>
@@ -152,7 +152,7 @@
 	</div>
 
 	<!-- Controls Panel Section -->
-	<aside class="flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-neutral-800 bg-neutral-950 transition-all duration-300 lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l h-[46dvh] lg:h-auto">
+	<aside aria-label="Adjustments" class="flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-neutral-800 bg-neutral-950 transition-all duration-300 lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l h-[46dvh] lg:h-auto">
 		<div class="hidden shrink-0 px-6 pt-2 lg:block"><EditorTools img={page.params.img!} /></div>
 		<EditorHistoryBinding loading={edits.isLoading} />
 

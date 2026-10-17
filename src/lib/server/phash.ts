@@ -15,7 +15,7 @@ async function hashPreview(path: string) {
  * Photos imported before hashing existed (or whose hashing failed) have none, so
  * they can never be recognised as similar. Fill the gaps from their previews.
  */
-const inFlight = new Map<number, Promise<void>>();
+const inFlight = new Map<number, Promise<string | null>>();
 /** Longest a page load waits for hashing; the rest finishes in the background for the next load. */
 const MAX_WAIT_MS = 1500;
 
@@ -36,14 +36,16 @@ async function hashMissing(missing: Pick<Image, 'id' | 'phash' | 'previewPath'>[
 				try {
 					const hash = await hashPreview(image.previewPath!);
 					await db.update(imageTable).set({ phash: hash }).where(eq(imageTable.id, image.id));
-					image.phash = hash;
+					return hash;
 				} catch (error) {
 					console.error(`[phash] Could not hash image ${image.id}`, error);
+					return null;
 				}
 			})();
 			inFlight.set(image.id, pending);
 			try {
-				await pending;
+				// Every waiting load gets the hash on its own row, not only the one that started it
+				image.phash = (await pending) ?? image.phash;
 			} finally {
 				inFlight.delete(image.id);
 			}

@@ -278,6 +278,33 @@
 		}
 	}
 
+	// Keyboard crop: arrows move the frame, Alt+arrows resize it, Shift goes ten times further
+	let cropStatus = $state('');
+	function cropKeydown(event: KeyboardEvent) {
+		if (event.ctrlKey || event.metaKey) return;
+		if (!edits.pp3?.Crop) {
+			if (event.key === 'Enter' || event.key === ' ') {
+				event.preventDefault();
+				startCrop();
+			}
+			return;
+		}
+		const arrows: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+		const direction = arrows[event.key];
+		if (!direction) return;
+		event.preventDefault();
+		updateDimensions();
+		if (!imageDimensions.width) return;
+		const unit = Math.max(1, Math.round(imageDimensions.width / 400)) * (event.shiftKey ? 10 : 1);
+		moveHandle(edits.pp3 as PP3<number>, event.altKey ? 'se' : 'grid', direction[0] * unit, direction[1] * unit, imageDimensions);
+		const crop = edits.pp3.Crop as unknown as { X: number; Y: number; W: number; H: number };
+		sanitizeCrop(crop, imageDimensions, imageDimensions);
+		edits.pp3 = structuredClone($state.snapshot(edits.pp3));
+		edits.pushHistory();
+		cropStatus = `Crop ${Math.round(crop.W)} by ${Math.round(crop.H)} pixels, from ${Math.round(crop.X)}, ${Math.round(crop.Y)}`;
+		requestAnimationFrame(() => draw());
+	}
+
 	function endMove(event: PointerEvent) {
 		if (!canvasEl || activePointerId !== event.pointerId) {
 			return;
@@ -309,7 +336,9 @@
 	<!-- Image Preview Section -->
 	<div class="relative min-h-0 flex-1 overflow-hidden bg-neutral-900 shadow-inner">
 		<div class="flex h-full items-center justify-center p-2 sm:p-2">
-			<canvas bind:this={canvasEl} onpointerdown={startMove} onpointermove={move} onpointerup={endMove} onpointercancel={endMove} onlostpointercapture={endMove} aria-label="Crop image: drag corners to resize or drag inside to move" class:cursor-move={moveCursor} class="m-auto touch-none select-none"></canvas>
+			<canvas bind:this={canvasEl} onpointerdown={startMove} onpointermove={move} onpointerup={endMove} onpointercancel={endMove} onlostpointercapture={endMove} tabindex="0" role="application" aria-label="Crop image" aria-describedby="crop-help" onkeydown={cropKeydown} class:cursor-move={moveCursor} class="m-auto touch-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"></canvas>
+			<p id="crop-help" class="sr-only">Drag the corners to resize the crop, or drag inside it to move. With the keyboard, arrow keys move the crop, Alt plus arrow keys resize it, and Shift makes bigger steps. Press Enter to start a crop.</p>
+			<p class="sr-only" role="status" aria-live="polite">{cropStatus}</p>
 		</div>
 		
 

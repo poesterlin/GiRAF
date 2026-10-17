@@ -20,7 +20,8 @@
 	let swipeStart: number | null = null;
 	let strip: HTMLDivElement | undefined;
 
-	const focused = $derived(images[focus]);
+	// The group can shrink under an open picker; never point past its end
+	const focused = $derived(images[Math.min(focus, images.length - 1)]);
 	const keeping = $derived(selected.has(focused.id));
 	const stageUrl = (image: Image) => `/api/images/${image.id}/preview?size=1600&quality=80&mode=inside&version=${image.version}`;
 
@@ -38,7 +39,7 @@
 	});
 
 	function move(step: number) {
-		focus = (focus + step + images.length) % images.length;
+		focus = (Math.min(focus, images.length - 1) + step + images.length) % images.length;
 	}
 
 	function toggle(id: number) {
@@ -63,6 +64,8 @@
 
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.ctrlKey || event.metaKey || event.altKey || document.querySelector('dialog:modal')) return;
+		// Enter and Space belong to a focused button, which does its own thing
+		if ((event.key === 'Enter' || event.key === ' ') && event.target instanceof Element && event.target.closest('button, a, input, select, textarea')) return;
 		if (event.key === 'Escape') onLater();
 		else if (event.key === 'Enter') confirm();
 		else if (event.key === 'ArrowRight') move(1);

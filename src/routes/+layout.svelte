@@ -4,6 +4,17 @@
 	import { onNavigate } from '$app/navigation';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
+
+	// Modal dialogs live in the browser's top layer and would cover a normal toast. A popover joins
+	// the same layer, and re-showing it whenever a toast arrives lifts it above any dialog opened since.
+	let toastLayer = $state<HTMLElement>();
+	$effect(() => {
+		const layer = toastLayer;
+		const visible = app.toasts.length > 0;
+		if (!layer?.showPopover) return;
+		if (layer.matches(':popover-open')) layer.hidePopover();
+		if (visible) layer.showPopover();
+	});
 	import UploadProgress from '$lib/ui/UploadProgress.svelte';
 	import { uploads } from '$lib/state/uploads.svelte';
 	import { app } from '$lib/state/app.svelte';
@@ -268,7 +279,7 @@
 </div>
 
 <!-- toasts: top of the screen so they never cover bottom action bars -->
-<div class="pointer-events-none fixed inset-x-3 top-16 z-80 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-4 sm:items-end" role="status" aria-live="polite">
+<div bind:this={toastLayer} popover="manual" class="pointer-events-none fixed inset-x-3 top-16 bottom-auto z-80 m-0 flex h-auto w-auto flex-col items-center gap-2 overflow-visible border-0 bg-transparent p-0 sm:inset-x-auto sm:right-4 sm:items-end" role="status" aria-live="polite">
 	{#each app.toasts as toast (toast.id)}
 		<div in:fly={{ y: -12, duration: 180 }} out:fade={{ duration: 120 }} class="pointer-events-auto relative flex w-full max-w-md items-center gap-3 overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900/95 py-2 pr-2 pl-4 text-sm text-neutral-50 shadow-xl backdrop-blur-md sm:w-auto sm:min-w-72">
 			<span class="h-2 w-2 shrink-0 rounded-full {toast.type === 'error' ? 'bg-red-400' : toast.type === 'success' ? 'bg-emerald-400' : 'bg-neutral-400'}" aria-hidden="true"></span>

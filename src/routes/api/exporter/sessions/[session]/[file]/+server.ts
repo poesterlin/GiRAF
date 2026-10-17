@@ -3,7 +3,7 @@ import { sessionTable } from "$lib/server/db/schema";
 import { eq } from "drizzle-orm";
 import type { RequestHandler } from "./$types";
 import { error } from "@sveltejs/kit";
-import { join } from "path";
+import { basename, join } from "path";
 import { makeSessionPath } from "$lib/server/jobs/executor";
 import { respondWithFile } from "$lib/server/utils";
 
@@ -21,5 +21,6 @@ export const GET: RequestHandler = async ({ params }) => {
     const path = makeSessionPath(session);
     const filepath = join(path, file);
 
-    return respondWithFile(filepath);
+    // Re-exports overwrite the same file name, so never let a cache keep an old render
+    return respondWithFile(filepath, 0);
 };

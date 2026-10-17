@@ -178,6 +178,18 @@
 		lastMidpoint = remaining ? { x: remaining.clientX, y: remaining.clientY } : null;
 	}
 
+	// Keyboard: arrows move the divider, Shift moves it further
+	function onSliderKeydown(event: KeyboardEvent) {
+		const step = event.shiftKey ? 0.1 : 0.02;
+		if (event.key === 'ArrowLeft') split = Math.max(0, split - step);
+		else if (event.key === 'ArrowRight') split = Math.min(1, split + step);
+		else if (event.key === 'Home') split = 0;
+		else if (event.key === 'End') split = 1;
+		else return;
+		event.preventDefault();
+		revealLabels();
+	}
+
 	// Slider drag (use pointer capture on the slider itself)
 	function onSliderPointerDown(event: PointerEvent) {
 		revealLabels();
@@ -245,6 +257,15 @@
 	<!-- Slider -->
 	<div
 		class="slider"
+		role="slider"
+		tabindex="0"
+		aria-label="Comparison divider"
+		aria-orientation="horizontal"
+		aria-valuemin={0}
+		aria-valuemax={100}
+		aria-valuenow={Math.round(split * 100)}
+		aria-valuetext={`${Math.round(split * 100)}% of the photo shows the left version`}
+		onkeydown={onSliderKeydown}
 		bind:this={sliderEl}
 		onpointerdown={onSliderPointerDown}
 		onpointermove={onSliderPointerMove}
@@ -323,6 +344,11 @@
 
 		&:hover {
 			background: rgba(255, 255, 255, 0.8);
+		}
+
+		&:focus-visible {
+			outline: 2px solid #fff;
+			outline-offset: 3px;
 		}
 	}
 </style>

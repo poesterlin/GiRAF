@@ -196,7 +196,19 @@ class EditingState {
 		};
 	}
 
-	async snapshot(options: { force?: boolean } = {}): Promise<SnapshotOutcome> {
+	private snapshotTail: Promise<unknown> = Promise.resolve();
+
+	/**
+	 * Saves run one at a time: a second flush (tab hide plus page hide, autosave plus
+	 * navigation) must see the first one's result, or it would create a duplicate version.
+	 */
+	snapshot(options: { force?: boolean } = {}): Promise<SnapshotOutcome> {
+		const run = this.snapshotTail.catch(() => {}).then(() => this.writeSnapshot(options));
+		this.snapshotTail = run;
+		return run;
+	}
+
+	private async writeSnapshot(options: { force?: boolean }): Promise<SnapshotOutcome> {
 		const id = this.currentImageId;
 		assert(id, 'No current image to snapshot');
 

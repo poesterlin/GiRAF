@@ -10,7 +10,8 @@ import { env } from "$env/dynamic/private";
 import { editImage, mapCropFromPreviewToExport } from "$lib/server/image-editor";
 import { acquireDevelopBase } from "$lib/server/develop-cache";
 import { join } from "path";
-import { respondWithFile } from "$lib/server/utils";
+import { randomUUID } from "node:crypto";
+import { rm } from "node:fs/promises";
 
 export const GET: RequestHandler = async ({ params }) => {
     const id = Number(params.id);
@@ -43,7 +44,7 @@ export const GET: RequestHandler = async ({ params }) => {
 
     console.log(`[Render] Processing ${image.filepath}`);
     assert(env.TMP_DIR, 'TMP_DIR not set in env');
-    const outputPath = join(env.TMP_DIR, `${id}.jpg`);
+    const outputPath = join(env.TMP_DIR, `${id}-${randomUUID()}.jpg`);
     await ensureDir(outputPath);
     // Two-step pipeline: RAW → cached full-res develop base (intermediate representation) → JPEG.
     // Repeat renders reuse the base, skipping RAW decode and demosaicing.
@@ -55,5 +56,10 @@ export const GET: RequestHandler = async ({ params }) => {
         base.release();
     }
 
-    return respondWithFile(outputPath, 0);
+    try {
+        const jpeg = await Bun.file(outputPath).arrayBuffer();
+        return new Response(jpeg, { headers: { 'Content-Type': 'image/jpeg', 'Content-Length': String(jpeg.byteLength), 'Cache-Control': 'public, max-age=0' } });
+    } finally {
+        await rm(outputPath, { force: true });
+    }
 };

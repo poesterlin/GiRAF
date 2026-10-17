@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { edits } from '$lib/state/editing.svelte';
 	import { app } from '$lib/state/app.svelte';
 
@@ -15,14 +15,26 @@
 		app.addToast(`Save failed: ${message}`, 'error');
 	}
 
+	/** A failed save is tried again, so a network blip does not leave the edit unsaved until the next change. */
+	const RETRY_DELAY_MS = 5000;
+	let retryTimer: ReturnType<typeof setTimeout> | undefined;
+	let reportedFailure = false;
+
 	async function flush() {
+		clearTimeout(retryTimer);
 		if (!edits.hasChanges) return;
 		try {
 			await edits.snapshot();
+			reportedFailure = false;
 		} catch (error) {
-			report(error);
+			// One toast per outage; the retries stay quiet
+			if (!reportedFailure) report(error);
+			reportedFailure = true;
+			retryTimer = setTimeout(() => void flush(), RETRY_DELAY_MS);
 		}
 	}
+
+	onDestroy(() => clearTimeout(retryTimer));
 
 	// Autosave writes once the edit settles instead of on every slider step.
 	$effect(() => {
@@ -54,4 +66,11 @@
 	}
 </script>
 
-<svelte:window onvisibilitychange={onVisibilityChange} onpagehide={() => void flush()} />
+<svelte:window
+	onvisibilitychange={onVisibilityChange}
+	onpagehide={() => void flush()}
+	onbeforeunload={(event) => {
+		// Only when a save has failed does closing the tab lose work
+		if (edits.hasChanges && edits.isFaulty) event.preventDefault();
+	}}
+/>

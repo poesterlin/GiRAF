@@ -21,6 +21,12 @@
 	let showSaveAsProfile = $state<number | null>(null);
 	let profileName = $state('');
 
+	// Applying is an ordinary edit: undoable and picked up by autosave, even with unsaved changes
+	function applyVersion(pp3: string) {
+		edits.reset(pp3, page.data.image);
+		app.addToast('Applied to this photo.', 'info');
+	}
+
 	let pendingDelete = $state<{ kind: 'snapshot' | 'profile'; id: number } | null>(null);
 
 	async function request(url: string, init: RequestInit, failure: string) {
@@ -93,7 +99,7 @@
 						<img src={`/api/images/${page.params.img}/edit?preview&config=${toBase64(snapshot.pp3)}`} alt="Snapshot" class="preview" loading="lazy" />
 						<div class="info">
 							<div class="actions">
-								<button class="action-button" onclick={() => edits.initialize(snapshot.pp3, page.data.image)}>Apply</button>
+								<button class="action-button" onclick={() => applyVersion(snapshot.pp3)}>Apply</button>
 								<button class="action-button" aria-label="Save as profile" title="Save as profile" onclick={() => (showSaveAsProfile = snapshot.id)}>
 									<IconDeviceFloppy size={16} />
 								</button>
@@ -122,7 +128,7 @@
 						<div class="info">
 							<span class="font-semibold">{profile.name}</span>
 							<div class="actions">
-								<button class="action-button" onclick={() => edits.initialize(profile.pp3, page.data.image)}>Apply</button>
+								<button class="action-button" onclick={() => applyVersion(profile.pp3)}>Apply</button>
 								<button class="action-button" aria-label="Delete profile" title="Delete profile" onclick={() => (pendingDelete = { kind: 'profile', id: profile.id })}>
 									<IconTrash size={16} />
 								</button>
