@@ -16,6 +16,7 @@
 		if (visible) layer.showPopover();
 	});
 	import UploadProgress from '$lib/ui/UploadProgress.svelte';
+	import NavigationProgress from '$lib/ui/NavigationProgress.svelte';
 	import { uploads } from '$lib/state/uploads.svelte';
 	import { app } from '$lib/state/app.svelte';
 	import { edits } from '$lib/state/editing.svelte';
@@ -178,6 +179,7 @@
 </script>
 
 <svelte:window onpointerdown={closeNotificationsOutside} />
+<NavigationProgress />
 
 <svelte:head>
 	<link rel="icon" href={logo} />

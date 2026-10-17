@@ -12,6 +12,20 @@
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
 		%sveltekit.head%
+		<script>
+			// Until the app has started, tapping a link is a full page load. Show the loading bar so
+			// slow connections get feedback; once the app runs it handles links and prevents the default.
+			document.addEventListener('click', function (event) {
+				if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+				var link = event.target.closest && event.target.closest('a[href]');
+				if (!link || link.target || link.hasAttribute('download') || link.origin !== location.origin) return;
+				if (link.pathname.indexOf('/api/') === 0) return;
+				if (link.pathname === location.pathname && link.search === location.search) return;
+				document.documentElement.classList.add('page-loading');
+				link.setAttribute('data-pending', '');
+			});
+			addEventListener('pageshow', function () { document.documentElement.classList.remove('page-loading'); });
+		</script>
 	</head>
 	<body data-sveltekit-preload-data="hover" style="background: black;">
 		<div style="display: contents">%sveltekit.body%</div>

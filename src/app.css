@@ -50,3 +50,29 @@ html, body {
   overflow: hidden;
   overscroll-behavior: none;
 }
+
+/* Page loading feedback. The Svelte bar covers app navigations; html.page-loading covers
+   taps before the app has started, which are full page loads with no other indicator. */
+.navigation-progress,
+html.page-loading body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  height: 2px;
+  width: 90%;
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent);
+  pointer-events: none;
+  transform-origin: left;
+  animation: navigation-progress 8s cubic-bezier(.1, .7, .2, 1) both;
+}
+@keyframes navigation-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+a[data-pending] { opacity: .6; cursor: progress; transition: opacity 120ms; }
+@media (prefers-reduced-motion: reduce) {
+  .navigation-progress, html.page-loading body::before { width: 100%; animation: none; opacity: .8; }
+}
