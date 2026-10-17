@@ -62,6 +62,3 @@ Enabled=false
 Threshold=30
 Amount=20
 Anchor=50
-
-[RAW]
-PreExposure=1

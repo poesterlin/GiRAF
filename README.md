@@ -115,10 +115,11 @@ services:
 - [x] Progressive editor previews (quick preview followed by refinement on supported devices/connections)
 - More editing tools
    - [x] Black level
-   - [ ] White point control
-   - [ ] Lens corrections
-- [ ] Allow multiple import directories, configurable in the UI
-- [ ] Automatic SD-card import
+   - [x] White point control
+   - [x] Automatic lens corrections (lensfun, applied on import)
+- [x] Multiple import directories (`IMPORT_EXTRA_DIRS`)
+- [ ] Import directories configurable in the UI
+- [x] Automatic SD-card import (opt-in `sd-card` compose profile)
 
 ## License
 

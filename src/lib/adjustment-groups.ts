@@ -3,7 +3,7 @@ import type { PP3Document } from './pp3-document';
 
 export const groupNeutralSettings: Record<string, PP3> = {
 	light: {
-		Exposure: { Auto: false, Compensation: 0, Brightness: 0, Contrast: 0, Black: 0, HighlightCompr: 0, HighlightComprThreshold: 0, ShadowCompr: 0 },
+		Exposure: { Auto: false, Compensation: 0, Brightness: 0, Contrast: 0, Black: 0, Curve: '0;', HighlightCompr: 0, HighlightComprThreshold: 0, ShadowCompr: 0 },
 		'Shadows_&_Highlights': { Enabled: false }
 	},
 	whiteBalance: { White_Balance: { Setting: 'Camera' } },
@@ -14,7 +14,7 @@ export const groupNeutralSettings: Record<string, PP3> = {
 	vignette: { PCVignette: { Enabled: false } },
 	toneCurve: { Exposure: { Curve2: '0;' } },
 	look: { Film_Simulation: { Enabled: false }, Channel_Mixer: { Enabled: false } },
-	exposure: { Exposure: { Auto: false, Compensation: 0, Brightness: 0, Contrast: 0, Black: 0 } },
+	exposure: { Exposure: { Auto: false, Compensation: 0, Brightness: 0, Contrast: 0, Black: 0, Curve: '0;' } },
 	dynamicRange: { Exposure: { HighlightCompr: 0, HighlightComprThreshold: 0, ShadowCompr: 0 }, 'Shadows_&_Highlights': { Enabled: false } },
 	globalColor: { Exposure: { Saturation: 0 }, Vibrance: { Enabled: false } },
 	colorMixer: { HSV_Equalizer: { Enabled: false } },

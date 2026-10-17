@@ -48,7 +48,7 @@ export const GET: RequestHandler = async ({ params }) => {
     await ensureDir(outputPath);
     // Two-step pipeline: RAW → cached full-res develop base (intermediate representation) → JPEG.
     // Repeat renders reuse the base, skipping RAW decode and demosaicing.
-    const base = await acquireDevelopBase(image.filepath);
+    const base = await acquireDevelopBase(image.filepath, { previewTif: image.tifPath });
     try {
         const mappedPP3 = await mapCropFromPreviewToExport(pp3, image.tifPath, base.path);
         await editImage(base.path, stringifyPP3(mappedPP3), { outputPath, recordedAt: image.recordedAt });

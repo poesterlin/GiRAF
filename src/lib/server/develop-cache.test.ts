@@ -15,6 +15,7 @@ let builds = 0;
 
 // Stand in for the real RawTherapee call: create a small file where the base would land.
 mock.module('./image-editor', () => ({
+	importProfileFor: async (tifPath?: string | null) => (tifPath ? `profile:${tifPath}` : 'profile:current'),
 	generateExportTif: async (_imagePath: string, options: { outputDir?: string } = {}) => {
 		builds++;
 		const dir = options.outputDir!;
@@ -69,6 +70,20 @@ test('a changed source mtime produces a new base', async () => {
 	expect(builds).toBe(2);
 	expect(second.path).not.toBe(first.path);
 	second.release();
+});
+
+test("each photo's recorded import profile gets its own base", async () => {
+	builds = 0;
+	const raw = makeRaw('profile.RAF');
+	const before = await acquireDevelopBase(raw, { previewTif: '/tiffs/old/photo.tif' });
+	before.release();
+	const after = await acquireDevelopBase(raw, { previewTif: '/tiffs/new/photo.tif' });
+	after.release();
+	const again = await acquireDevelopBase(raw, { previewTif: '/tiffs/old/photo.tif' });
+	again.release();
+	expect(builds).toBe(2);
+	expect(after.path).not.toBe(before.path);
+	expect(again.path).toBe(before.path);
 });
 
 test('a missing source rejects', async () => {

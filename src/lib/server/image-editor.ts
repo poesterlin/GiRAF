@@ -2,7 +2,7 @@ import ImportPP3 from '$lib/assets/import.pp3?raw';
 import { parsePP3, stringifyPP3, type PP3 } from "$lib/pp3-utils";
 import { exiftool } from "exiftool-vendored";
 import { mkdir, readFile, rm } from "node:fs/promises";
-import { basename, extname, join } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 import { createTempDir, runCommand } from "./command-runner";
 import { getFileNameFromPath } from "./utils";
 import { mapSpotRemovalToTarget } from '$lib/spot-removal';
@@ -126,6 +126,16 @@ export async function generateImportTif(imagePath: string, options: { signal?: A
 
 
 /**
+ * The import profile a photo's editor TIFF was developed with, saved beside it as edit.pp3.
+ * Develop bases reuse it so full-size previews and exports keep the geometry the photo was edited
+ * on, even after import.pp3 changes (photos imported before lens correction stay uncorrected).
+ */
+export async function importProfileFor(tifPath: string | null | undefined): Promise<string> {
+    if (!tifPath) return ImportPP3;
+    return readFile(join(dirname(tifPath), 'edit.pp3'), 'utf8').catch(() => ImportPP3);
+}
+
+/**
  * Generates a full-resolution TIFF from RAW using the same import.pp3 but with Resize disabled.
  * This ensures the same auto-exposure and WB are baked in as the preview TIFF, just at full resolution.
  *
@@ -133,7 +143,7 @@ export async function generateImportTif(imagePath: string, options: { signal?: A
  * back through StdImageSource, skipping RAW decode and demosaicing on every later render. Pass
  * outputDir to build the base at a stable location (e.g. a cache) instead of a throwaway temp dir.
  */
-export async function generateExportTif(imagePath: string, options: { signal?: AbortSignal, outputDir?: string } = {}) {
+export async function generateExportTif(imagePath: string, options: { signal?: AbortSignal, outputDir?: string, profile?: string } = {}) {
     const start = performance.now();
 
     const name = getFileNameFromPath(imagePath) + '-export-tiff-' + randomUUID();
@@ -141,7 +151,7 @@ export async function generateExportTif(imagePath: string, options: { signal?: A
     if (options.outputDir) await mkdir(outDir, { recursive: true });
 
     // Parse import PP3 and disable resize for full-resolution output
-    const importPP3 = parsePP3(ImportPP3);
+    const importPP3 = parsePP3(options.profile ?? ImportPP3);
     importPP3.Resize = { ...importPP3.Resize, Enabled: false };
 
     const pp3FilePath = join(outDir, 'edit.pp3');

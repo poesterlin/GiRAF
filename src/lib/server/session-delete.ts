@@ -63,7 +63,7 @@ export async function deleteSessionFiles(session: Session, files: SessionDeleteF
 	for (const image of images) {
 		rawNames.add(basename(image.filepath));
 		// The develop base is keyed off the RAW, so drop it while the source is still readable.
-		await evictDevelopBase(image.filepath);
+		await evictDevelopBase(image.filepath, image.tifPath);
 		if (withinDirectory(env.TMP_DIR, image.previewPath)) await remove(image.previewPath);
 		// A per-RAW tiff directory also holds that image's edited thumbnails.
 		if (withinDirectory(env.TMP_DIR, image.tifPath)) await remove(dirname(image.tifPath), true);

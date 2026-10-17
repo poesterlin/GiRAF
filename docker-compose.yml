@@ -34,23 +34,29 @@ services:
       - ./export:/app/export
       - ./tmp:/app/tmp
 
-  # watchers:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.watchers
-  #   env_file:
-  #     - .env
-  #   depends_on:
-  #     - editor # Ensure editor is running before watchers start
-  #   restart: on-failure
-  #   networks:
-  #     - editor
-  #   volumes:
-  #     - import:/app/import
-  #     - ${SD_CARD_IMPORT_PATH}:/app/sd-card-import
-  #   environment:
-  #     - IMPORT_DIR=/app/import
-  #     - EDITOR_API_URL=http://editor:3000/api/imports/run-import
+  # Copies new files from an SD card into the import folder and starts an import.
+  # Opt in with: docker compose --profile sd-card up -d
+  watchers:
+    profiles: [sd-card]
+    image: oven/bun:debian
+    working_dir: /app
+    command: bun scripts/sd-card-importer.ts
+    restart: unless-stopped
+    depends_on:
+      - editor
+    environment:
+      - IMPORT_DIR=/app/import
+      - EDITOR_API_URL=http://editor:3000/api/imports/run-import
+    volumes:
+      - ./src/scripts:/app/scripts:ro
+      - import:/app/import
+      # rslave lets a card mounted after start-up appear inside the container.
+      - type: bind
+        source: ${SD_CARD_IMPORT_PATH:-/mnt/sdcard}
+        target: /app/sd-card-import
+        read_only: true
+        bind:
+          propagation: rslave
 
 volumes:
   import:

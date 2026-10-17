@@ -181,7 +181,7 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 				await ensureDir(outputPath);
 
 				// Two-step pipeline: RAW → cached full-res develop base (intermediate representation) → JPEG
-				const base = await acquireDevelopBase(image.filepath, { signal });
+				const base = await acquireDevelopBase(image.filepath, { signal, previewTif: image.tifPath });
 				try {
 					const mappedPP3 = await mapCropFromPreviewToExport(pp3, image.tifPath, base.path);
 					await editImage(base.path, stringifyPP3(mappedPP3), {

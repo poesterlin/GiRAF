@@ -7,7 +7,6 @@ Copy `.env.example` to `.env` and adjust values.
 - `DATABASE_URL`: PostgreSQL connection string
 - `CLUT_DIR`: Directory containing LUT files for film simulation (source: http://rawtherapee.com/shared/HaldCLUT.zip)
 - `IMPORT_DIR`: Directory watched for new RAW files
-- `IMPORT_EXTRA_DIRS`: Optional extra directories to scan for RAW files, separated by `:` (uploads still land in `IMPORT_DIR`)
 - `EXPORT_DIR`: Directory for exports
 - `TMP_DIR`: Directory for temporary intermediates
 
@@ -15,6 +14,18 @@ Copy `.env.example` to `.env` and adjust values.
 
 - `HOST_DOMAIN`: Domain name for Traefik routing (if using Traefik)
 - `RAWTHERAPEE_VERSION`: RawTherapee release tag used when building the Docker image (defaults to latest)
+- `IMPORT_EXTRA_DIRS`: Extra directories to scan for RAW files, separated by `:`. Uploads still land in `IMPORT_DIR`.
+- `SD_CARD_IMPORT_PATH`: Host mount point of the SD card for automatic import (defaults to `/mnt/sdcard`)
+
+### Automatic SD-card import
+
+The `watchers` service polls the card's `DCIM` folder every few seconds, copies new photos into the import folder and starts an import. It is opt-in:
+
+```bash
+docker compose --profile sd-card up -d
+```
+
+Mount the card at `SD_CARD_IMPORT_PATH` on the host. A card mounted after the service starts is picked up too. Files already in the import folder at the same size are skipped, so reinserting a card or restarting the service does not copy them again.
 
 ### Integrations
 

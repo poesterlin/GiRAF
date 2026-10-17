@@ -15,7 +15,7 @@
 	import CreativeAdjustments from '$lib/ui/CreativeAdjustments.svelte';
 	import AdjustmentSubsection from '$lib/ui/AdjustmentSubsection.svelte';
 	import { blackLevelFromPP3, blackLevelToPP3 } from '$lib/black-level';
-	import { whitePointFromPP3, whitePointToPP3, WHITE_POINT_MAX_STOPS, WHITE_POINT_MIN_STOPS } from '$lib/white-point';
+	import { whitePointFromCurve, whitePointToCurve } from '$lib/white-point';
 	import { limitExpandedGroups } from '$lib/ui/adjustment-expansion';
 
 	interface Props {
@@ -32,6 +32,7 @@
 		for (const field of ['Auto', 'Compensation', 'Brightness', 'Contrast', 'Black', 'HighlightCompr', 'HighlightComprThreshold']) {
 			edits.pp3.Exposure[field] = defaults[field];
 		}
+		edits.pp3.Exposure.Curve = '0;';
 		edits.pp3.Exposure.Enabled = true;
 		edits.pushHistory(true);
 	}
@@ -132,18 +133,13 @@
 		/>
 		<Slider
 			label="White Point"
-			value={whitePointFromPP3(Number(edits.pp3.RAW?.PreExposure ?? 1))}
-			min={WHITE_POINT_MIN_STOPS}
-			max={WHITE_POINT_MAX_STOPS}
-			step={0.05}
-			unit=" EV"
+			bind:value={() => whitePointFromCurve(edits.pp3.Exposure.Curve), (value) => (edits.pp3.Exposure.Curve = whitePointToCurve(value))}
+			min={-100}
+			max={100}
+			step={1}
 			resetValue={0}
 			centered
-			onchange={(stops) => {
-				edits.pp3.RAW ??= {};
-				edits.pp3.RAW.PreExposure = whitePointToPP3(stops);
-				edits.pushHistory();
-			}}
+			onchange={() => edits.pushHistory()}
 		/>
 	
 	</AdjustmentGroup>

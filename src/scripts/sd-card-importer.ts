@@ -6,7 +6,7 @@ const supportedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.tif', '.tiff', '
 
 const env = process.env as Record<string, string>;
 const IMPORT_DIR = env.IMPORT_DIR;
-const SD_CARD_IMPORT_PATH = '/app/sd-card-import';
+const SD_CARD_IMPORT_PATH = env.SD_CARD_DIR || '/app/sd-card-import';
 const EDITOR_API_URL = env.EDITOR_API_URL || 'http://localhost:3000/api/imports/run-import';
 const POLLING_INTERVAL_MS = 5000;
 
@@ -122,18 +122,29 @@ async function processSdCard() {
                 const destinationPath = path.join(IMPORT_DIR, uniqueFileNameInImportDir);
 
                 try {
+                    // The in-memory log is lost on restart; a same-sized copy means the file already arrived.
+                    const existing = await fs.stat(destinationPath).catch(() => null);
+                    if (existing?.size === size) {
+                        processedSdCardFiles.add(uniqueFileId);
+                        return false;
+                    }
                     console.log(`[SD_CARD_IMPORTER] Copying ${sdFilePath} to ${destinationPath}...`);
-                    await fs.copyFile(sdFilePath, destinationPath);
+                    // Copy under an extension the import scan ignores, so it never queues a half-written file.
+                    const partialPath = `${destinationPath}.partial`;
+                    await fs.copyFile(sdFilePath, partialPath);
+                    await fs.rename(partialPath, destinationPath);
                     console.log(`[SD_CARD_IMPORTER] Successfully copied ${uniqueFileNameInImportDir}.`);
                     processedSdCardFiles.add(uniqueFileId);
+                    return true;
                 } catch (copyError) {
                     console.error(`[SD_CARD_IMPORTER ERROR] Failed to copy ${sdFilePath}:`, copyError);
+                    return false;
                 }
             });
 
-            await Promise.all(copyPromises);
-            console.log(`[SD_CARD_IMPORTER] All new files copied.`);
-            await triggerMainServiceImport();
+            const copied = (await Promise.all(copyPromises)).filter(Boolean).length;
+            console.log(`[SD_CARD_IMPORTER] Copied ${copied} new files.`);
+            if (copied > 0) await triggerMainServiceImport();
         } else {
             console.log(`[SD_CARD_IMPORTER] No new files to copy.`);
         }

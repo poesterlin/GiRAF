@@ -46,7 +46,7 @@ export async function editorPreview(path: string, rawPath: string, pp3: string, 
 			let profile = pp3;
 			if (stage === 'final' && size > 1000) {
 				const sourceStarted = performance.now();
-				developBase = await acquireDevelopBase(rawPath, { signal });
+				developBase = await acquireDevelopBase(rawPath, { signal, previewTif: path });
 				sourceCache = developBase.reused ? 'hit' : 'miss';
 				timings.source = performance.now() - sourceStarted;
 				input = developBase.path;
