@@ -52,6 +52,8 @@
 	const editingDisabled = $derived(busy || !!page.data.editorError || page.data.hasMatchingImages === false);
 	/** Autosave owns the writes; the footer only reports where they stand. */
 	const saveState = $derived(edits.isFaulty ? 'Save failed' : edits.isSaving ? 'Saving…' : edits.hasChanges ? 'Unsaved' : 'Saved');
+	/** Once its edits are safe, an archived photo says so in place of "Saved". */
+	const showArchived = $derived(saveState === 'Saved' && !!page.data.image?.isArchived);
 	function undo() { if (!editingDisabled && edits.canUndo) (historyActions?.undo ?? (() => edits.undo()))(); }
 	function redo() { if (!editingDisabled && edits.canRedo) (historyActions?.redo ?? (() => edits.redo()))(); }
 	beforeNavigate(() => { if (menu) menu.open = false; dismissStylingToast(); });
@@ -180,7 +182,7 @@
 	</button>
 	<button type="button" class="nav-action image-step" aria-label="Next image" disabled={busy || !page.data.nextImage} onclick={() => navigate(page.data.nextImage)}><IconChevronRight size={20} /></button>
 	<button type="button" class="nav-action filter-action relative lg:ml-2" aria-label={filtered ? `Filter photos (${summary})` : 'Filter photos'} aria-pressed={filtered} title={filtered ? `Filter photos · ${summary}` : 'Filter photos'} disabled={busy} onclick={() => showFilter = true}><IconFilter size={20} />{#if filtered}<span class="filter-badge" aria-hidden="true"></span>{/if}</button>
-	<span class="save-state ml-auto shrink-0 lg:ml-0" role="status">{saveState}</span>
+	<span class="save-state ml-auto shrink-0 lg:ml-0" role="status">{#if showArchived}<IconArchive size={14} aria-hidden="true" />Archived{:else}{saveState}{/if}</span>
 	<details bind:this={menu} class="relative lg:hidden">
 		<summary class="nav-action list-none cursor-pointer" aria-label="More photo actions"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg></summary>
 		<div class="absolute bottom-full right-0 z-50 mb-2 w-44 rounded-xl border border-neutral-700 bg-neutral-900 p-1 shadow-xl">
@@ -224,6 +226,6 @@
 	.image-step:disabled { color: #737373; background: transparent; opacity: .5; }
 	.menu-action { display: flex; min-height: 44px; width: 100%; align-items: center; gap: 12px; border-radius: 8px; padding: 0 12px; font-size: 14px; }
 	.menu-action:hover { background: #262626; }
-	.save-state { display: inline-flex; min-height: 44px; align-items: center; font-size: 12px; font-weight: 500; white-space: nowrap; color: #737373; }
+	.save-state { display: inline-flex; min-height: 44px; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; color: #737373; }
 	@media (min-width: 1024px) { .save-state { min-height: 0; } }
 </style>
