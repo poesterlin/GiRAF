@@ -8,13 +8,15 @@ const RECENT_SHEET = 150;
 
 export type GalleryView = { kind: 'sessions'; sessionId?: number; sort: SessionSort } | { kind: 'recent' } | { kind: 'archived' } | { kind: 'tag'; tag: string };
 
-export const load: PageServerLoad = async ({ fetch, url }) => {
+export const load: PageServerLoad = async ({ fetch, url, cookies }) => {
 	const tag = url.searchParams.get('tag');
 	const requested = url.searchParams.get('view');
 	const sessionParam = Number(url.searchParams.get('session'));
 	const sessionId = Number.isSafeInteger(sessionParam) && sessionParam > 0 ? sessionParam : undefined;
-	const sortParam = url.searchParams.get('sort');
+	// An explicit choice is remembered on this device; plain /gallery visits reuse it.
+	const sortParam = url.searchParams.get('sort') ?? cookies.get('gallery-sort');
 	const sort: SessionSort = sortParam === 'recorded' || sortParam === 'edit' ? sortParam : 'upload';
+	if (url.searchParams.has('sort')) cookies.set('gallery-sort', sort, { path: '/', maxAge: 60 * 60 * 24 * 365, httpOnly: true, sameSite: 'lax' });
 	const view: GalleryView = tag ? { kind: 'tag', tag } : requested === 'recent' || requested === 'archived' ? { kind: requested } : { kind: 'sessions', sessionId, sort };
 	const sessionQuery = sessionId ? `?session=${sessionId}` : sort !== 'upload' ? `?sort=${sort}` : '';
 	const [tags, archivedCount, archived, photos, sessions] = await Promise.all([

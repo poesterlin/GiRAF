@@ -41,7 +41,7 @@
 	let sentinel = $state<HTMLDivElement>();
 
 	const sortOptions: { value: SessionSort; label: string; href: string }[] = [
-		{ value: 'upload', label: 'Last upload', href: '/gallery' },
+		{ value: 'upload', label: 'Last upload', href: '/gallery?sort=upload' },
 		{ value: 'recorded', label: 'Recording date', href: '/gallery?sort=recorded' },
 		{ value: 'edit', label: 'Last edit', href: '/gallery?sort=edit' }
 	];
