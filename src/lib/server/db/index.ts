@@ -2,7 +2,7 @@ import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { building } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import postgres from 'postgres';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import * as schema from './schema';
 
 type DatabaseSchema = typeof import('./schema');
