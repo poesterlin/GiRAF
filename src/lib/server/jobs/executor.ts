@@ -7,7 +7,8 @@ import { bmvbhash } from 'blockhash-core';
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { readFile, mkdir, rm, stat } from 'fs/promises';
 import { decode } from 'jpeg-js';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
+import { createTempDir } from '../command-runner';
 
 async function fileExists(path: string) {
 	try {
@@ -93,7 +94,8 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 						if (!needsPreview && image.phash) continue;
 					}
 				}
-				const previewPath = needsPreview ? '/tmp/' + image.id + '_preview.jpg' : image.previewPath!;
+				// In TMP_DIR the preview survives rebuilds and leaves with its session when that is deleted
+				const previewPath = needsPreview ? join(await createTempDir('previews'), `${image.id}_preview.jpg`) : image.previewPath!;
 				if (needsPreview) await exiftool.extractPreview(image.filepath, previewPath, { ignoreMinorErrors: true, forceWrite: true });
 				const jpegData = await readFile(previewPath);
 				const { width, height, data } = decode(jpegData, { useTArray: true });

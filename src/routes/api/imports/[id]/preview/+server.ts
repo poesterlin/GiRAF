@@ -5,6 +5,8 @@ import { error, redirect, type RequestHandler } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { exiftool } from 'exiftool-vendored';
 import sharp from 'sharp';
+import { join } from 'node:path';
+import { createTempDir } from '$lib/server/command-runner';
 
 export const GET: RequestHandler = async ({ params }) => {
 	const id = Number(params.id);
@@ -26,8 +28,10 @@ export const GET: RequestHandler = async ({ params }) => {
 		return respondWithFile(importFile.previewPath);
 	}
 
-	const tempFile = '/tmp/' + importFile.id + '_thumbnail.jpg';
-	const compressedFile = '/tmp/' + importFile.id + '_thumbnail_compressed.webp';
+	// TMP_DIR survives container rebuilds, unlike /tmp, so previews aren't extracted again after every deploy
+	const directory = await createTempDir('import-previews');
+	const tempFile = join(directory, `${importFile.id}_thumbnail.jpg`);
+	const compressedFile = join(directory, `${importFile.id}_thumbnail_compressed.webp`);
 	try {
 		await exiftool.extractThumbnail(importFile.filePath, tempFile, { ignoreMinorErrors: true, forceWrite: true });
 
