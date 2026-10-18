@@ -120,18 +120,19 @@ function syntheticStages(start: PP3): Stage[] {
 		const index = addLocalMask(s, 'RECT');
 		s.Locallab[`Expcomp_${index}`] = 0.5;
 	});
-	add('5 + mask tools', (s) => {
-		const index = addLocalMask(s, 'ELI');
-		// Every per-mask tool at once: the heaviest mask the editor can build
-		for (const tool of maskTools) setMaskToolEnabled(s, index, tool, true);
-	});
-	add('6 + three masks', (s) => {
+	const oneMask = structuredClone(stages.at(-1)!.settings);
+	add('5 + three masks', (s) => {
 		for (const shape of ['ELI', 'RECT'] as const) {
 			const index = addLocalMask(s, shape);
 			s.Locallab[`Expcomp_${index}`] = -0.3;
 			s.Locallab[`Chroma_${index}`] = 10;
 		}
 	});
+	// Every per-mask tool at once, beside the plain mask, so the tools can be weighed on their own
+	const toolMask = structuredClone(oneMask);
+	const toolIndex = addLocalMask(toolMask, 'ELI');
+	for (const tool of maskTools) setMaskToolEnabled(toolMask, toolIndex, tool, true);
+	stages.push({ name: '6 + mask tools', settings: toolMask });
 	return stages;
 }
 
