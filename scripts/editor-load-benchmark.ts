@@ -25,7 +25,7 @@ import { parseArgs } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { parsePP3, stringifyPP3, toBase64, type PP3 } from '../src/lib/pp3-utils';
-import { addLocalMask } from '../src/lib/local-masks';
+import { addLocalMask, maskTools, setMaskToolEnabled } from '../src/lib/local-masks';
 
 const { values } = parseArgs({
 	options: {
@@ -120,7 +120,12 @@ function syntheticStages(start: PP3): Stage[] {
 		const index = addLocalMask(s, 'RECT');
 		s.Locallab[`Expcomp_${index}`] = 0.5;
 	});
-	add('5 + three masks', (s) => {
+	add('5 + mask tools', (s) => {
+		const index = addLocalMask(s, 'ELI');
+		// Every per-mask tool at once: the heaviest mask the editor can build
+		for (const tool of maskTools) setMaskToolEnabled(s, index, tool, true);
+	});
+	add('6 + three masks', (s) => {
 		for (const shape of ['ELI', 'RECT'] as const) {
 			const index = addLocalMask(s, shape);
 			s.Locallab[`Expcomp_${index}`] = -0.3;

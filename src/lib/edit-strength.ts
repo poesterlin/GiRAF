@@ -17,9 +17,18 @@ export function scaleEditSettings(settings: PP3, percent: number, whiteBalance: 
 	const result = structuredClone(settings);
 	const strength = normalizeEditStrength(percent) / 100;
 	if (strength === 1) return result;
+	// Per-mask Locallab tools. Amounts scale with the edit; geometry, radii and method names do not.
+	const maskAmounts = new Set(['Warm', 'Saturated', 'Pastels', 'shadows', 'highlights', 'Dehaz', 'Sharamount', 'Strength']);
+	const maskFractions = new Set(['Lcamount']);
 	for (const [key, value] of Object.entries(result.Locallab ?? {})) {
-		if (/^(Expcomp|Lightness|Contrast|Chroma)_\d+$/.test(key) && typeof value === 'number')
+		if (typeof value !== 'number') continue;
+		if (/^(Expcomp|Lightness|Contrast|Chroma)_\d+$/.test(key)) {
 			result.Locallab[key] = key.startsWith('Expcomp_') ? value * strength : Math.round(value * strength);
+			continue;
+		}
+		const name = key.slice(0, key.lastIndexOf('_'));
+		if (maskAmounts.has(name)) result.Locallab[key] = Math.round(value * strength);
+		else if (maskFractions.has(name)) result.Locallab[key] = value * strength;
 	}
 	const amounts: Record<string, string[]> = {
 		Exposure: ['Compensation', 'Brightness', 'Contrast', 'Saturation', 'Black', 'HighlightCompr', 'ShadowCompr'],
