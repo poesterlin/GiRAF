@@ -2,6 +2,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { toBase64 } from '$lib/pp3-utils';
+	import { TILE_RENDER_SIZE } from '$lib/lut-preview';
 	import type { Profile, Snapshot } from '$lib/server/db/schema';
 	import { app } from '$lib/state/app.svelte';
 	import { edits } from '$lib/state/editing.svelte';
@@ -96,7 +97,7 @@
 			<div class="list">
 				{#each snapshots as snapshot (snapshot.id)}
 					<div class="item">
-						<img src={`/api/images/${page.params.img}/edit?preview&config=${toBase64(snapshot.pp3)}`} alt="Snapshot" class="preview" loading="lazy" />
+						<img src={`/api/images/${page.params.img}/edit?preview&size=${TILE_RENDER_SIZE}&config=${toBase64(snapshot.pp3)}`} alt="Snapshot" class="preview" loading="lazy" />
 						<div class="info">
 							<div class="actions">
 								<button class="action-button" onclick={() => applyVersion(snapshot.pp3)}>Apply</button>
@@ -124,7 +125,7 @@
 			<div class="list">
 				{#each profiles as profile (profile.id)}
 					<div class="item">
-						<img src={`/api/images/${page.params.img}/edit?preview&config=${toBase64(profile.pp3)}`} alt={profile.name} class="preview" loading="lazy" />
+						<img src={`/api/images/${page.params.img}/edit?preview&size=${TILE_RENDER_SIZE}&config=${toBase64(profile.pp3)}`} alt={profile.name} class="preview" loading="lazy" />
 						<div class="info">
 							<span class="font-semibold">{profile.name}</span>
 							<div class="actions">

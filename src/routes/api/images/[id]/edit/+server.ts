@@ -1,4 +1,5 @@
-import { fromBase64, stringifyPP3 } from '$lib/pp3-utils';
+import { fromBase64, parsePP3, stringifyPP3 } from '$lib/pp3-utils';
+import { withLongEdge } from '$lib/export-settings';
 import { editorPreview } from '$lib/server/editor-preview';
 import { db } from '$lib/server/db';
 import { imageTable } from '$lib/server/db/schema';
@@ -10,6 +11,11 @@ import { rm } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 const refinements = new Map<string, AbortController>();
+
+function thumbnailEdge(size: string | null): number | undefined {
+	const edge = Number(size);
+	return size && Number.isInteger(edge) && edge > 0 ? Math.min(Math.max(edge, 64), 1000) : undefined;
+}
 
 async function withRefinement<T>(clientKey: string | null, signal: AbortSignal, render: (signal: AbortSignal) => Promise<T>): Promise<T> {
 	const controller = new AbortController();
@@ -83,8 +89,12 @@ export const GET: RequestHandler = async ({ params, url, request }) => {
 			return previewResponse(result, requestId, cacheOnly, timings);
 		}
 		const renderStarted = performance.now();
-		const output = await editImage(image.tifPath, pp3String, {
-			quality: 85
+		// Tiles (film looks, versions) ask for a size: they render small and queue behind the editor preview
+		const thumbnailSize = thumbnailEdge(url.searchParams.get('size'));
+		const output = await editImage(image.tifPath, thumbnailSize ? stringifyPP3(withLongEdge(parsePP3(pp3String), thumbnailSize)) : pp3String, {
+			quality: 85,
+			priority: thumbnailSize ? 'thumbnail' : 'final',
+			signal: request.signal
 		});
 		let jpeg: ArrayBuffer;
 		try {

@@ -12,6 +12,9 @@ export function lutPreviewSettings(settings: PP3, disabledGroups: string[], path
 	).settings;
 }
 
+/** Tiles are at most a few hundred pixels wide, so they ask for a small, low-priority render. */
+export const TILE_RENDER_SIZE = 480;
+
 export function lutPreviewUrl(imageId: string, settings: PP3): string {
-	return `/api/images/${encodeURIComponent(imageId)}/edit?preview&config=${encodeURIComponent(toBase64(settings))}`;
+	return `/api/images/${encodeURIComponent(imageId)}/edit?preview&size=${TILE_RENDER_SIZE}&config=${encodeURIComponent(toBase64(settings))}`;
 }

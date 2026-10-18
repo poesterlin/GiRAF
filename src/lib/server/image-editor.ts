@@ -3,7 +3,7 @@ import { parsePP3, stringifyPP3, type PP3 } from '$lib/pp3-utils';
 import { exiftool } from 'exiftool-vendored';
 import { mkdir, readFile, rm } from 'node:fs/promises';
 import { basename, dirname, extname, join } from 'node:path';
-import { createTempDir, runCommand } from './command-runner';
+import { createTempDir, runCommand, type RenderPriority } from './command-runner';
 import { getFileNameFromPath } from './utils';
 import { mapSpotRemovalToTarget } from '$lib/spot-removal';
 import { randomUUID } from 'node:crypto';
@@ -15,7 +15,7 @@ import { randomUUID } from 'node:crypto';
 export async function editImage(
 	imagePath: string,
 	pp3: string,
-	options: { signal?: AbortSignal; outputPath?: string; recordedAt?: Date; quality?: number; background?: boolean } = {}
+	options: { signal?: AbortSignal; outputPath?: string; recordedAt?: Date; quality?: number; background?: boolean; priority?: RenderPriority } = {}
 ): Promise<string> {
 	const start = performance.now();
 
@@ -52,7 +52,7 @@ export async function editImage(
 	console.log(`Running command: ${command.join(' ')}`);
 
 	try {
-		await runCommand(command, { signal: options.signal, background: options.background });
+		await runCommand(command, { signal: options.signal, background: options.background, priority: options.priority });
 	} catch (error) {
 		await rm(tempDir, { recursive: true, force: true });
 		throw error;

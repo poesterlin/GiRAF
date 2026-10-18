@@ -98,7 +98,7 @@ export async function editorPreview(path: string, rawPath: string, pp3: string, 
 				profile = stringifyPP3(settings);
 			}
 			const renderStarted = performance.now();
-			output = await editImage(input, profile, { quality, signal });
+			output = await editImage(input, profile, { quality, signal, priority: stage });
 			timings.render = performance.now() - renderStarted;
 			const readStarted = performance.now();
 			jpeg = Buffer.from(await Bun.file(output).arrayBuffer());
