@@ -41,31 +41,50 @@ async function saveNotifications(notifications: ServerNotification[]) {
 	await setSetting(NOTIFICATIONS_KEY, JSON.stringify(notifications.slice(0, MAX_NOTIFICATIONS)));
 }
 
+/**
+ * Every notification lives in one JSON row, so a read-then-write must not overlap another one.
+ * Two jobs finishing at the same moment would otherwise each read the same list and the second
+ * write would drop the first notification. Work is queued instead.
+ */
+let writeQueue: Promise<unknown> = Promise.resolve();
+
+function queued<T>(work: () => Promise<T>): Promise<T> {
+	const run = writeQueue.then(work, work);
+	writeQueue = run.catch(() => {});
+	return run;
+}
+
 export async function getNotifications(): Promise<ServerNotification[]> {
 	const raw = await getSetting(NOTIFICATIONS_KEY, '[]');
 	return parseNotifications(raw);
 }
 
-export async function appendNotification(message: string, type: NotificationType): Promise<ServerNotification> {
-	const notifications = await getNotifications();
-	const notification: ServerNotification = {
-		id: createId(),
-		message,
-		type,
-		createdAt: new Date().toISOString(),
-		read: false
-	};
-	await saveNotifications([notification, ...notifications]);
-	return notification;
+export function appendNotification(message: string, type: NotificationType): Promise<ServerNotification> {
+	return queued(async () => {
+		const notifications = await getNotifications();
+		const notification: ServerNotification = {
+			id: createId(),
+			message,
+			type,
+			createdAt: new Date().toISOString(),
+			read: false
+		};
+		await saveNotifications([notification, ...notifications]);
+		return notification;
+	});
 }
 
-export async function markAllNotificationsRead(): Promise<ServerNotification[]> {
-	const notifications = await getNotifications();
-	const next = notifications.map((notification) => ({ ...notification, read: true }));
-	await saveNotifications(next);
-	return next;
+export function markAllNotificationsRead(): Promise<ServerNotification[]> {
+	return queued(async () => {
+		const notifications = await getNotifications();
+		const next = notifications.map((notification) => ({ ...notification, read: true }));
+		await saveNotifications(next);
+		return next;
+	});
 }
 
-export async function clearNotifications() {
-	await saveNotifications([]);
+export function clearNotifications() {
+	return queued(async () => {
+		await saveNotifications([]);
+	});
 }
