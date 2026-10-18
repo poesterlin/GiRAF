@@ -43,8 +43,8 @@
 	let notificationsButton = $state<HTMLButtonElement>();
 	let notificationsPanel = $state<HTMLDivElement>();
 	let runningTaskCount = $state(0);
-	let runningTasksPollingInterval: ReturnType<typeof setInterval> | undefined;
-	let notificationsPollingInterval: ReturnType<typeof setInterval> | undefined;
+	let pollingInterval: ReturnType<typeof setInterval> | undefined;
+	let visibilityListener: (() => void) | undefined;
 	let knownNotificationIds = new Set<string>();
 	let totalRunningTasks = $derived(runningTaskCount + (uploads.isUploading ? 1 : 0));
 	let notificationsAriaLabel = $derived(
@@ -141,22 +141,28 @@
 	onMount(() => {
 		void refreshRunningTasks();
 		void refreshNotifications();
-		runningTasksPollingInterval = setInterval(() => {
+		// A hidden tab has nothing to show, so it stops polling and catches up when it comes back
+		const tick = () => {
+			if (document.hidden) return;
 			void refreshRunningTasks();
-		}, 2000);
-		notificationsPollingInterval = setInterval(() => {
 			void refreshNotifications();
-		}, 2000);
+		};
+		const onVisibilityChange = () => {
+			if (!document.hidden) tick();
+		};
+		document.addEventListener('visibilitychange', onVisibilityChange);
+		visibilityListener = onVisibilityChange;
+		pollingInterval = setInterval(tick, 2000);
 	});
 
 	onDestroy(() => {
-		if (runningTasksPollingInterval) {
-			clearInterval(runningTasksPollingInterval);
-			runningTasksPollingInterval = undefined;
+		if (visibilityListener) {
+			document.removeEventListener('visibilitychange', visibilityListener);
+			visibilityListener = undefined;
 		}
-		if (notificationsPollingInterval) {
-			clearInterval(notificationsPollingInterval);
-			notificationsPollingInterval = undefined;
+		if (pollingInterval) {
+			clearInterval(pollingInterval);
+			pollingInterval = undefined;
 		}
 	});
 
