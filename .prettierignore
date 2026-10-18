@@ -8,3 +8,14 @@ bun.lockb
 # Miscellaneous
 /static/
 /drizzle/
+
+# Runtime data and build output
+/import/
+/export/
+/tmp/
+/input
+/cluts/
+/build/
+/dist/
+/pgdata/
+src/lib/assets/THIRD_PARTY_LICENSES.txt
