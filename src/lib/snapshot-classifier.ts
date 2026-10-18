@@ -5,7 +5,11 @@ import type { PP3 } from '$lib/pp3-utils';
  * in place. A new version is only worth its own row when the edit history needs
  * an anchor: the first edit, work that has been open for a while, a version that
  * has already been exported, or structural changes that are expensive to
- * reproduce (geometry, looks, masks, retouch).
+ * reproduce (geometry, switching a look, adding or removing a mask).
+ *
+ * Tuning inside that structure (a mask's sliders, a look's strength, another
+ * retouch spot) is ordinary editing: it counts towards the slider distance, so
+ * dragging a mask's exposure no longer writes a new version every few seconds.
  */
 
 /** A snapshot older than this stops being the target of in-place updates. */
@@ -14,8 +18,34 @@ export const SNAPSHOT_INTERVAL_MS = 10 * 60 * 1000;
 /** Accumulated slider distance that separates two versions of one look. */
 export const SNAPSHOT_DISTANCE = 2.5;
 
-/** Chapters whose chapters describe geometry, looks or localised work. */
-const structuralChapters = ['Crop', 'Rotation', 'Coarse_Transformation', 'Perspective', 'Resizing', 'Film_Simulation', 'Black_&_White', 'Spot_removal', 'Locallab'] as const;
+/** Chapters that describe geometry: any change to them is structural. */
+const geometryChapters = ['Crop', 'Rotation', 'Coarse_Transformation', 'Perspective', 'Resizing'];
+
+const enabled = (chapter: PP3[string] | undefined) => chapter?.Enabled === true || chapter?.Enabled === 'true';
+
+/**
+ * The part of a look, mask or retouch chapter that makes up its structure. Two documents whose
+ * identities match differ only in tuning.
+ */
+const chapterIdentity: Record<string, (chapter: PP3[string] | undefined) => string> = {
+	Film_Simulation: (chapter) => `${enabled(chapter)}|${chapter?.ClutFilename ?? ''}`,
+	'Black_&_White': (chapter) => `${enabled(chapter)}|${chapter?.Method ?? ''}`,
+	Spot_removal: (chapter) => `${enabled(chapter)}`,
+	Locallab: (chapter) =>
+		`${enabled(chapter)}|${Object.keys(chapter ?? {})
+			.filter((key) => /^Shape_\d+$/.test(key))
+			.sort()
+			.map((key) => `${key}=${chapter![key]}`)
+			.join(',')}`
+};
+
+const structuralChapters = [...geometryChapters, ...Object.keys(chapterIdentity)];
+
+function isIdentityField(chapter: string, key: string): boolean {
+	if (geometryChapters.includes(chapter)) return true;
+	if (!(chapter in chapterIdentity)) return false;
+	return key === 'Enabled' || key === 'ClutFilename' || (chapter === 'Black_&_White' && key === 'Method') || /^Shape_\d+$/.test(key);
+}
 
 /**
  * Natural ranges of fields whose stored magnitudes say nothing about how much
@@ -52,16 +82,22 @@ function changedPP3Fields(base: PP3, target: PP3): ChangedField[] {
 	return changed;
 }
 
-/** Chapters from the structural list that the two documents disagree on. */
+/** Structural chapters whose geometry or structure differs between the two documents. */
 export function changedStructuralChapters(base: PP3, target: PP3): string[] {
-	const structural = new Set<string>(structuralChapters);
-	return [
-		...new Set(
-			changedPP3Fields(base, target)
-				.map((field) => field.chapter)
-				.filter((chapter) => structural.has(chapter))
-		)
-	];
+	const changed = new Set(changedPP3Fields(base, target).map((field) => field.chapter));
+	return structuralChapters.filter((chapter) => {
+		if (!changed.has(chapter)) return false;
+		const identity = chapterIdentity[chapter];
+		return !identity || identity(base?.[chapter]) !== identity(target?.[chapter]);
+	});
+}
+
+/** Fields such as `Red=1000;0;0;` or curve points: lists of numbers that move a little at a time. */
+function numberList(value: unknown): number[] | null {
+	if (typeof value !== 'string' || !value.includes(';')) return null;
+	const parts = value.split(';').filter((part) => part.trim() !== '');
+	const numbers = parts.map(Number);
+	return numbers.length && numbers.every(Number.isFinite) ? numbers : null;
 }
 
 function fieldDistance(field: ChangedField): number {
@@ -70,6 +106,12 @@ function fieldDistance(field: ChangedField): number {
 	if (typeof previous === 'number' && typeof next === 'number') {
 		const scale = fieldScales[key] ?? Math.max(1, Math.abs(previous), Math.abs(next));
 		return Math.min(1, Math.abs(next - previous) / scale);
+	}
+	const before = numberList(previous);
+	const after = numberList(next);
+	if (before && after && before.length === after.length) {
+		const scale = fieldScales[key] ?? Math.max(1, ...before.map(Math.abs), ...after.map(Math.abs));
+		return Math.min(1, Math.max(...before.map((value, index) => Math.abs(after[index] - value))) / scale);
 	}
 	// Curves, thresholds and file names move as a whole, so any difference in
 	// them counts as a full step.
@@ -83,10 +125,14 @@ function fieldDistance(field: ChangedField): number {
  */
 export function pp3EditDistance(base: PP3, target: PP3): number {
 	let distance = 0;
+	// A mask or look has dozens of fields, so tuning one counts as at most one step
+	const tuning = new Map<string, number>();
 	for (const field of changedPP3Fields(base, target)) {
-		if (structuralChapters.includes(field.chapter as (typeof structuralChapters)[number])) continue;
-		distance += fieldDistance(field);
+		if (isIdentityField(field.chapter, field.key)) continue;
+		if (structuralChapters.includes(field.chapter)) tuning.set(field.chapter, (tuning.get(field.chapter) ?? 0) + fieldDistance(field));
+		else distance += fieldDistance(field);
 	}
+	for (const amount of tuning.values()) distance += Math.min(1, amount);
 	return distance;
 }
 

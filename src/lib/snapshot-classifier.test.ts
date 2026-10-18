@@ -16,7 +16,8 @@ describe('edit distance', () => {
 
 	test('counts curves, names and removed fields as whole steps', () => {
 		expect(pp3EditDistance({ Exposure: { Curve2: '0;' } }, { Exposure: { Curve2: '0;50;100;' } })).toBe(1);
-		expect(pp3EditDistance({ Film_Simulation: { ClutFilename: '/a.png', Strength: 100 } }, {})).toBe(0);
+		// Removing the look is structural on its own; its strength counts as one step of tuning
+		expect(pp3EditDistance({ Film_Simulation: { ClutFilename: '/a.png', Strength: 100 } }, {})).toBe(1);
 		expect(pp3EditDistance({ Exposure: { Compensation: 0 } }, {})).toBe(1);
 	});
 
@@ -36,8 +37,35 @@ describe('structural changes', () => {
 		expect(changedStructuralChapters({ Crop: { X: 0 } }, { Crop: { X: 10 } })).toEqual(['Crop']);
 		expect(changedStructuralChapters({ Exposure: { Compensation: 0 } }, { Film_Simulation: { ClutFilename: '/a.png' } })).toEqual(['Film_Simulation']);
 		expect(changedStructuralChapters({ Spot_removal: { Enabled: false } }, { Spot_removal: { Enabled: true } })).toEqual(['Spot_removal']);
-		expect(changedStructuralChapters({ Locallab: { Enabled: false } }, { Locallab: { Selspot: 1 } })).toEqual(['Locallab']);
+		expect(changedStructuralChapters({ Locallab: { Enabled: false } }, { Locallab: { Enabled: true, Shape_0: 'RECT' } })).toEqual(['Locallab']);
 		expect(changedStructuralChapters({ 'Black_&_White': { Enabled: false } }, { 'Black_&_White': { Enabled: true } })).toEqual(['Black_&_White']);
+	});
+
+	test('adding, removing or reshaping a mask is structural', () => {
+		const one = { Locallab: { Enabled: true, Shape_0: 'RECT', Expcomp_0: 0 } };
+		expect(changedStructuralChapters(one, { Locallab: { ...one.Locallab, Shape_1: 'ELI', Expcomp_1: 0 } })).toEqual(['Locallab']);
+		expect(changedStructuralChapters(one, { Locallab: { ...one.Locallab, Shape_0: 'ELI' } })).toEqual(['Locallab']);
+		expect(changedStructuralChapters(one, { Locallab: { Enabled: false } })).toEqual(['Locallab']);
+	});
+
+	test('tuning a mask, a look or retouch is not structural', () => {
+		const mask = { Locallab: { Enabled: true, Selspot: 0, Shape_0: 'RECT', Expcomp_0: 0, Loc_0: '500;500;500;500;' } };
+		expect(changedStructuralChapters(mask, { Locallab: { ...mask.Locallab, Expcomp_0: 0.6, Loc_0: '400;600;500;500;', Selspot: 1 } })).toEqual([]);
+		const look = { Film_Simulation: { Enabled: true, ClutFilename: '/a.png', Strength: 100 } };
+		expect(changedStructuralChapters(look, { Film_Simulation: { ...look.Film_Simulation, Strength: 60 } })).toEqual([]);
+		const spots = { Spot_removal: { Enabled: true, Spot1: '1;2;3;4;20;0.5;1;' } };
+		expect(changedStructuralChapters(spots, { Spot_removal: { ...spots.Spot_removal, Spot2: '5;6;7;8;20;0.5;1;' } })).toEqual([]);
+	});
+
+	test('tuning inside a mask or look counts as at most one step', () => {
+		const mask = { Locallab: { Enabled: true, Shape_0: 'RECT', Expcomp_0: 0, Chroma_0: 0, Lightness_0: 0 } };
+		expect(pp3EditDistance(mask, { Locallab: { ...mask.Locallab, Expcomp_0: 0.3 } })).toBeCloseTo(0.3);
+		expect(pp3EditDistance(mask, { Locallab: { ...mask.Locallab, Expcomp_0: 2, Chroma_0: 40, Lightness_0: 40 } })).toBe(1);
+	});
+
+	test('lists of numbers count by how far they moved', () => {
+		expect(pp3EditDistance({ Channel_Mixer: { Red: '1000;0;0;' } }, { Channel_Mixer: { Red: '1100;0;0;' } })).toBeCloseTo(100 / 1100);
+		expect(pp3EditDistance({ Exposure: { Curve: '1;0;0;0.5;0.5;1;1;' } }, { Exposure: { Curve: '1;0;0;0.5;0.6;1;1;' } })).toBeCloseTo(0.1);
 	});
 
 	test('ignores ordinary adjustments', () => {
