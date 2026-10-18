@@ -20,6 +20,7 @@ Copy `.env.example` to `.env` and adjust values. Docker Compose reads `.env` for
 
 ## Imports
 
+- `UPLOAD_RESUME_HOURS`: How long an unfinished upload may wait to be resumed before its chunks are deleted (default 48).
 - `IMPORT_EXTRA_DIRS`: More folders to scan for RAW files, separated by `:`. They are only read; uploads still land in `IMPORT_DIR`.
 
 ### Automatic SD-card import
@@ -73,9 +74,12 @@ The image has a health check on `GET /api/health`.
 
 The JPEG quality and size of exports are chosen on the **Settings** page and stored in the database. They apply to every session. After you change them, the next export of a session renders all its photos again.
 
-## Temporary files
+## Background cleanup
 
-On start, GiRAF removes working folders older than an hour that interrupted renders left in `TMP_DIR`. Editor TIFFs and the develop cache are kept.
+GiRAF cleans up after itself on start and then on a schedule:
+
+- **Every hour:** unfinished uploads older than `UPLOAD_RESUME_HOURS`, receipts of finished uploads older than 30 days, and half-written chunk files in `IMPORT_DIR/.resumable`.
+- **Every night (03:43 server time):** working folders older than an hour that interrupted renders left in `TMP_DIR`. Editor TIFFs and the develop cache are kept; the develop cache trims itself to `DEVELOP_CACHE_MAX_BYTES`.
 
 ## Hidden render settings
 
