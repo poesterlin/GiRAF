@@ -15,6 +15,13 @@ import type { PP3 } from '$lib/pp3-utils';
 /** A snapshot older than this stops being the target of in-place updates. */
 export const SNAPSHOT_INTERVAL_MS = 10 * 60 * 1000;
 
+/**
+ * Autosave never starts a new version before the latest one is this old, however much changed.
+ * Trying looks, toggling tools on and off or dragging a slider far would otherwise leave a version
+ * every few seconds. Saving explicitly still creates one at any time.
+ */
+export const MIN_SNAPSHOT_AGE_MS = 5 * 60 * 1000;
+
 /** Accumulated slider distance that separates two versions of one look. */
 export const SNAPSHOT_DISTANCE = 2.5;
 
@@ -152,6 +159,7 @@ export type SnapshotDecisionInput = {
 export function snapshotDecision({ hasSnapshot, ageMs, exported, structural, distance }: SnapshotDecisionInput): 'create' | 'update' {
 	if (!hasSnapshot || exported) return 'create';
 	if (!Number.isFinite(ageMs) || ageMs >= SNAPSHOT_INTERVAL_MS) return 'create';
+	if (ageMs < MIN_SNAPSHOT_AGE_MS) return 'update';
 	if (structural) return 'create';
 	return distance >= SNAPSHOT_DISTANCE ? 'create' : 'update';
 }

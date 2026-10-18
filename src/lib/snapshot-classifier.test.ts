@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { changedStructuralChapters, pp3EditDistance, snapshotDecision, SNAPSHOT_DISTANCE, SNAPSHOT_INTERVAL_MS } from './snapshot-classifier';
+import { changedStructuralChapters, MIN_SNAPSHOT_AGE_MS, pp3EditDistance, snapshotDecision, SNAPSHOT_DISTANCE, SNAPSHOT_INTERVAL_MS } from './snapshot-classifier';
 
 describe('edit distance', () => {
 	test('measures slider movement against its own value', () => {
@@ -78,7 +78,7 @@ describe('structural changes', () => {
 });
 
 describe('snapshot decision', () => {
-	const recent = { hasSnapshot: true, ageMs: 60_000, exported: false, structural: false, distance: 0.2 };
+	const recent = { hasSnapshot: true, ageMs: MIN_SNAPSHOT_AGE_MS, exported: false, structural: false, distance: 0.2 };
 
 	test('updates the latest snapshot for small tweaks in a recent version', () => {
 		expect(snapshotDecision(recent)).toBe('update');
@@ -92,6 +92,14 @@ describe('snapshot decision', () => {
 		expect(snapshotDecision({ ...recent, exported: true })).toBe('create');
 		expect(snapshotDecision({ ...recent, structural: true })).toBe('create');
 		expect(snapshotDecision({ ...recent, distance: SNAPSHOT_DISTANCE })).toBe('create');
+	});
+
+	test('a young version is updated however much changed', () => {
+		const young = { ...recent, ageMs: MIN_SNAPSHOT_AGE_MS - 1 };
+		expect(snapshotDecision({ ...young, structural: true })).toBe('update');
+		expect(snapshotDecision({ ...young, distance: SNAPSHOT_DISTANCE * 4 })).toBe('update');
+		expect(snapshotDecision({ ...young, exported: true })).toBe('create');
+		expect(snapshotDecision({ ...young, hasSnapshot: false })).toBe('create');
 	});
 
 	test('an untrusted age cannot force unbounded updates', () => {

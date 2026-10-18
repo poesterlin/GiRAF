@@ -78,6 +78,8 @@ try {
 	const saves: Save[] = [];
 	let refuseUpdates = false;
 	let nextId = 70;
+	// Like the real server: an in-place update keeps the version's creation time
+	const versionStarted = new Map<number, string>([[7, new Date(Date.now() - 6 * 60_000).toISOString()]]);
 	await page.addInitScript(() => ((window as ProbeWindow).toasts = []));
 	await page.route('**/api/images/12/snapshots', async (route) => {
 		const request = route.request();
@@ -87,7 +89,9 @@ try {
 			await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'Only the latest snapshot can be updated' }) });
 			return;
 		}
-		await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: body.snapshotId ?? ++nextId, createdAt: new Date().toISOString() }) });
+		const id = body.snapshotId ?? ++nextId;
+		if (!versionStarted.has(id)) versionStarted.set(id, new Date().toISOString());
+		await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id, createdAt: versionStarted.get(id) }) });
 	});
 	async function waitForSaves(target: number, timeout = 8000) {
 		const started = Date.now();
@@ -101,7 +105,8 @@ try {
 	await page.waitForFunction(() => Boolean((window as ProbeWindow).fixture?.edits?.currentImageId));
 	await page.evaluate(() => {
 		const state = (window as ProbeWindow).fixture.edits;
-		state.noteSavedVersion('12', { id: 7, createdAt: new Date().toISOString(), pp3: state.serialize() }, null);
+		// Old enough that autosave may start a new version, younger than the interval that forces one
+		state.noteSavedVersion('12', { id: 7, createdAt: new Date(Date.now() - 6 * 60_000).toISOString(), pp3: state.serialize() }, null);
 	});
 
 	// A still edit waits for the idle delay instead of writing per slider step.
@@ -127,12 +132,17 @@ try {
 	assert.equal(saves[2].method, 'POST');
 	assert.equal(saves[2].body.snapshotId, undefined);
 
+	// More structure right away lands on that young version instead of starting another.
+	await page.evaluate(() => (window as ProbeWindow).fixture.edit('Crop', { Enabled: true, X: 60, Y: 20, W: 880, H: 600 }));
+	await waitForSaves(4);
+	assert.equal(saves[3].method, 'PATCH', 'a young version is updated even for structural changes');
+
 	// A version the server no longer accepts is replaced instead of lost.
 	refuseUpdates = true;
 	await page.evaluate(() => (window as ProbeWindow).fixture.edit('Exposure', { Compensation: 0.6 }));
-	await waitForSaves(5);
+	await waitForSaves(6);
 	assert.deepEqual(
-		saves.slice(3).map((save) => save.method),
+		saves.slice(4).map((save) => save.method),
 		['PATCH', 'POST']
 	);
 	refuseUpdates = false;
@@ -146,7 +156,7 @@ try {
 		return before;
 	});
 	assert.equal(pending, true);
-	await waitForSaves(6);
+	await waitForSaves(7);
 	assert.equal(await page.evaluate(() => (window as ProbeWindow).fixture.edits.hasChanges), false, 'the pending edit is saved before navigating');
 
 	// Nothing left to save means nothing left to write.
