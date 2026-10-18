@@ -36,7 +36,7 @@ export interface DevelopBase {
 	release(): void;
 }
 
-function cacheRoot(): string {
+export function developCacheRoot(): string {
 	return env.DEVELOP_CACHE_DIR || join(env.TMP_DIR || tmpdir(), 'develop-cache');
 }
 
@@ -78,7 +78,7 @@ async function touch(entry: Entry) {
 async function scan() {
 	if (scanned) return;
 	scanned = true;
-	const root = cacheRoot();
+	const root = developCacheRoot();
 	let names: string[];
 	try {
 		names = await readdir(root);
@@ -157,7 +157,7 @@ function keyFor(rawPath: string, mtimeMs: number, size: number, profile: string,
 }
 
 async function loadExisting(key: string): Promise<Entry | null> {
-	const path = join(cacheRoot(), `${key}.tif`);
+	const path = join(developCacheRoot(), `${key}.tif`);
 	try {
 		const info = await stat(path);
 		if (!info.isFile() || info.size === 0) return null;
@@ -173,7 +173,7 @@ async function loadExisting(key: string): Promise<Entry | null> {
 }
 
 async function build(rawPath: string, key: string, profile: string, options: BuildOptions): Promise<Entry> {
-	const root = cacheRoot();
+	const root = developCacheRoot();
 	await mkdir(root, { recursive: true });
 	const buildDir = join(root, `.build-${key}-${randomUUID()}`);
 	try {
@@ -190,8 +190,17 @@ async function build(rawPath: string, key: string, profile: string, options: Bui
 	}
 }
 
+function untilAborted<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+	if (!signal) return promise;
+	signal.throwIfAborted();
+	return new Promise<T>((resolve, reject) => {
+		const abort = () => reject(signal.reason);
+		signal.addEventListener('abort', abort, { once: true });
+		promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
+	});
+}
+
 interface BuildOptions {
-	signal?: AbortSignal;
 	/** Shrinks the base to this long edge; omit for full resolution. */
 	longEdge?: number;
 	/** Builds at low CPU priority, for imports and exports. */
@@ -203,7 +212,7 @@ interface BuildOptions {
  * recorded beside `previewTif` (the photo's editor TIFF).
  * Call `release()` when the render that consumes the path has finished.
  */
-export async function acquireDevelopBase(rawPath: string, options: BuildOptions & { previewTif?: string | null } = {}): Promise<DevelopBase> {
+export async function acquireDevelopBase(rawPath: string, options: BuildOptions & { signal?: AbortSignal; previewTif?: string | null } = {}): Promise<DevelopBase> {
 	await pruneDevelopCache();
 	const info = await stat(rawPath);
 	const profile = await importProfileFor(options.previewTif);
@@ -215,11 +224,13 @@ export async function acquireDevelopBase(rawPath: string, options: BuildOptions 
 	if (!entry) {
 		let pending = inflight.get(key);
 		if (!pending) {
-			const { signal, longEdge, background } = options;
-			pending = build(rawPath, key, profile, { signal, longEdge, background }).finally(() => inflight.delete(key));
+			// The build is shared, so no single caller's signal may cancel it: a preview the user navigated
+			// away from would otherwise fail an export waiting on the same base. Each caller stops waiting instead.
+			const { longEdge, background } = options;
+			pending = build(rawPath, key, profile, { longEdge, background }).finally(() => inflight.delete(key));
 			inflight.set(key, pending);
 		}
-		entry = await pending;
+		entry = await untilAborted(pending, options.signal);
 	}
 
 	options.signal?.throwIfAborted();

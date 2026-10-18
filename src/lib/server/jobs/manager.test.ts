@@ -1,15 +1,21 @@
 import { expect, mock, test } from 'bun:test';
 
-const runs: { type: string; signal?: AbortSignal; finish: () => void }[] = [];
+type Result = { status: 'success' | 'error'; message?: string };
+const runs: { type: string; signal?: AbortSignal; finish: (result?: Result) => void }[] = [];
 const run = (type: string, signal?: AbortSignal) =>
-	new Promise<{ status: 'success' }>((resolve) => {
-		runs.push({ type, signal, finish: () => resolve({ status: 'success' }) });
+	new Promise<Result>((resolve) => {
+		runs.push({ type, signal, finish: (result = { status: 'success' }) => resolve(result) });
 	});
 mock.module('./executor', () => ({
 	runImport: (_payload: unknown, signal?: AbortSignal) => run('import', signal),
 	runExport: (_payload: unknown, signal?: AbortSignal) => run('export', signal)
 }));
-mock.module('$lib/server/notifications', () => ({ appendNotification: async () => {} }));
+const notifications: { message: string; type: string }[] = [];
+mock.module('$lib/server/notifications', () => ({
+	appendNotification: async (message: string, type: string) => {
+		notifications.push({ message, type });
+	}
+}));
 mock.module('$lib/server/db', () => ({ db: { query: { sessionTable: { findFirst: async () => ({ name: 'Test' }) } } } }));
 
 const { JobManager } = await import('./manager');
@@ -63,4 +69,15 @@ test('cancel and terminate discard scheduled imports without an automatic restar
 		expect(runs).toHaveLength(1);
 		expect(manager.getActiveJobs()).toEqual([]);
 	}
+});
+
+test('a job that reports an error raises a failure notification', async () => {
+	runs.length = 0;
+	notifications.length = 0;
+	const manager = new JobManager();
+	manager.submit(JobType.EXPORT, { sessionId: 7 });
+	runs[0].finish({ status: 'error', message: 'Exported 3 of 4 photos; 1 problem.' });
+	await settle();
+	await settle();
+	expect(notifications).toContainEqual({ message: 'Export failed for "Test": Exported 3 of 4 photos; 1 problem.', type: 'error' });
 });

@@ -3,10 +3,11 @@ import { editorPreview } from '$lib/server/editor-preview';
 import { db } from '$lib/server/db';
 import { imageTable } from '$lib/server/db/schema';
 import { editImage } from '$lib/server/image-editor';
-import { respondWithFile } from '$lib/server/utils';
 import type { RequestHandler } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
+import { rm } from 'node:fs/promises';
+import { dirname } from 'node:path';
 
 const refinements = new Map<string, AbortController>();
 
@@ -85,7 +86,13 @@ export const GET: RequestHandler = async ({ params, url, request }) => {
 		const output = await editImage(image.tifPath, pp3String, {
 			quality: 85
 		});
-		const response = await respondWithFile(output);
+		let jpeg: ArrayBuffer;
+		try {
+			jpeg = await Bun.file(output).arrayBuffer();
+		} finally {
+			await rm(dirname(output), { recursive: true, force: true });
+		}
+		const response = new Response(jpeg, { headers: { 'Content-Type': 'image/jpeg', 'Content-Length': String(jpeg.byteLength), 'Cache-Control': 'public, max-age=31536000' } });
 		diagnostics.outcome = 'success';
 		response.headers.set('X-Preview-Request', requestId);
 		response.headers.set(

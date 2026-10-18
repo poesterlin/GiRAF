@@ -9,12 +9,8 @@ import { mapSpotRemovalToTarget } from '$lib/spot-removal';
 import { randomUUID } from 'node:crypto';
 
 /**
- * uses rawtherapee's pp3 file to edit an image
- *
- * @param imagePath
- * @param pp3
- * @param options
- * @returns
+ * Renders `imagePath` with a PP3 profile. Without `outputPath` the JPEG lands in a fresh temp
+ * directory, and the caller must remove `dirname(output)` once it has read the file.
  */
 export async function editImage(
 	imagePath: string,
@@ -60,6 +56,9 @@ export async function editImage(
 	} catch (error) {
 		await rm(tempDir, { recursive: true, force: true });
 		throw error;
+	} finally {
+		// With an outputPath the temp dir only held the profile; without one the caller removes it with the JPEG
+		if (options.outputPath) await rm(tempDir, { recursive: true, force: true });
 	}
 
 	if (options.recordedAt) {

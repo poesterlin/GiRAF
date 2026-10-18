@@ -122,6 +122,9 @@ export class JobManager {
 				});
 				if (status === 'success') {
 					this.notifyJobEvent(type, id, 'completed');
+				} else if (status === 'error') {
+					// The executor reports most failures as a result instead of throwing, so they need telling too
+					this.notifyJobEvent(type, id, 'failed', res.message);
 				}
 			} catch (e) {
 				console.error(`[JobManager] Job ${id} failed`, e);

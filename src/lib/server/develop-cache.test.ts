@@ -124,3 +124,17 @@ test('release is idempotent and prune keeps in-use entries', async () => {
 	await pruneDevelopCache();
 	expect(existsSync(held.path)).toBe(false);
 });
+
+test('a caller that gives up does not fail others waiting on the same build', async () => {
+	builds = 0;
+	const raw = makeRaw('shared-abort.RAF');
+	const controller = new AbortController();
+	const preview = acquireDevelopBase(raw, { signal: controller.signal });
+	const exporting = acquireDevelopBase(raw);
+	controller.abort();
+	await expect(preview).rejects.toBeDefined();
+	const base = await exporting;
+	expect(existsSync(base.path)).toBe(true);
+	expect(builds).toBe(1);
+	base.release();
+});
