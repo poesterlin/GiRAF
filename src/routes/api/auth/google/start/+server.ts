@@ -1,7 +1,7 @@
 import { env } from '$env/dynamic/private';
 import { redirect } from '@sveltejs/kit';
 import { randomBytes } from 'node:crypto';
-import { GOOGLE_STATE_COOKIE } from '$lib/server/integrations/google-token';
+import { GOOGLE_STATE_COOKIE, googleRedirectUri } from '$lib/server/integrations/google-token';
 import type { RequestHandler } from './$types';
 
 // Google retired the broad `photoslibrary` scope in 2025. These cover everything GiRAF does, all of it
@@ -21,7 +21,7 @@ export const GET: RequestHandler = async ({ cookies, url: requestUrl }) => {
 	// A random state tied to this browser stops another site from linking its own Google account here
 	const state = randomBytes(32).toString('hex');
 	cookies.set(GOOGLE_STATE_COOKIE, state, { path: '/api/auth/google', httpOnly: true, sameSite: 'lax', secure: requestUrl.protocol === 'https:', maxAge: 600 });
-	const redirectUri = `${env.HOST_DOMAIN || 'http://localhost:5173'}/api/auth/google/callback`;
+	const redirectUri = googleRedirectUri();
 	const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
 	url.searchParams.set('client_id', clientId);
 	url.searchParams.set('redirect_uri', redirectUri);

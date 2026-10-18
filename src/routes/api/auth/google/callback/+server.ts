@@ -1,5 +1,4 @@
-import { GOOGLE_STATE_COOKIE, exchangeCodeForTokens } from '$lib/server/integrations/google-token';
-import { env } from '$env/dynamic/private';
+import { GOOGLE_STATE_COOKIE, exchangeCodeForTokens, googleRedirectUri } from '$lib/server/integrations/google-token';
 import { redirect } from '@sveltejs/kit';
 import { timingSafeEqual } from 'node:crypto';
 import type { RequestHandler } from './$types';
@@ -16,7 +15,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
 	const code = url.searchParams.get('code');
 	if (!code) return new Response('Missing code', { status: 400 });
-	const redirectUri = `${env.HOST_DOMAIN || 'http://localhost:5173'}/api/auth/google/callback`;
+	const redirectUri = googleRedirectUri();
 	try {
 		await exchangeCodeForTokens(code, redirectUri);
 	} catch (e) {

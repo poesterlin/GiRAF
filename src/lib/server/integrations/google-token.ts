@@ -5,6 +5,12 @@ import path from 'path';
 const DATA_DIR = path.resolve(env.DATA_DIR || path.join(process.cwd(), 'data'));
 export const GOOGLE_STATE_COOKIE = 'giraf_google_state';
 
+/** HOST_DOMAIN may be a bare host name (Traefik routing needs one), so add https:// when it has no scheme. */
+export function googleRedirectUri(hostDomain = env.HOST_DOMAIN): string {
+	const origin = !hostDomain ? 'http://localhost:5173' : /^https?:\/\//.test(hostDomain) ? hostDomain : `https://${hostDomain}`;
+	return `${origin.replace(/\/$/, '')}/api/auth/google/callback`;
+}
+
 const TOKEN_FILE = path.join(DATA_DIR, 'google_tokens.json');
 
 type StoredTokens = {
