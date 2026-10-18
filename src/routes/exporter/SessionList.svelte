@@ -166,7 +166,7 @@
 					</p>
 
 					<div class="mt-2 flex items-center gap-3">
-						{#each integrations as integration}
+						{#each integrations as integration (integration)}
 							{@const album = item.albums.find((a) => a.integration === integration)}
 							{@const img = integrationLogos[integration]}
 							{#if album}
@@ -177,6 +177,7 @@
 											target="_blank"
 											class="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-800/50 p-2 text-neutral-100 transition-all hover:scale-110 hover:bg-neutral-800 sm:h-9 sm:w-9 sm:p-1.5"
 										>
+											<!-- eslint-disable-next-line svelte/no-at-html-tags -- img is a static SVG logo from $lib/ui/integrations, not user input -->
 											{@html img}
 										</a>
 									</Tooltip>
@@ -209,6 +210,7 @@
 										onclick={() => (albumCreateSession = item.id)}
 										class="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-800/30 p-2 text-neutral-500 opacity-50 transition-all hover:scale-110 hover:bg-neutral-800 hover:text-neutral-100 hover:opacity-100 sm:h-9 sm:w-9 sm:p-1.5"
 									>
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -- img is a static SVG logo from $lib/ui/integrations, not user input -->
 										{@html img}
 									</button>
 								</Tooltip>
@@ -308,6 +310,7 @@
 
 <Scroller
 	items={sessions}
+	key={(session) => session.id}
 	{item}
 	{empty}
 	{footer}
@@ -363,7 +366,7 @@
 							class="w-full appearance-none rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 text-neutral-100 capitalize transition-all outline-none focus:border-neutral-100"
 							required
 						>
-							{#each integrations as integrationType}
+							{#each integrations as integrationType (integrationType)}
 								<option value={integrationType} class="bg-neutral-900 capitalize">{integrationType}</option>
 							{/each}
 						</select>

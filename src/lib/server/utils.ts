@@ -30,7 +30,7 @@ type Prettify<T> = {
 	[K in keyof T]: T[K];
 } & {};
 
-export function buildJSONColumn<Fields extends Record<string, PgColumn | SQL<any>>>(fields: Fields, orderBy: PgColumn | PgColumn[] = []) {
+export function buildJSONColumn<Fields extends Record<string, PgColumn | SQL<unknown>>>(fields: Fields, orderBy: PgColumn | PgColumn[] = []) {
 	const order = Array.isArray(orderBy) ? orderBy : [orderBy];
 
 	return sql<Prettify<SelectedType<Fields>>[]>`json_agg(json_build_object(

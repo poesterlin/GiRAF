@@ -6,6 +6,7 @@ import { assignPendingUploads, type UploadSessionTarget } from '$lib/upload-assi
 import { importTiming } from '$lib/import-timing';
 import { invalidateAll } from '$app/navigation';
 import { app } from './app.svelte';
+import { SvelteSet } from 'svelte/reactivity';
 
 export type ImageItem = Pick<Import, 'id' | 'date'> & {
 	file?: File;
@@ -15,20 +16,28 @@ export type ImageItem = Pick<Import, 'id' | 'date'> & {
 	status?: 'uploading' | 'queued' | 'assigned';
 };
 
+// Immutable date values, never mutated after creation, so they need no reactive wrapper.
+function toDate(value: Date | string | number) {
+	return new Date(value);
+}
+
+function localDayStart(date: Date) {
+	return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 export function dateKey(date: Date | string) {
-	const value = new Date(date);
-	return new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime().toString();
+	return localDayStart(toDate(date)).getTime().toString();
 }
 
 /** Page-local workflow ownership; background transfers remain owned by uploads. */
 export class ImporterState {
 	items = $state<ImageItem[]>([]);
 	duplicateCounts = $state<Record<string, number>>({});
-	assigningIds = $state(new Set<number>());
+	readonly assigningIds = new SvelteSet<number>();
 	private nextId = -1;
 	private alive = true;
 	private previews = pLimit(2);
-	private transfers = new Map<number, { promise: Promise<number | undefined>; resolve: (id: number | undefined) => void }>();
+	private transfers: Record<number, { promise: Promise<number | undefined>; resolve: (id: number | undefined) => void }> = {};
 
 	constructor(
 		private queued: () => ImageItem[],
@@ -37,7 +46,7 @@ export class ImporterState {
 
 	get allItems(): ImageItem[] {
 		return [...this.queued().filter((item) => !this.items.some((local) => local.importId === item.id)), ...this.items].sort(
-			(a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || (b.importId ?? b.id) - (a.importId ?? a.id)
+			(a, b) => toDate(b.date).getTime() - toDate(a.date).getTime() || (b.importId ?? b.id) - (a.importId ?? a.id)
 		);
 	}
 
@@ -81,7 +90,8 @@ export class ImporterState {
 	stage(files: FileList | File[]) {
 		const started = performance.now();
 		importTiming('batch.selected', started, { files: files.length, bytes: Array.from(files).reduce((sum, file) => sum + file.size, 0) });
-		const batch = new Map<File, ImageItem>();
+		const batch = new WeakMap<File, ImageItem>();
+		const batchFiles: File[] = [];
 		for (const file of Array.from(files)) {
 			const existing = this.items.find((item) => item.file?.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified);
 			if (existing) {
@@ -93,15 +103,16 @@ export class ImporterState {
 			const promise = new Promise<number | undefined>((done) => {
 				resolve = done;
 			});
-			this.transfers.set(id, { promise, resolve });
-			const entry: ImageItem = { id, file, date: new Date(file.lastModified), status: 'uploading' };
+			this.transfers[id] = { promise, resolve };
+			const entry: ImageItem = { id, file, date: toDate(file.lastModified), status: 'uploading' };
 			this.items.push(entry);
 			batch.set(file, entry);
+			batchFiles.push(file);
 			// Thumbnail work has its own two-file queue and must not wait for an
 			// upload slot or a stalled transfer. Read the local file directly.
 			void this.preparePreview(id, file, started);
 		}
-		void uploads.upload([...batch.keys()], undefined, {
+		void uploads.upload(batchFiles, undefined, {
 			onFileDuplicate: (file, date) => {
 				if (this.alive) this.countDuplicate(date ?? this.items.find((item) => item.id === batch.get(file)!.id)?.date ?? batch.get(file)!.date);
 			},
@@ -111,10 +122,10 @@ export class ImporterState {
 				if (this.alive && item) {
 					item.status = imported ? 'assigned' : 'queued';
 					item.importId = importId;
-					if (date) item.date = new Date(date);
+					if (date) item.date = toDate(date);
 				}
-				this.transfers.get(id)?.resolve(imported ? undefined : importId);
-				this.transfers.delete(id);
+				this.transfers[id]?.resolve(imported ? undefined : importId);
+				delete this.transfers[id];
 				if (
 					this.alive &&
 					!imported &&
@@ -125,18 +136,18 @@ export class ImporterState {
 			},
 			onFileFailed: (file) => {
 				const id = batch.get(file)!.id;
-				this.transfers.get(id)?.resolve(undefined);
-				this.transfers.delete(id);
+				this.transfers[id]?.resolve(undefined);
+				delete this.transfers[id];
 				if (this.alive) this.remove(id);
 			}
 		});
 	}
 
 	async assign(items: ImageItem[], target: UploadSessionTarget) {
-		this.assigningIds = new Set([...this.assigningIds, ...items.map((item) => item.id)]);
+		for (const item of items) this.assigningIds.add(item.id);
 		try {
 			await assignPendingUploads(
-				items.map((item) => this.transfers.get(item.id)?.promise ?? Promise.resolve(item.importId ?? (item.id >= 0 ? item.id : undefined))),
+				items.map((item) => this.transfers[item.id]?.promise ?? Promise.resolve(item.importId ?? (item.id >= 0 ? item.id : undefined))),
 				target,
 				(indices) => {
 					if (this.alive) {
@@ -153,7 +164,7 @@ export class ImporterState {
 				(error) => app.addToast(error instanceof Error ? error.message : 'Session assignment failed', 'error')
 			);
 		} finally {
-			if (this.alive) this.assigningIds = new Set([...this.assigningIds].filter((id) => !items.some((item) => item.id === id)));
+			if (this.alive) for (const item of items) this.assigningIds.delete(item.id);
 		}
 	}
 

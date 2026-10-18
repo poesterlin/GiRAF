@@ -383,9 +383,10 @@ class EditingState {
 
 export const edits = new EditingState();
 
-function setDefault(section: PP3[keyof PP3], key: string, value: any) {
+function setDefault(section: PP3[keyof PP3], key: string, value: number | null) {
 	if (!(key in section)) {
-		section[key] = value;
+		// A missing value is recorded as-is (including null) so the key exists.
+		section[key] = value as number;
 		return;
 	}
 

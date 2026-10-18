@@ -71,7 +71,7 @@ async function main() {
 	}
 	const spin = p.spinner();
 	let failed = 0;
-	async function call(path: string, init: RequestInit = {}): Promise<any> {
+	async function call<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
 		for (let attempt = 0; ; attempt++) {
 			if (stop.signal.aborted) throw new Error('Stopped');
 			try {
@@ -90,7 +90,7 @@ async function main() {
 						throw Object.assign(new Error(`HTTP ${response.status}: ${(await response.text()).slice(0, 200)}`), { permanent: true });
 					throw new Error(`HTTP ${response.status}`);
 				}
-				return await response.json();
+				return (await response.json()) as T;
 			} catch (e) {
 				if (stop.signal.aborted || (e as { permanent?: boolean }).permanent) throw e;
 				const delay = Math.min(60_000, 1000 * 2 ** Math.min(attempt, 6)) * (0.75 + Math.random() * 0.5);
@@ -111,10 +111,10 @@ async function main() {
 			}
 			const hash = hasher.digest('hex');
 			const path = `/api/imports/resumable/${hash}`;
-			const status = await call(path);
+			const status = await call<{ complete: boolean; chunkSize: number; chunks: unknown }>(path);
 			if (!status.complete) {
 				if (status.chunkSize !== 256 * 1024 || !Array.isArray(status.chunks)) throw new Error('Unsupported resumable upload protocol');
-				const present = new Set<number>(status.chunks);
+				const present = new Set<number>(status.chunks as number[]);
 				const total = Math.ceil(file.size / status.chunkSize);
 				for (let chunk = 0; chunk < total; chunk++) {
 					if (present.has(chunk)) continue;
@@ -123,8 +123,12 @@ async function main() {
 					await call(`${path}?chunk=${chunk}`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream', 'x-chunk-sha256': sha(bytes) }, body: bytes });
 				}
 				spin.message(`${name} · verifying and adding to import queue`);
-				const result = await call(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, size: file.size }) });
-				if (!['success', 'skipped'].includes(result.results?.[0]?.status)) throw new Error(result.results?.[0]?.message ?? 'Invalid server result');
+				const result = await call<{ results?: { status?: string; message?: string }[] }>(path, {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ name, size: file.size })
+				});
+				if (!['success', 'skipped'].includes(result.results?.[0]?.status ?? '')) throw new Error(result.results?.[0]?.message ?? 'Invalid server result');
 			}
 			spin.stop(`${name} · ${status.complete ? 'already uploaded' : 'uploaded and verified'}`);
 		} catch (e) {

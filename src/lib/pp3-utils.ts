@@ -133,8 +133,8 @@ export function fromBase64(base64: string) {
 	return decodeURIComponent(escape(atob(base64)));
 }
 
-export function setLut(pp3: any, lutPath: string) {
-	pp3.Film_Simulation = {
+export function setLut<T extends PP3>(pp3: T, lutPath: string): T {
+	(pp3 as PP3).Film_Simulation = {
 		Enabled: true,
 		ClutFilename: lutPath,
 		Strength: 100

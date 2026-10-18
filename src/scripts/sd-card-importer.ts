@@ -68,8 +68,8 @@ async function processSdCard() {
 				console.log(`[SD_CARD_IMPORTER] DCIM folder not found in ${SD_CARD_IMPORT_PATH}.`);
 				return;
 			}
-		} catch (e: any) {
-			if (e.code === 'ENOENT') {
+		} catch (e) {
+			if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
 				console.log(`[SD_CARD_IMPORTER] DCIM folder not found in ${SD_CARD_IMPORT_PATH}.`);
 			} else {
 				console.error(`[SD_CARD_IMPORTER ERROR] Error accessing DCIM folder:`, e);
@@ -148,8 +148,8 @@ async function processSdCard() {
 			console.log(`[SD_CARD_IMPORTER] No new files to copy.`);
 		}
 		console.log(`[SD_CARD_IMPORTER] SD card processing complete.`);
-	} catch (error: any) {
-		if (error.code === 'ENOENT') {
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
 			// SD card not found, expected during polling
 		} else {
 			console.error(`[SD_CARD_IMPORTER ERROR] Error accessing SD card:`, error);

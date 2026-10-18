@@ -89,7 +89,7 @@ export function normalizeCropSize(crop: Record<string, number>): void {
 	}
 }
 
-export function sanitizeCrop(crop: CropRect, imageDimensions: Dimensions, innerRect: Dimensions): void {
+export function sanitizeCrop(crop: CropRect): void {
 	crop.X = safeNumber(crop.X);
 	crop.Y = safeNumber(crop.Y);
 	crop.W = safeNumber(crop.W);

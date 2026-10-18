@@ -47,6 +47,7 @@ const server = await createProbeServer(temporary, {
 		{ find: /^\$app\/(environment|state|navigation)$/, replacement: join(temporary, 'context.ts') }
 	]
 });
+type ProbeWindow = Window & { refreshPreview(): void; switchPhoto(): void };
 let browser: ProbeBrowser | undefined;
 try {
 	const port = await listenOnPort(server);
@@ -93,11 +94,11 @@ try {
 	});
 	assert.ok(Math.abs(geometry.aspect - 0.5) < 0.01);
 	assert.ok(Math.abs(geometry.x - 0.7) < 0.01 && Math.abs(geometry.y - 0.4) < 0.01);
-	await page.evaluate(() => (window as any).refreshPreview());
+	await page.evaluate(() => (window as ProbeWindow).refreshPreview());
 	await waitPending(2);
 	assert.equal(await visibleMasks().isVisible(), true, 'Same-photo updates keep stable mask geometry visible');
 	await pending[1].release();
-	await page.evaluate(() => (window as any).switchPhoto());
+	await page.evaluate(() => (window as ProbeWindow).switchPhoto());
 	await waitPending(3);
 	assert.equal(await visibleMasks().isVisible(), false, 'Photo changes must not show masks using the previous photo aspect ratio');
 	await pending[2].release();

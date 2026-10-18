@@ -19,7 +19,9 @@ const safeRead = async (path: string) => {
 };
 
 export const load: PageServerLoad = async () => {
-	let [rawtherapeeVersion, rawtherapeeSourceUrl, appLicenseText] = await Promise.all([safeRead(VERSION_PATH), safeRead(SOURCE_URL_PATH), safeRead(APP_LICENSE_PATH)]);
+	const [versionFile, sourceUrlFile, appLicenseText] = await Promise.all([safeRead(VERSION_PATH), safeRead(SOURCE_URL_PATH), safeRead(APP_LICENSE_PATH)]);
+	let rawtherapeeVersion = versionFile;
+	let rawtherapeeSourceUrl = sourceUrlFile;
 
 	if (!rawtherapeeVersion) {
 		try {

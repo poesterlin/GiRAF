@@ -4,7 +4,7 @@ import { getDisplayScale, getPreviewDimensions, sanitizeCrop, screenToCropSpace 
 describe('crop utilities', () => {
 	it('sanitizeCrop normalizes and enforces minimum size', () => {
 		const crop = { X: 'nope' as unknown as number, Y: 10, W: -30, H: 'bad' as unknown as number };
-		sanitizeCrop(crop, { width: 100, height: 80 }, { width: 60, height: 40 });
+		sanitizeCrop(crop);
 		expect(crop.X).toBe(-30);
 		expect(crop.Y).toBe(10);
 		expect(crop.W).toBe(30);

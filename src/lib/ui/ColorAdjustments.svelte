@@ -61,7 +61,7 @@
 {#if mode === 'mixer'}
 	<div class="space-y-3">
 		<div class="grid grid-cols-4 gap-2" role="group" aria-label="Color range">
-			{#each colors as name, index}
+			{#each colors as name, index (name)}
 				{@const adjusted = ['HCurve', 'SCurve', 'VCurve'].some((key) => curveValue(key, index) !== 0)}
 				<button
 					type="button"
@@ -95,7 +95,7 @@
 {:else}
 	<div class="space-y-3">
 		<div class="grid grid-cols-3 gap-2" role="group" aria-label="Primary color">
-			{#each primaryDefaults as primary, index}
+			{#each primaryDefaults as primary, index (primary.name)}
 				<button
 					type="button"
 					class="min-h-12 rounded-xl border px-2 text-sm font-semibold"

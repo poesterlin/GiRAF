@@ -3,7 +3,7 @@
 	import { parsePP3 } from '$lib/pp3-utils';
 	import { lutPreviewUrl } from '$lib/lut-preview';
 	import ClientPP3 from '$lib/assets/client.pp3?raw';
-	import type { Image, Snapshot } from '$lib/server/db/schema';
+	import type { Image } from '$lib/server/db/schema';
 	import { edits } from '$lib/state/editing.svelte';
 	import Button from '$lib/ui/Button.svelte';
 	import LutFavouriteButton from '$lib/ui/LutFavouriteButton.svelte';
@@ -19,7 +19,7 @@
 	import { limitExpandedGroups } from '$lib/ui/adjustment-expansion';
 
 	interface Props {
-		data: { image: Image; snapshots: Snapshot[] };
+		data: { image: Image };
 		showLutPicker: boolean;
 		previewSrc: string;
 	}

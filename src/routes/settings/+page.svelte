@@ -68,7 +68,7 @@
 				>
 			</div>
 			<form method="POST" action="?/categories" use:enhance={enhanceCategories} bind:this={categoryForm} class="space-y-3">
-				{#each adjustmentCategories as category}
+				{#each adjustmentCategories as category (category.id)}
 					<label class="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
 						<input type="checkbox" name="visible_category" value={category.id} bind:group={visibleCategories} onchange={saveCategories} class="h-4 w-4 accent-neutral-200" />
 						{category.label}

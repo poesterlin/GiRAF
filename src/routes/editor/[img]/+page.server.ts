@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { env } from 'node:process';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params, url }) => {
+export const load: PageServerLoad = async ({ params }) => {
 	const { img } = params;
 	const imageId = Number(img);
 

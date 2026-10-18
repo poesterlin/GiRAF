@@ -39,7 +39,7 @@
 	// Autosave writes once the edit settles instead of on every slider step.
 	$effect(() => {
 		// Reading the revision re-arms the timer after every recorded change.
-		edits.changeRevision;
+		void edits.changeRevision;
 		const imageId = edits.currentImageId;
 		if (!imageId || !edits.hasChanges) return;
 		const timer = setTimeout(() => void flush(), IDLE_DELAY_MS);

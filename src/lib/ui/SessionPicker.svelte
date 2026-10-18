@@ -7,7 +7,7 @@
 </script>
 
 <div class="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto rounded-lg bg-neutral-900 p-2">
-	{#each sessions as session}
+	{#each sessions as session (session.id)}
 		<button
 			type="button"
 			class="relative aspect-4/3 overflow-hidden rounded-md border-2 transition-all"

@@ -27,7 +27,8 @@
 
 	/** A running "To edit" list keeps its start; starting one fresh begins now. */
 	function withStart(next: EditorFilters): EditorFilters {
-		const { since: _, ...result } = next;
+		const result: EditorFilters = { ...next };
+		delete result.since;
 		if (result.show !== 'todo') return result;
 		const sameList = current.show === 'todo' && !!current.newlyImported === !!result.newlyImported;
 		return { ...result, since: sameList && current.since ? current.since : new Date().toISOString() };
@@ -73,7 +74,7 @@
 	<div class="p-5">
 		<h2 class="mb-4 text-lg font-semibold text-white">Filter</h2>
 		<div class="tasks">
-			{#each editorTasks as task}
+			{#each editorTasks as task (task.id)}
 				{@const Icon = icons[task.id as keyof typeof icons]}
 				<button type="button" class="task" aria-current={currentTask?.id === task.id ? 'true' : undefined} disabled={counts[task.id] === 0} onclick={() => choose(task)}>
 					<Icon size={18} stroke={1.75} aria-hidden="true" />

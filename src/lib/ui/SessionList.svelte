@@ -69,7 +69,7 @@
 	}
 
 	$effect(() => {
-		sessions.length;
+		void sessions.length;
 		if (activeSessionId || !scroller || !sentinel) return;
 		const observer = new IntersectionObserver(
 			(entries) => {
@@ -158,8 +158,7 @@
 		untrack(() => {
 			for (const sessionId of pending) {
 				if (importJobStates.has(sessionId)) continue;
-				importJobStates.add(sessionId);
-				importJobStates = new Set(importJobStates);
+				importJobStates = new Set([...importJobStates, sessionId]);
 				startImportPolling(sessionId, false);
 			}
 		});
@@ -179,8 +178,7 @@
 	}
 
 	function clearImportState(sessionId: number) {
-		importJobStates.delete(sessionId);
-		importJobStates = new Set(importJobStates);
+		importJobStates = new Set([...importJobStates].filter((id) => id !== sessionId));
 	}
 
 	function startImportPolling(sessionId: number, notifyOnCompletion: boolean) {
@@ -222,8 +220,7 @@
 	}
 
 	async function importSession(sessionId: number) {
-		importJobStates.add(sessionId);
-		importJobStates = new Set(importJobStates);
+		importJobStates = new Set([...importJobStates, sessionId]);
 		const response = await fetch(`/api/sessions/${sessionId}/import`, { method: 'POST' });
 
 		if (!response.ok && response.status !== 409) {

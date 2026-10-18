@@ -282,7 +282,7 @@
 		>
 			<IconPhoto size={16} class="shrink-0" />
 			<span class="text-neutral-300 tabular-nums">{page.data.currentImagePosition ?? '–'} of {page.data.matchingImageCount ?? 0}</span>
-			{#if summary}<span class="filtered-label min-w-0 truncate text-neutral-500"><span aria-hidden="true">{'· '}</span>{summary}</span>{/if}
+			{#if summary}<span class="filtered-label min-w-0 truncate text-neutral-500"><span aria-hidden="true">·&#32;</span>{summary}</span>{/if}
 			{#if progress}<i class="progress" aria-hidden="true"><i style:width={`${done * 100}%`}></i></i>{/if}
 		</button>
 		<button type="button" class="nav-action image-step" aria-label="Next image" disabled={busy || !page.data.nextImage} onclick={() => navigate(page.data.nextImage)}

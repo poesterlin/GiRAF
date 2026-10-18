@@ -28,7 +28,7 @@
 		}, 3000);
 	}
 	$effect(() => {
-		imageId;
+		void imageId;
 		revealLabels();
 	});
 	onDestroy(() => clearTimeout(labelTimer));
@@ -69,17 +69,26 @@
 	let sliderEl: HTMLElement | undefined = $state();
 	let isDraggingSlider = $state(false);
 
-	const pointers = new Map<number, PointerEvent>();
+	// Active pointers in the order they went down; not reactive state.
+	let pointers: PointerEvent[] = [];
+	function trackPointer(event: PointerEvent) {
+		const index = pointers.findIndex((pointer) => pointer.pointerId === event.pointerId);
+		if (index >= 0) pointers[index] = event;
+		else pointers.push(event);
+	}
+	function isTracked(event: PointerEvent) {
+		return pointers.some((pointer) => pointer.pointerId === event.pointerId);
+	}
 	let lastMidpoint: { x: number; y: number } | null = null;
 	let lastDistance = 0;
 	const doubleTap = new DoubleTapDetector();
 	$effect(() => {
-		imageId;
+		void imageId;
 		scale = 1;
 		x = 0;
 		y = 0;
 		doubleTap.reset();
-		pointers.clear();
+		pointers = [];
 		lastMidpoint = null;
 		lastDistance = 0;
 	});
@@ -125,13 +134,13 @@
 		if ((event.target as HTMLElement).closest('select, button, a, input') || event.button !== 0) return;
 		if (!containerEl) return;
 		containerEl.setPointerCapture(event.pointerId);
-		pointers.set(event.pointerId, event);
+		trackPointer(event);
 
-		doubleTap.down(event, pointers.size);
-		if (pointers.size === 1) {
+		doubleTap.down(event, pointers.length);
+		if (pointers.length === 1) {
 			lastMidpoint = { x: event.clientX, y: event.clientY };
-		} else if (pointers.size === 2) {
-			const [p1, p2] = Array.from(pointers.values());
+		} else if (pointers.length === 2) {
+			const [p1, p2] = pointers;
 			lastMidpoint = {
 				x: (p1.clientX + p2.clientX) / 2,
 				y: (p1.clientY + p2.clientY) / 2
@@ -142,17 +151,17 @@
 
 	function onPointerMove(event: PointerEvent) {
 		revealLabels();
-		if (!pointers.has(event.pointerId)) return;
+		if (!isTracked(event)) return;
 		doubleTap.move(event);
-		pointers.set(event.pointerId, event);
+		trackPointer(event);
 
-		if (pointers.size === 1 && lastMidpoint) {
+		if (pointers.length === 1 && lastMidpoint) {
 			const panX = event.clientX - lastMidpoint.x;
 			const panY = event.clientY - lastMidpoint.y;
 			lastMidpoint = { x: event.clientX, y: event.clientY };
 			applyChange({ panX, panY });
-		} else if (pointers.size === 2 && containerEl && lastMidpoint) {
-			const [p1, p2] = Array.from(pointers.values());
+		} else if (pointers.length === 2 && containerEl && lastMidpoint) {
+			const [p1, p2] = pointers;
 			const newMidpoint = {
 				x: (p1.clientX + p2.clientX) / 2,
 				y: (p1.clientY + p2.clientY) / 2
@@ -178,7 +187,7 @@
 	}
 
 	function onPointerUp(event: PointerEvent) {
-		if (!pointers.has(event.pointerId)) return;
+		if (!isTracked(event)) return;
 		if (doubleTap.up(event) && containerEl) {
 			if (scale > 1.05) {
 				scale = 1;
@@ -189,9 +198,9 @@
 				applyChange({ scaleDiff: 3.2 / scale, originX: event.clientX - rect.left, originY: event.clientY - rect.top });
 			}
 		}
-		pointers.delete(event.pointerId);
-		if (pointers.size < 2) lastDistance = 0;
-		const remaining = pointers.values().next().value;
+		pointers = pointers.filter((pointer) => pointer.pointerId !== event.pointerId);
+		if (pointers.length < 2) lastDistance = 0;
+		const remaining = pointers[0];
 		lastMidpoint = remaining ? { x: remaining.clientX, y: remaining.clientY } : null;
 	}
 

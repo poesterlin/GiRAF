@@ -48,6 +48,7 @@ const server = await createProbeServer(temporary, {
 		{ find: /^\$app\/(environment|state|navigation)$/, replacement: join(temporary, 'context.ts') }
 	]
 });
+type ProbeWindow = Window & { applied?: { Crop?: { W?: unknown } }[] };
 let browser: ProbeBrowser | undefined;
 try {
 	const port = await listenOnPort(server);
@@ -72,7 +73,7 @@ try {
 		await dialog.getByRole('checkbox').uncheck();
 		await dialog.getByRole('button', { name: 'Keep current crop' }).click({ timeout: 2000 });
 		await dialog.waitFor({ state: 'detached' });
-		assert.equal(await page.evaluate(() => (window as any).applied?.[0]?.Crop?.W), 100);
+		assert.equal(await page.evaluate(() => (window as ProbeWindow).applied?.[0]?.Crop?.W), 100);
 		// Typing and keys inside dialogs must not trigger another global paste.
 		await page.getByLabel('Typing field').fill('v');
 		await page.getByLabel('Typing field').press('v');

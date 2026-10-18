@@ -17,7 +17,7 @@
 </script>
 
 {#if mode === 'grading'}
-	{#each ['Shadows', 'Highlights'] as range}
+	{#each ['Shadows', 'Highlights'] as range (range)}
 		{@const color = toneColor(edits.pp3, range as ToneRange)}
 		<div class="space-y-3">
 			<div class="flex min-h-9 items-center gap-2 text-xs font-semibold tracking-wider text-neutral-300 uppercase">
@@ -103,7 +103,7 @@
 			edits.pushHistory(true);
 		}}
 	/>
-	{#each ['Red', 'Green', 'Blue'] as channel}
+	{#each ['Red', 'Green', 'Blue'] as channel (channel)}
 		<Slider
 			label={`${channel} brightness`}
 			bind:value={edits.pp3['Black_&_White'][`Mixer${channel}`] as number}

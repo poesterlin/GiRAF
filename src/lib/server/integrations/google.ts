@@ -1,5 +1,5 @@
 import { assert } from '$lib';
-import type { Album, Image } from '../db/schema';
+import type { Album } from '../db/schema';
 import type { PhotoIntegration } from './types';
 import { refreshAccessTokenIfNeeded, hasRefreshToken } from './google-token';
 import { redirect } from '@sveltejs/kit';
@@ -29,7 +29,7 @@ function maskHeadersForLog(headers: Record<string, string> | undefined): string 
 				return `${k}: ${truncate(v, 200)}`;
 			})
 			.join(', ');
-	} catch (_) {
+	} catch {
 		return '<unserializable headers>';
 	}
 }
@@ -40,8 +40,46 @@ function formatResponseHeaders(res: Response): string {
 		.join(', ');
 }
 
+interface MediaItem {
+	id?: string;
+}
+
+// One entry of a mediaItems:batchCreate response. Some responses carry the media item fields directly.
+interface MediaItemResult extends MediaItem {
+	status?: { code?: number; message?: string };
+	mediaItem?: MediaItem;
+}
+
+interface BatchCreateResponse {
+	newMediaItemResults?: MediaItemResult[];
+	newMediaItemResult?: MediaItemResult;
+	mediaItem?: MediaItem;
+}
+
+interface MediaItemsSearchResponse {
+	mediaItems?: MediaItem[];
+	nextPageToken?: string;
+}
+
+interface FetchInit {
+	method?: string;
+	headers?: Record<string, string> | (() => Promise<Record<string, string>>);
+	body?: BodyInit | Uint8Array;
+	maxAttempts?: number;
+	write?: boolean;
+}
+
+type FetchWithRetry = (url: string, init?: FetchInit) => Promise<Response>;
+
+interface PendingCreate {
+	uploadToken: string;
+	filename: string;
+	resolve: (value: { id: string }) => void;
+	reject: (reason: unknown) => void;
+}
+
 // A created media item counts as ok when it has a mediaItem and either status code 0, a success message, or no status.
-function isMediaItemCreated(result: any): boolean {
+function isMediaItemCreated(result: MediaItemResult | null | undefined): boolean {
 	const statusCode = result?.status?.code;
 	const statusMessage = (result?.status?.message || '').toString().toLowerCase();
 	const hasMediaItem = !!result?.mediaItem;
@@ -80,14 +118,14 @@ const DEFAULT_ADD_BATCH_WAIT_MS = Number(env.GOOGLE_ADD_MAX_WAIT_MS) || 150;
 
 // Batcher that groups uploadTokens into a single mediaItems:batchCreate call
 class CreateBatcher {
-	private fetchWithRetry: (url: string, init?: any) => Promise<Response>;
+	private fetchWithRetry: FetchWithRetry;
 	private headersFn: (json?: boolean) => Promise<Record<string, string>>;
 	private maxSize: number;
 	private waitMs: number;
-	private queues: Map<string, { items: Array<any>; timer?: any }> = new Map();
+	private queues: Map<string, { items: PendingCreate[]; timer?: ReturnType<typeof setTimeout> }> = new Map();
 
 	constructor(
-		fetchWithRetry: (url: string, init?: any) => Promise<Response>,
+		fetchWithRetry: FetchWithRetry,
 		headersFn: (json?: boolean) => Promise<Record<string, string>>,
 		maxSize = DEFAULT_CREATE_BATCH_SIZE,
 		waitMs = DEFAULT_CREATE_BATCH_WAIT_MS
@@ -129,8 +167,8 @@ class CreateBatcher {
 		if (q.items.length === 0) this.queues.delete(key);
 
 		const albumId = key === '__NOALBUM__' ? undefined : key;
-		const body: any = {
-			newMediaItems: items.map((it: any) => ({ description: '', simpleMediaItem: { uploadToken: it.uploadToken } }))
+		const body: { albumId?: string; newMediaItems: Array<{ description: string; simpleMediaItem: { uploadToken: string } }> } = {
+			newMediaItems: items.map((it) => ({ description: '', simpleMediaItem: { uploadToken: it.uploadToken } }))
 		};
 		if (albumId) body.albumId = albumId;
 
@@ -145,15 +183,15 @@ class CreateBatcher {
 			if (!res.ok) {
 				const text = await res.text().catch(() => '<no body>');
 				console.warn(
-					`Google.createMediaItem batch failed ${res.status} ${res.statusText}; album=${albumId ?? '<none>'}; items=[${items.map((i: any) => i.filename).join(', ')}]; response=${truncate(text, 1000)}`
+					`Google.createMediaItem batch failed ${res.status} ${res.statusText}; album=${albumId ?? '<none>'}; items=[${items.map((i) => i.filename).join(', ')}]; response=${truncate(text, 1000)}`
 				);
 				const err = new Error(`Google.createMediaItem batch failed: ${res.status} ${text}`);
-				items.forEach((it: any) => it.reject(err));
+				items.forEach((it) => it.reject(err));
 				return;
 			}
 
-			const data = await res.json().catch(() => ({}));
-			let results: any[] = [];
+			const data: BatchCreateResponse = await res.json().catch(() => ({}));
+			let results: MediaItemResult[] = [];
 			if (Array.isArray(data.newMediaItemResults)) results = data.newMediaItemResults;
 			else if (data.newMediaItemResult) results = [data.newMediaItemResult];
 			else if (data.mediaItem) results = [{ mediaItem: data.mediaItem, status: { code: 0 } }];
@@ -177,22 +215,23 @@ class CreateBatcher {
 				}
 				it.resolve({ id: mediaItem.id });
 			}
-		} catch (e: any) {
-			items.forEach((it: any) => it.reject(e));
+		} catch (e) {
+			items.forEach((it) => it.reject(e));
 		}
 	}
 }
 
 // Batcher for adding media items to albums. Groups many adds into one request per album.
 class AddToAlbumBatcher {
-	private fetchWithRetry: (url: string, init?: any) => Promise<Response>;
+	private fetchWithRetry: FetchWithRetry;
 	private headersFn: (json?: boolean) => Promise<Record<string, string>>;
 	private maxSize: number;
 	private waitMs: number;
-	private queues: Map<string, { mediaSet: Set<string>; waiters: Array<{ resolve: () => void; reject: (err: any) => void }>; timer?: any }> = new Map();
+	private queues: Map<string, { mediaSet: Set<string>; waiters: Array<{ resolve: () => void; reject: (err: unknown) => void }>; timer?: ReturnType<typeof setTimeout> }> =
+		new Map();
 
 	constructor(
-		fetchWithRetry: (url: string, init?: any) => Promise<Response>,
+		fetchWithRetry: FetchWithRetry,
 		headersFn: (json?: boolean) => Promise<Record<string, string>>,
 		maxSize = DEFAULT_ADD_BATCH_SIZE,
 		waitMs = DEFAULT_ADD_BATCH_WAIT_MS
@@ -248,7 +287,7 @@ class AddToAlbumBatcher {
 				return;
 			}
 			q.waiters.forEach((w) => w.resolve());
-		} catch (e: any) {
+		} catch (e) {
 			q.waiters.forEach((w) => w.reject(e));
 		}
 	}
@@ -284,7 +323,9 @@ export class GooglePhotosProvider implements PhotoIntegration {
 		// Log presence/length of token but never print the token itself
 		try {
 			console.debug(`Google.headers: haveToken=${!!token} tokenLen=${typeof token === 'string' ? token.length : 0}`);
-		} catch (_) {}
+		} catch {
+			// Logging must never break a request.
+		}
 		return {
 			Authorization: `Bearer ${token}`,
 			...(json ? { 'Content-Type': 'application/json' } : {})
@@ -292,16 +333,7 @@ export class GooglePhotosProvider implements PhotoIntegration {
 	}
 
 	// Generic fetch wrapper with retries, backoff and optional write-concurrency throttling.
-	async fetchWithRetry(
-		url: string,
-		init: {
-			method?: string;
-			headers?: Record<string, string> | (() => Promise<Record<string, string>>);
-			body?: any;
-			maxAttempts?: number;
-			write?: boolean;
-		} = {}
-	): Promise<Response> {
+	async fetchWithRetry(url: string, init: FetchInit = {}): Promise<Response> {
 		const maxAttempts = init.maxAttempts ?? 5;
 		let attempt = 0;
 		while (true) {
@@ -315,7 +347,8 @@ export class GooglePhotosProvider implements PhotoIntegration {
 				const res = await fetch(url, {
 					method: init.method ?? 'GET',
 					headers: headers as Record<string, string>,
-					body: init.body
+					// fetch accepts any Uint8Array at runtime; the DOM typing only admits ArrayBuffer-backed views.
+					body: init.body as BodyInit | undefined
 				});
 
 				if (res.ok) return res;
@@ -358,7 +391,7 @@ export class GooglePhotosProvider implements PhotoIntegration {
 					console.warn(
 						`Google API ${methodOrUrlForLog(init.method, url)} returned ${status} ${res.statusText}; attempt ${attempt}/${maxAttempts}; requestHeaders=[${maskedHeaders}]; responseHeaders=[${respHeaders}]; responseBody=${truncate(cloneBody, 1000)}`
 					);
-				} catch (_) {
+				} catch {
 					console.warn(`Google API ${methodOrUrlForLog(init.method, url)} returned ${status} ${res.statusText}; attempt ${attempt}/${maxAttempts}; (failed to read clone)`);
 				}
 				return res;
@@ -366,7 +399,9 @@ export class GooglePhotosProvider implements PhotoIntegration {
 				if (init.write) {
 					try {
 						this.writeSemaphore.release();
-					} catch (_) {}
+					} catch {
+						// Never let a release failure mask the request's own result or error.
+					}
 				}
 			}
 		}
@@ -398,7 +433,7 @@ export class GooglePhotosProvider implements PhotoIntegration {
 		return (await res.text()).trim();
 	}
 
-	async uploadFile(fileBuffer: Uint8Array | Buffer, filename: string, image: Image): Promise<{ id: string }> {
+	async uploadFile(fileBuffer: Uint8Array | Buffer, filename: string): Promise<{ id: string }> {
 		const uploadToken = await this.uploadBytesGetToken(fileBuffer, filename, 'image/jpeg');
 		// enqueue token for batched create (no album)
 		return await this.createBatcher.enqueue(uploadToken, filename, undefined);
@@ -425,7 +460,7 @@ export class GooglePhotosProvider implements PhotoIntegration {
 		let pageToken: string | undefined = undefined;
 		const pageSize = 100;
 		do {
-			const body: any = { albumId, pageSize };
+			const body: { albumId: string; pageSize: number; pageToken?: string } = { albumId, pageSize };
 			if (pageToken) body.pageToken = pageToken;
 			const res = await this.fetchWithRetry(`${GOOGLE_API_BASE}/mediaItems:search`, {
 				method: 'POST',
@@ -446,7 +481,7 @@ export class GooglePhotosProvider implements PhotoIntegration {
 					if (parsed && parsed.error) {
 						console.warn('Google.isMediaInAlbum: parsed error:', truncate(JSON.stringify(parsed.error), 2000));
 					}
-				} catch (_) {
+				} catch {
 					// ignore non-JSON
 				}
 				if (res.status === 403) {
@@ -456,7 +491,7 @@ export class GooglePhotosProvider implements PhotoIntegration {
 				}
 				return null;
 			}
-			const data = await res.json().catch(() => ({}));
+			const data: MediaItemsSearchResponse = await res.json().catch(() => ({}));
 			const items = data.mediaItems ?? [];
 			// Helpful debug: log how many items were returned on each page
 			if (items.length > 0) {
@@ -501,8 +536,8 @@ export class GooglePhotosProvider implements PhotoIntegration {
 						`Google.ensureRemovedFromAlbum: remove returned ${rem.status} ${rem.statusText}; album=${albumId}; mediaId=${oldMediaId}; responseHeaders=[${respHeaders}]; responseBody=${truncate(text, 1000)}`
 					);
 				}
-			} catch (e: any) {
-				console.warn(`Google.ensureRemovedFromAlbum: attempt ${attempt + 1} failed:`, e?.message ?? e);
+			} catch (e) {
+				console.warn(`Google.ensureRemovedFromAlbum: attempt ${attempt + 1} failed:`, e instanceof Error ? e.message : e);
 			}
 
 			// backoff
@@ -512,7 +547,7 @@ export class GooglePhotosProvider implements PhotoIntegration {
 		return false;
 	}
 
-	async replaceInAlbum(album: Album, oldMediaId: string, fileBuffer: Uint8Array | Buffer, filename: string, image: Image): Promise<{ id: string }> {
+	async replaceInAlbum(album: Album, oldMediaId: string, fileBuffer: Uint8Array | Buffer, filename: string): Promise<{ id: string }> {
 		// Sanity-check album exists and is accessible before attempting a create-with-album
 		try {
 			const albumRes = await this.fetchWithRetry(`${GOOGLE_API_BASE}/albums/${album.externalId}`, {
@@ -533,9 +568,9 @@ export class GooglePhotosProvider implements PhotoIntegration {
 			}
 		} catch (err) {
 			// surface more context
-			if ((err as any)?.message?.includes('album not found')) throw err;
-			// @ts-ignore
-			console.warn('Google.replaceInAlbum: album existence check failed with error:', err?.message ?? err);
+			const message = err instanceof Error ? err.message : undefined;
+			if (message?.includes('album not found')) throw err;
+			console.warn('Google.replaceInAlbum: album existence check failed with error:', message ?? err);
 			// proceed — we'll let the create call fail with its own error which we log below
 		}
 
@@ -565,8 +600,8 @@ export class GooglePhotosProvider implements PhotoIntegration {
 			}
 			throw new Error(`Google.replaceInAlbum create failed: ${res.status} ${body}`);
 		}
-		const data = await res.json().catch(() => ({}));
-		let r: any = null;
+		const data: BatchCreateResponse = await res.json().catch(() => ({}));
+		let r: MediaItemResult | undefined;
 		if (Array.isArray(data.newMediaItemResults)) r = data.newMediaItemResults[0];
 		else if (data.newMediaItemResult) r = data.newMediaItemResult;
 		else r = data;

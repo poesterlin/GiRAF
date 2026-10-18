@@ -23,7 +23,9 @@ export default ts.config(
 		rules: {
 			// typescript-eslint strongly recommend that you do not use the no-undef lint rule on TypeScript projects.
 			// see: https://typescript-eslint.io/troubleshooting/faqs/eslint/#i-get-errors-from-the-no-undef-rule-about-global-variables-not-being-defined-even-though-there-are-no-typescript-errors
-			'no-undef': 'off'
+			'no-undef': 'off',
+			// The app is served from the root with no `paths.base`, so wrapping every link in resolve() adds nothing
+			'svelte/no-navigation-without-resolve': 'off'
 		}
 	},
 	{

@@ -58,7 +58,7 @@ class DOMPointPolyfill {
 
 beforeAll(() => {
 	// Minimal 2D DOMMatrix/DOMPoint polyfill for Bun's test environment.
-	// @ts-expect-error
+	// @ts-expect-error the minimal polyfill does not implement the full DOMMatrix interface
 	(globalThis as typeof globalThis & { DOMMatrix?: typeof DOMMatrixPolyfill }).DOMMatrix = DOMMatrixPolyfill as unknown as typeof DOMMatrix;
 	(globalThis as typeof globalThis & { DOMPoint?: typeof DOMPointPolyfill }).DOMPoint = DOMPointPolyfill as unknown as typeof DOMPoint;
 });

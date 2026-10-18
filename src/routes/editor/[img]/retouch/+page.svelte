@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
 	import { edits } from '$lib/state/editing.svelte';
-	import { app } from '$lib/state/app.svelte';
 	import { excludePP3, toBase64 } from '$lib/pp3-utils';
 	import { readSpotRemoval, writeSpotRemoval } from '$lib/spot-removal';
 	import { suggestSpotSource } from '$lib/spot-source';
@@ -12,7 +12,6 @@
 	import EditorZoomControls from '$lib/ui/EditorZoomControls.svelte';
 	import PreviewToggle from '$lib/ui/PreviewToggle.svelte';
 	import PreviewLoading from '$lib/ui/PreviewLoading.svelte';
-	import IconEye from '@tabler/icons-svelte/icons/eye';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconX from '@tabler/icons-svelte/icons/x';
@@ -59,7 +58,7 @@
 		height: dimensions.height / zoom
 	});
 	let gesture: { x: number; y: number; cx: number; cy: number; scale: number; moved: boolean; p?: { x: number; y: number }; pointer: number } | undefined;
-	const pointers = new Map<number, { x: number; y: number }>();
+	const pointers = new SvelteMap<number, { x: number; y: number }>();
 	let pinch: { distance: number; zoom: number } | undefined;
 	$effect(() => {
 		sizeValue = active?.radius ?? radius;
@@ -401,7 +400,7 @@
 			>
 				{#if imageUrl}<image href={imageUrl} width={dimensions.width} height={dimensions.height} />{/if}
 				{#if !showOriginal}
-					{#each visible as spot, index}
+					{#each visible as spot, index (index)}
 						<g stroke={index === selected ? '#fff' : '#aaa'} stroke-width="2" fill="transparent">
 							<circle data-spot={index} cx={spot.x} cy={spot.y} r={Math.max(spot.radius, hitRadius / zoom)} stroke="none" />
 							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={Math.max(spot.radius, hitRadius / zoom)} stroke="none" />
@@ -488,12 +487,7 @@
 				>
 			</div>
 		{/if}
-		<EditorZoomControls
-			{zoom}
-			onzoomout={() => focusAt({ x: view.x + view.width / 2, y: view.y + view.height / 2 }, zoom / 1.5)}
-			onzoomin={() => focusAt(target ?? active ?? { x: dimensions.width / 2, y: dimensions.height / 2 }, zoom * 1.5)}
-			onfit={() => (zoom = 1)}
-		>
+		<EditorZoomControls>
 			<PreviewToggle disabled={!spots.length} pressed={showOriginal} onclick={() => (showOriginal = !showOriginal)} />
 		</EditorZoomControls>
 		<PreviewLoading {loading} overlay />
@@ -519,7 +513,7 @@
 		<div class="flex items-center gap-1 rounded-2xl bg-neutral-900/70 p-1" aria-label="Spot selection">
 			<button class="tool shrink-0" class:chosen={adding} aria-label="Add spot" aria-pressed={adding} onclick={addMode}><IconPlus size={18} /></button>
 			<div class="spot-list flex min-w-0 flex-1 items-center gap-2 overflow-x-auto p-1" aria-label="Spots">
-				{#each spots as spot, i}<button
+				{#each spots as spot, i (i)}<button
 						class="icon-tool relative shrink-0 overflow-hidden rounded-full text-xs"
 						class:chosen={!adding && selected === i}
 						class:ring-2={!adding && selected === i}

@@ -48,7 +48,17 @@ export const load: PageServerLoad = async ({ params }) => {
 	await ensurePhashes(sessionImages);
 
 	// The page only needs a few fields per photo; the rest would be serialised into every triage page
-	const sessionStrip: TriageImage[] = sessionImages.map(({ previewPath: _previewPath, ...rest }) => rest);
+	const sessionStrip: TriageImage[] = sessionImages.map(({ id, isArchived, version, recordedAt, phash, name, exposure, aperture, iso }) => ({
+		id,
+		isArchived,
+		version,
+		recordedAt,
+		phash,
+		name,
+		exposure,
+		aperture,
+		iso
+	}));
 
 	const currentIndex = sessionImages.findIndex((i) => i.id === imageId);
 	const nextImage = sessionImages[currentIndex + 1];

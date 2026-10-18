@@ -184,8 +184,8 @@ export async function generateExportTif(imagePath: string, options: { signal?: A
 export async function getImageDimensions(path: string): Promise<{ width: number; height: number } | null> {
 	try {
 		const tags = await exiftool.read(path);
-		const width = Number((tags as any).ImageWidth ?? (tags as any).ExifImageWidth);
-		const height = Number((tags as any).ImageHeight ?? (tags as any).ExifImageHeight);
+		const width = Number(tags.ImageWidth ?? tags.ExifImageWidth);
+		const height = Number(tags.ImageHeight ?? tags.ExifImageHeight);
 		if (!Number.isFinite(width) || !Number.isFinite(height)) {
 			return null;
 		}

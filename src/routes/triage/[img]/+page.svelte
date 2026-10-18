@@ -48,7 +48,7 @@
 
 	// Moving on to a different group of similar shots closes the comparison.
 	$effect(() => {
-		similarBase;
+		void similarBase;
 		untrack(() => (showSimilar = false));
 	});
 
@@ -81,7 +81,7 @@
 			false
 		);
 		if (base !== null) markStackReviewed(localStorage, base);
-		if (restored.length) app.addToast('Restored.', 'info', { label: 'Undo', run: () => void undoSimilar([], restored, base) });
+		if (restored.length) app.addToast('Restored.', 'info', { label: 'Undo', run: () => void undoSimilar([], restored) });
 		if (next) await goto(`/triage/${next}`, { invalidateAll: true, noScroll: true });
 		else await invalidateAll();
 	}
@@ -109,7 +109,7 @@
 			if (base !== null && archived.length === discard.length) markStackReviewed(localStorage, base);
 			if (archived.length || restored.length) {
 				const message = !archived.length ? 'Restored.' : restored.length ? 'Updated.' : keepIds.length ? 'Extras archived.' : 'All archived.';
-				app.addToast(message, 'info', { label: 'Undo', run: () => void undoSimilar(archived, restored, base) });
+				app.addToast(message, 'info', { label: 'Undo', run: () => void undoSimilar(archived, restored) });
 			}
 			showSimilar = false;
 			const destination = next ?? keepIds[0] ?? before;
@@ -120,14 +120,13 @@
 		}
 	}
 
-	async function undoSimilar(archived: number[], restored: number[], base: number | null) {
+	async function undoSimilar(archived: number[], restored: number[]) {
 		const [reRestored, reArchived] = await Promise.all([setArchived(archived, false), setArchived(restored, true)]);
 		if (reRestored.length < archived.length || reArchived.length < restored.length) app.addToast('Some photos could not be reverted.', 'error');
 		await invalidateAll();
 	}
 
 	let isArchiving = $state(false);
-	let justRestored = $state(false);
 	let isRestoring = $state(false);
 	let navigationVersion = 0;
 	beforeNavigate(() => {
@@ -183,7 +182,6 @@
 	async function restoreImage() {
 		if (isArchiving || isRestoring || !data.image.isArchived) return;
 		const imageId = data.image.id;
-		const version = navigationVersion;
 		isRestoring = true;
 		try {
 			const res = await fetch(`/api/images/${imageId}/archive`, {
@@ -191,10 +189,6 @@
 			});
 			if (res.ok) {
 				await invalidateAll();
-				if (navigationVersion === version && data.image.id === imageId) {
-					justRestored = true;
-					setTimeout(() => (justRestored = false), 1000);
-				}
 			} else {
 				app.addToast('Failed to restore image.', 'error');
 			}

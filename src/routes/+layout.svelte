@@ -19,7 +19,6 @@
 	import NavigationProgress from '$lib/ui/NavigationProgress.svelte';
 	import { uploads } from '$lib/state/uploads.svelte';
 	import { app } from '$lib/state/app.svelte';
-	import { edits } from '$lib/state/editing.svelte';
 	import FlowNav from '$lib/ui/FlowNav.svelte';
 	import { IconBell, IconUser } from '$lib/ui/icons';
 	import '../app.css';

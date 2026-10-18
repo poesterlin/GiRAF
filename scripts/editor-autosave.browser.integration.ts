@@ -56,6 +56,19 @@ const server = await createProbeServer(temporary, {
 });
 
 type Save = { method: string; body: { pp3: string; snapshotId?: number } };
+type ProbeWindow = Window & {
+	toasts: { message: string; type: string }[];
+	fixture: {
+		edits: {
+			currentImageId?: string | null;
+			hasChanges: boolean;
+			serialize(): string;
+			noteSavedVersion(imageId: string, snapshot: { id: number; createdAt: string; pp3: string }, exportedAt: null): void;
+		};
+		edit(chapter: string, values: Record<string, unknown>): void;
+		leave(): void;
+	};
+};
 let browser: ProbeBrowser | undefined;
 try {
 	const port = await listenOnPort(server);
@@ -65,7 +78,7 @@ try {
 	const saves: Save[] = [];
 	let refuseUpdates = false;
 	let nextId = 70;
-	await page.addInitScript(() => ((window as any).toasts = []));
+	await page.addInitScript(() => ((window as ProbeWindow).toasts = []));
 	await page.route('**/api/images/12/snapshots', async (route) => {
 		const request = route.request();
 		const body = request.postDataJSON();
@@ -85,14 +98,14 @@ try {
 	}
 
 	await page.goto(`http://127.0.0.1:${port}/`);
-	await page.waitForFunction(() => Boolean((window as any).fixture?.edits?.currentImageId));
+	await page.waitForFunction(() => Boolean((window as ProbeWindow).fixture?.edits?.currentImageId));
 	await page.evaluate(() => {
-		const state = (window as any).fixture.edits;
+		const state = (window as ProbeWindow).fixture.edits;
 		state.noteSavedVersion('12', { id: 7, createdAt: new Date().toISOString(), pp3: state.serialize() }, null);
 	});
 
 	// A still edit waits for the idle delay instead of writing per slider step.
-	await page.evaluate(() => (window as any).fixture.edit('Exposure', { Compensation: 0.2 }));
+	await page.evaluate(() => (window as ProbeWindow).fixture.edit('Exposure', { Compensation: 0.2 }));
 	await page.waitForTimeout(600);
 	assert.deepEqual(saves, [], 'autosave must not write while the edit is still moving');
 	await waitForSaves(1);
@@ -101,7 +114,7 @@ try {
 	assert.equal(saves[0].body.snapshotId, 7, 'a small tweak updates the newest version in place');
 
 	// More tweaks keep landing on the same version.
-	await page.evaluate(() => (window as any).fixture.edit('Exposure', { Compensation: 0.4 }));
+	await page.evaluate(() => (window as ProbeWindow).fixture.edit('Exposure', { Compensation: 0.4 }));
 	await waitForSaves(2);
 	assert.deepEqual(
 		saves.map((save) => `${save.method} ${save.body.snapshotId ?? ''}`),
@@ -109,14 +122,14 @@ try {
 	);
 
 	// Structural work earns a version of its own.
-	await page.evaluate(() => (window as any).fixture.edit('Crop', { Enabled: true, X: 40, Y: 20, W: 900, H: 600 }));
+	await page.evaluate(() => (window as ProbeWindow).fixture.edit('Crop', { Enabled: true, X: 40, Y: 20, W: 900, H: 600 }));
 	await waitForSaves(3);
 	assert.equal(saves[2].method, 'POST');
 	assert.equal(saves[2].body.snapshotId, undefined);
 
 	// A version the server no longer accepts is replaced instead of lost.
 	refuseUpdates = true;
-	await page.evaluate(() => (window as any).fixture.edit('Exposure', { Compensation: 0.6 }));
+	await page.evaluate(() => (window as ProbeWindow).fixture.edit('Exposure', { Compensation: 0.6 }));
 	await waitForSaves(5);
 	assert.deepEqual(
 		saves.slice(3).map((save) => save.method),
@@ -126,7 +139,7 @@ try {
 
 	// Leaving the editor flushes whatever is still pending.
 	const pending = await page.evaluate(() => {
-		const fixture = (window as any).fixture;
+		const fixture = (window as ProbeWindow).fixture;
 		fixture.edit('Exposure', { Compensation: 0.9 });
 		const before = fixture.edits.hasChanges;
 		fixture.leave();
@@ -134,14 +147,14 @@ try {
 	});
 	assert.equal(pending, true);
 	await waitForSaves(6);
-	assert.equal(await page.evaluate(() => (window as any).fixture.edits.hasChanges), false, 'the pending edit is saved before navigating');
+	assert.equal(await page.evaluate(() => (window as ProbeWindow).fixture.edits.hasChanges), false, 'the pending edit is saved before navigating');
 
 	// Nothing left to save means nothing left to write.
 	const count = saves.length;
-	await page.evaluate(() => (window as any).fixture.leave());
+	await page.evaluate(() => (window as ProbeWindow).fixture.leave());
 	await page.waitForTimeout(500);
 	assert.equal(saves.length, count);
-	assert.deepEqual(await page.evaluate(() => (window as any).toasts), []);
+	assert.deepEqual(await page.evaluate(() => (window as ProbeWindow).toasts), []);
 	assert.deepEqual(errors, []);
 	console.log('PASS: autosave debounces, updates in place, versions structural work, replaces refused versions and flushes on leave');
 } finally {

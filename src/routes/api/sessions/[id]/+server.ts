@@ -11,7 +11,7 @@ import { JobType } from '$lib/server/jobs/types';
 export const PATCH: RequestHandler = async ({ params, request }) => {
 	const body = await request.json().catch(() => error(400, 'Invalid JSON'));
 	const name = typeof body?.name === 'string' ? body.name.trim() : '';
-	if (!name || /[\/\\\x00]/.test(name) || name === '.' || name === '..') error(400, 'Enter a valid session name.');
+	if (!name || /[/\\]/.test(name) || name.includes('\0') || name === '.' || name === '..') error(400, 'Enter a valid session name.');
 	const id = Number(params.id);
 	const session = await db.query.sessionTable.findFirst({ where: eq(sessionTable.id, id) });
 	if (!session) error(404, 'Session not found');

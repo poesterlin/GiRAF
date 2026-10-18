@@ -4,10 +4,10 @@ import { db } from '$lib/server/db';
 import { editImage, generateImportTif, importProfileFor, mapCropFromPreviewToExport } from '$lib/server/image-editor';
 import { acquireDevelopBase } from '$lib/server/develop-cache';
 import { bmvbhash } from 'blockhash-core';
-import { and, asc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { readFile, mkdir, rm, stat } from 'fs/promises';
 import { decode } from 'jpeg-js';
-import { dirname, join } from 'path';
+import { dirname } from 'path';
 
 async function fileExists(path: string) {
 	try {
@@ -16,7 +16,7 @@ async function fileExists(path: string) {
 		return false;
 	}
 }
-import { imageTable, mediaTable, sessionTable, albumTable, type Album, type Image, type Session } from '../db/schema';
+import { imageTable, mediaTable, sessionTable, albumTable, type Album, type Image } from '../db/schema';
 import type { ExportPayload, ImportPayload, JobResult } from './types';
 import { integrations } from '../integrations';
 import { exiftool } from 'exiftool-vendored';
@@ -28,6 +28,10 @@ import { withinDirectory } from '../session-delete';
 import { loadEditPP3 } from '../image-records';
 import { env } from '$env/dynamic/private';
 export { makeSessionPath } from '../export-files';
+
+function errorMessage(e: unknown): string | undefined {
+	return e instanceof Error ? e.message : undefined;
+}
 
 export async function runImport(payload: ImportPayload, signal?: AbortSignal): Promise<JobResult> {
 	const { sessionId, redevelop = false } = payload;
@@ -106,9 +110,9 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 		const summary = `Checked ${images.length} photos; repaired ${repaired}` + (redevelop ? `; re-developed ${redeveloped}` : '');
 		if (failures.length) return { status: 'error', message: `${summary}; ${failures.length} could not be processed. ${failures.slice(0, 5).join('; ')}` };
 		return { status: 'success', message: `${summary}.` };
-	} catch (e: any) {
+	} catch (e) {
 		console.error(`[Executor] Failed import for session: ${sessionId}`, e);
-		return { status: 'error', message: e.message };
+		return { status: 'error', message: errorMessage(e) };
 	}
 }
 
@@ -117,7 +121,7 @@ async function stackSimilarImages(currentImage: Image, currentHash: string, sess
 		where: and(eq(imageTable.sessionId, sessionId), isNull(imageTable.stackId), eq(imageTable.isStackBase, false))
 	});
 
-	let similarImages: Image[] = [];
+	const similarImages: Image[] = [];
 
 	for (const otherImage of otherImages) {
 		if (otherImage.id === currentImage.id || !otherImage.phash) continue;
@@ -229,9 +233,9 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 		}
 		console.log(`[Executor] Finished export for session: ${sessionId}`);
 		return { status: 'success' };
-	} catch (e: any) {
+	} catch (e) {
 		console.error(`[Executor] Failed export for session: ${sessionId}`, e);
-		return { status: 'error', message: e.message };
+		return { status: 'error', message: errorMessage(e) };
 	}
 }
 

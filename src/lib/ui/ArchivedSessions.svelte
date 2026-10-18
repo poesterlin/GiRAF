@@ -37,10 +37,11 @@
 	async function remove(session: ArchivedSession, files: { imports: boolean; exports: boolean }) {
 		deletingBusy = true;
 		try {
-			const query = new URLSearchParams();
-			if (files.imports) query.set('imports', '1');
-			if (files.exports) query.set('exports', '1');
-			const suffix = query.size ? `?${query}` : '';
+			const params: [string, string][] = [];
+			if (files.imports) params.push(['imports', '1']);
+			if (files.exports) params.push(['exports', '1']);
+			const query = new URLSearchParams(params).toString();
+			const suffix = query ? `?${query}` : '';
 			const response = await fetch(`/api/sessions/${session.id}${suffix}`, { method: 'DELETE' });
 			if (!response.ok) throw new Error();
 			deleting = undefined;

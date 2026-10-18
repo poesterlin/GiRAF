@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
 	import { edits } from '$lib/state/editing.svelte';
 	import { excludePP3, toBase64 } from '$lib/pp3-utils';
@@ -20,7 +21,7 @@
 	const displayWidth = $derived(Math.min(viewportWidth, viewportHeight * aspect));
 	let zoom = $state(1);
 	let pan = $state({ x: 0, y: 0 });
-	const pointers = new Map<number, { x: number; y: number }>();
+	const pointers = new SvelteMap<number, { x: number; y: number }>();
 	const doubleTap = new DoubleTapDetector();
 	let gesture: { x: number; y: number; panX: number; panY: number } | undefined;
 	let pinch: { distance: number; zoom: number; x: number; y: number; panX: number; panY: number } | undefined;
@@ -215,7 +216,7 @@
 						}}
 					/>
 					{#if geometryReady && showOverlay && !compare}
-						{#each indices as index}
+						{#each indices as index (index)}
 							{@const w = maskSize(edits.pp3, index, 'width')}
 							{@const h = maskSize(edits.pp3, index, 'height')}
 							<div
@@ -252,7 +253,7 @@
 									{/if}
 								</button>
 								{#if selected === index}
-									{#each ['width', 'height'] as axis}
+									{#each ['width', 'height'] as axis (axis)}
 										<button
 											type="button"
 											aria-label={`Resize mask ${axis}`}
@@ -276,7 +277,7 @@
 				</div>
 			</div>
 		</div>
-		<EditorZoomControls {zoom} dragging={!!drag} bottom={8} onzoomout={() => setZoom(zoom / 1.5)} onzoomin={() => setZoom(zoom * 1.5)}>
+		<EditorZoomControls dragging={!!drag} bottom={8}>
 			{#if indices.length}
 				<PreviewToggle kind="overlay" pressed={showOverlay} onclick={() => (showOverlay = !showOverlay)} />
 				<PreviewToggle pressed={compare} onclick={() => (compare = !compare)} />

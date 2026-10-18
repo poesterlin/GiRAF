@@ -8,16 +8,18 @@
 		footer?: Snippet;
 		empty: Snippet;
 		item: Snippet<[{ item: T; i: number }]>;
+		/** Stable identity for each item; defaults to its position. */
+		key?: (item: T, i: number) => unknown;
 	}
 
-	const { items, onMore, header, footer, empty, item: itemSnippet }: Props = $props();
+	const { items, onMore, header, footer, empty, item: itemSnippet, key = (_item: T, i: number) => i }: Props = $props();
 	let scroller = $state<HTMLDivElement>();
 	let sentinel = $state<HTMLDivElement>();
 
 	// Ask for the next page well before the end. Observing again after every page re-checks a
 	// sentinel that is still in view, so short pages keep loading until the screen is filled.
 	$effect(() => {
-		items.length;
+		void items.length;
 		if (!scroller || !sentinel) return;
 		const observer = new IntersectionObserver(
 			(entries) => {
@@ -34,7 +36,7 @@
 	{#if header}
 		{@render header()}
 	{/if}
-	{#each items as item, i}
+	{#each items as item, i (key(item, i))}
 		<div class="scroller-item">{@render itemSnippet({ item, i })}</div>
 	{:else}
 		{@render empty()}

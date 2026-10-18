@@ -61,6 +61,7 @@ const server = await createProbeServer(temporary, {
 		{ find: /^\$app\/(state|navigation)$/, replacement: join(temporary, 'context.svelte.ts') }
 	]
 });
+type ProbeWindow = Window & { calls: string[]; versions?: string[]; archiveMethod?: string };
 let browser: ProbeBrowser | undefined;
 try {
 	const port = await listenOnPort(server);
@@ -69,7 +70,7 @@ try {
 	const errors = collectPageErrors(page, { log: true });
 	await page.route('**/api/images/12/archive', async (route) => {
 		await page.evaluate((method) => {
-			(window as any).archiveMethod = method;
+			(window as ProbeWindow).archiveMethod = method;
 		}, route.request().method());
 		await route.fulfill({ status: 200, body: '{}' });
 	});
@@ -79,7 +80,7 @@ try {
 		await footer.getByRole('button', { name: 'Undo', exact: true }).waitFor();
 		assert.equal(await footer.getByRole('button', { name: 'Save edits' }).count(), 0, 'autosave replaces the manual save button');
 		assert.match(await footer.locator('.save-state').innerText(), /Saved|Unsaved|Saving/);
-		assert.deepEqual(await page.evaluate(() => (window as any).versions), ['12:none'], 'autosave learns the newest saved version');
+		assert.deepEqual(await page.evaluate(() => (window as ProbeWindow).versions), ['12:none'], 'autosave learns the newest saved version');
 		assert.equal(await footer.getByLabel('More photo actions').isVisible(), false);
 		assert.match(await footer.locator('.image-counter').innerText(), /12\s*\/\s*148\s*·\s*filtered/);
 		const previous = await footer.getByLabel('Previous image').boundingBox();
@@ -97,28 +98,28 @@ try {
 		await page.keyboard.press('y');
 		await page.keyboard.press('Control+z');
 		await page.keyboard.press('Control+Shift+z');
-		assert.deepEqual(await page.evaluate(() => (window as any).calls), ['tool-undo', 'tool-redo', 'tool-undo', 'tool-redo', 'tool-undo', 'tool-redo']);
+		assert.deepEqual(await page.evaluate(() => (window as ProbeWindow).calls), ['tool-undo', 'tool-redo', 'tool-undo', 'tool-redo', 'tool-undo', 'tool-redo']);
 		await page.evaluate(() => {
-			(window as any).calls = [];
+			(window as ProbeWindow).calls = [];
 		});
 		await footer.getByLabel('Reset edits', { exact: true }).click();
-		await page.waitForFunction(() => (window as any).calls.includes('invalidate'));
-		assert.deepEqual(await page.evaluate(() => (window as any).calls), ['snapshot', tool === 'adjustments' ? 'reset' : 'history', 'snapshot', 'invalidate']);
+		await page.waitForFunction(() => (window as ProbeWindow).calls.includes('invalidate'));
+		assert.deepEqual(await page.evaluate(() => (window as ProbeWindow).calls), ['snapshot', tool === 'adjustments' ? 'reset' : 'history', 'snapshot', 'invalidate']);
 		await page.evaluate(() => {
-			(window as any).calls = [];
+			(window as ProbeWindow).calls = [];
 		});
 		await footer.getByLabel('Archive photo', { exact: true }).click();
 		await footer.getByLabel('Restore photo', { exact: true }).waitFor();
 		await footer.getByLabel('Restore photo', { exact: true }).click();
 		await footer.getByLabel('Archive photo', { exact: true }).waitFor();
-		assert.equal(await page.evaluate(() => (window as any).archiveMethod), 'DELETE');
+		assert.equal(await page.evaluate(() => (window as ProbeWindow).archiveMethod), 'DELETE');
 		await page.evaluate(() => {
-			(window as any).calls = [];
+			(window as ProbeWindow).calls = [];
 		});
 		await footer.getByLabel('Next image').click();
 		const destination = '/editor/13' + (tool === 'adjustments' ? '' : '/' + tool) + '?edited=any&archived=hide&cutoff=workflow';
-		await page.waitForFunction((destination) => (window as any).calls.includes(destination), destination);
-		assert.deepEqual(await page.evaluate(() => (window as any).calls), ['snapshot', destination]);
+		await page.waitForFunction((destination) => (window as ProbeWindow).calls.includes(destination), destination);
+		assert.deepEqual(await page.evaluate(() => (window as ProbeWindow).calls), ['snapshot', destination]);
 		await footer.getByRole('button', { name: 'Filter gallery' }).click();
 		await page.locator('dialog:modal').waitFor();
 		await page.keyboard.press('Escape');

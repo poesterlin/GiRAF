@@ -103,7 +103,7 @@
 	</div>
 	{#if showFilters}
 		<div id="look-category-filters" class="flex flex-wrap gap-2 border-b border-neutral-800 p-3 sm:p-6" role="group" aria-label="Look categories">
-			{#each tags as tag}
+			{#each tags as tag (tag)}
 				<button
 					type="button"
 					aria-pressed={selectedTags.includes(tag)}

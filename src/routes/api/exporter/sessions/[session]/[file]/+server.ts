@@ -3,7 +3,7 @@ import { sessionTable } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 import { error } from '@sveltejs/kit';
-import { basename, join } from 'path';
+import { join } from 'path';
 import { makeSessionPath } from '$lib/server/jobs/executor';
 import { respondWithFile } from '$lib/server/utils';
 

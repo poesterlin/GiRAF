@@ -5,10 +5,6 @@
 		dragging = false,
 		bottom = 16
 	}: {
-		zoom: number;
-		onzoomin: () => void;
-		onzoomout: () => void;
-		onfit?: () => void;
 		children?: Snippet;
 		dragging?: boolean;
 		bottom?: number;

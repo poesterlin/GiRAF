@@ -46,7 +46,7 @@
 		const item = entries[i];
 		if (!item) return;
 		// assign to exported prop so parent bound variable updates
-		value = item.rawKey as any;
+		value = item.rawKey as T;
 		onchange?.(value!);
 		close();
 	}
@@ -162,7 +162,7 @@
 			aria-activedescendant={activeIndex >= 0 ? `${id}-item-${activeIndex}` : undefined}
 			onkeydown={onKeydown}
 		>
-			{#each entries as entry, i}
+			{#each entries as entry, i (entry.id)}
 				<li
 					id={entry.id}
 					role="option"

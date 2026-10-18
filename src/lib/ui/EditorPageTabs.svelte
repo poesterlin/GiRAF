@@ -11,7 +11,7 @@
 </script>
 
 <nav aria-label="Editor pages">
-	{#each pages as { tool, label }}
+	{#each pages as { tool, label } (tool)}
 		<a href={editorToolUrl(img, tool, query)} aria-label={label} title={label} aria-current={tool === currentTool ? 'page' : undefined}
 			><EditorToolIcon {tool} /><span>{label}</span></a
 		>

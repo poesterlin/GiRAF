@@ -17,7 +17,7 @@ const rotations: Record<number, number> = {
 };
 
 function webpResponse(buffer: Buffer) {
-	return new Response(buffer as any, {
+	return new Response(buffer as Uint8Array<ArrayBuffer>, {
 		headers: {
 			'Content-Type': 'image/webp',
 			'Content-Length': String(buffer.length),
@@ -32,7 +32,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 	const size = Number.isFinite(requestedSize) ? Math.max(1, Math.min(Math.round(requestedSize), 4096)) : 400;
 	const requestedQuality = Number(url.searchParams.get('quality') || 80);
 	const quality = Number.isFinite(requestedQuality) ? Math.max(1, Math.min(Math.round(requestedQuality), 95)) : 80;
-	const mode: keyof FitEnum = url.searchParams.get('mode') || ('contain' as any);
+	const mode = (url.searchParams.get('mode') || 'contain') as keyof FitEnum;
 
 	const image = await db.query.imageTable.findFirst({
 		where: eq(imageTable.id, id)

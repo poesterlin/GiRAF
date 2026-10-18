@@ -4,7 +4,7 @@
 </script>
 
 <div class="flex w-full rounded-lg bg-neutral-800 p-1">
-	{#each options as option}
+	{#each options as option (option.value)}
 		<button
 			type="button"
 			class="relative w-full rounded-md py-1.5 text-sm font-medium text-neutral-500 transition-colors focus:outline-none"

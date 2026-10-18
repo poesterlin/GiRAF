@@ -8,7 +8,7 @@ export async function GET({ url }: { url: URL }) {
 	const redirectUri = `${env.HOST_DOMAIN || 'http://localhost:5173'}/api/auth/google/callback`;
 	try {
 		await exchangeCodeForTokens(code, redirectUri);
-	} catch (e: any) {
+	} catch (e) {
 		console.error('Callback token exchange failed', e);
 		return new Response('Token exchange failed: ' + JSON.stringify(e), { status: 500 });
 	}

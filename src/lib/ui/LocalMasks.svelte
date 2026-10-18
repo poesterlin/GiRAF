@@ -47,7 +47,7 @@
 					if (menu) menu.open = false;
 				}}
 			>
-				{#each indices as index}<option value={index}>{edits.pp3.Locallab[`Name_${index}`]}</option>{/each}
+				{#each indices as index (index)}<option value={index}>{edits.pp3.Locallab[`Name_${index}`]}</option>{/each}
 			</select>
 			<button
 				type="button"
@@ -102,7 +102,7 @@
 				unit=" EV"
 				onchange={changed}
 			/>
-			{#each [{ key: 'Lightness', label: 'Brightness' }, { key: 'Contrast', label: 'Contrast' }, { key: 'Chroma', label: 'Saturation' }] as control}
+			{#each [{ key: 'Lightness', label: 'Brightness' }, { key: 'Contrast', label: 'Contrast' }, { key: 'Chroma', label: 'Saturation' }] as control (control.key)}
 				<Slider
 					editable
 					label={control.label}

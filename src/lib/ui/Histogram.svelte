@@ -172,9 +172,9 @@
 <section class="histogram min-w-0 py-1" aria-label="Tone curve histogram" aria-busy={loading || pending}>
 	<div bind:this={graph} class="relative mx-3 mt-3 h-56 rounded-lg border border-neutral-800 bg-neutral-950">
 		<svg viewBox="0 0 255 100" preserveAspectRatio="none" class="h-full w-full" aria-hidden="true">
-			{#each [25, 50, 75] as y}<line x1="0" x2="255" y1={y} y2={y} stroke="#262626" stroke-width="0.5" />{/each}
-			{#each [64, 128, 192] as x}<line x1={x} x2={x} y1="0" y2="100" stroke="#262626" stroke-width="0.5" />{/each}
-			{#each channels as channel}<path
+			{#each [25, 50, 75] as y (y)}<line x1="0" x2="255" y1={y} y2={y} stroke="#262626" stroke-width="0.5" />{/each}
+			{#each [64, 128, 192] as x (x)}<line x1={x} x2={x} y1="0" y2="100" stroke="#262626" stroke-width="0.5" />{/each}
+			{#each channels as channel (channel)}<path
 					d={area(channel)}
 					fill={colors[channel]}
 					fill-opacity="0.18"
@@ -197,7 +197,7 @@
 			style="touch-action: pan-y;"
 		></button>
 		{#if points}
-			{#each points as point, index}
+			{#each points as point, index (index)}
 				<button
 					type="button"
 					aria-label={`Curve point ${index + 1}: input ${Math.round(point.x * 255)}, output ${Math.round(point.y * 255)}. Drag or use arrow keys to adjust.`}

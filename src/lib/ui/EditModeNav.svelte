@@ -33,7 +33,6 @@
 		showClipboard?: boolean;
 		showFlag?: boolean;
 		showLast?: boolean;
-		showFilter?: boolean;
 		isFlagged?: boolean;
 	}
 

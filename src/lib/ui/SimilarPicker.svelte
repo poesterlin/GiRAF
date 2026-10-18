@@ -50,9 +50,7 @@
 	}
 
 	function toggle(id: number) {
-		const next = new Set(selected);
-		if (!next.delete(id)) next.add(id);
-		selected = next;
+		selected = selected.has(id) ? new Set([...selected].filter((value) => value !== id)) : new Set([...selected, id]);
 	}
 
 	// Archiving the whole group is allowed from the button; the Enter key needs a keeper so it cannot do it by accident

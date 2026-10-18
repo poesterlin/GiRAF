@@ -2,7 +2,6 @@
 	import { untrack } from 'svelte';
 	import { assert } from '$lib';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
-	import { app } from '$lib/state/app.svelte';
 	import {
 		createInitialCrop,
 		getAutoFillScale,
@@ -109,7 +108,7 @@
 	}
 	$effect(() => {
 		JSON.stringify(edits.pp3?.Crop);
-		edits.pp3?.Rotation?.Degree;
+		void edits.pp3?.Rotation?.Degree;
 		const frame = untrack(() => requestAnimationFrame(draw));
 		return () => cancelAnimationFrame(frame);
 	});
@@ -288,7 +287,7 @@
 		const unit = Math.max(1, Math.round(imageDimensions.width / 400)) * (event.shiftKey ? 10 : 1);
 		moveHandle(edits.pp3 as PP3<number>, event.altKey ? 'se' : 'grid', direction[0] * unit, direction[1] * unit, imageDimensions);
 		const crop = edits.pp3.Crop as unknown as { X: number; Y: number; W: number; H: number };
-		sanitizeCrop(crop, imageDimensions, imageDimensions);
+		sanitizeCrop(crop);
 		edits.pp3 = structuredClone($state.snapshot(edits.pp3));
 		edits.pushHistory();
 		cropStatus = `Crop ${Math.round(crop.W)} by ${Math.round(crop.H)} pixels, from ${Math.round(crop.X)}, ${Math.round(crop.Y)}`;
@@ -308,7 +307,7 @@
 		moveCursor = false;
 
 		if (edits.pp3?.Crop) {
-			sanitizeCrop(edits.pp3.Crop as unknown as { X: number; Y: number; W: number; H: number }, imageDimensions, imageDimensions);
+			sanitizeCrop(edits.pp3.Crop as unknown as { X: number; Y: number; W: number; H: number });
 		}
 		edits.pp3 = structuredClone($state.snapshot(edits.pp3));
 		edits.pushHistory();

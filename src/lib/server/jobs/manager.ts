@@ -1,4 +1,4 @@
-import { type Job, type JobId, type JobResult, type JobState, JobType } from './types';
+import { type ExportPayload, type ImportPayload, type Job, type JobId, type JobResult, type JobState, JobType } from './types';
 import { runImport, runExport } from './executor';
 import { appendNotification } from '$lib/server/notifications';
 import { db } from '$lib/server/db';
@@ -102,10 +102,10 @@ export class JobManager {
 			try {
 				switch (type) {
 					case JobType.IMPORT:
-						res = await runImport(payload as any, controller.signal);
+						res = await runImport(payload as ImportPayload, controller.signal);
 						break;
 					case JobType.EXPORT:
-						res = await runExport(payload as any, controller.signal);
+						res = await runExport(payload as ExportPayload, controller.signal);
 						break;
 					default:
 						throw new Error(`Unknown job type: ${type}`);
@@ -123,18 +123,19 @@ export class JobManager {
 				if (status === 'success') {
 					this.notifyJobEvent(type, id, 'completed');
 				}
-			} catch (e: any) {
+			} catch (e) {
 				console.error(`[JobManager] Job ${id} failed`, e);
+				const message = e instanceof Error ? e.message : undefined;
 				const status = controller.signal.aborted ? 'cancelled' : 'error';
 				this.jobStates.set(this.getKey(type, id), {
 					id,
 					type,
 					status,
-					message: e?.message,
+					message,
 					updatedAt: new Date().toISOString()
 				});
 				if (status === 'error') {
-					this.notifyJobEvent(type, id, 'failed', e?.message);
+					this.notifyJobEvent(type, id, 'failed', message);
 				}
 			} finally {
 				const activeJob = this.activeJobs.get(id);

@@ -1,15 +1,13 @@
-export function preventDefault(fn: (event: Event, ...args: Array<unknown>) => void) {
-	return function (event: Event, ...args: []) {
+export function preventDefault<A extends unknown[]>(fn: (this: unknown, ...args: A) => void) {
+	return function (this: unknown, event: Event, ...args: A) {
 		event.preventDefault();
-		// @ts-ignore
 		return fn?.apply(this, args);
 	};
 }
 
-export function stopPropagation(fn: (event: Event, ...args: Array<unknown>) => void) {
-	return function (event: Event, ...args: []) {
+export function stopPropagation<A extends unknown[]>(fn: (this: unknown, ...args: A) => void) {
+	return function (this: unknown, event: Event, ...args: A) {
 		event.stopPropagation();
-		// @ts-ignore
 		return fn?.apply(this, args);
 	};
 }

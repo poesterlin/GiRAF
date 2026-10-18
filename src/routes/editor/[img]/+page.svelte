@@ -4,7 +4,6 @@
 	import { EditorPreviewQueue, getPreviewDevice } from '$lib/editor-preview';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
 	import { filterPP3, toBase64 } from '$lib/pp3-utils';
-	import { app } from '$lib/state/app.svelte';
 	import { edits } from '$lib/state/editing.svelte';
 	import { tagStore } from '$lib/state/tag.svelte';
 	import BeforeAfter from '$lib/ui/BeforeAfter.svelte';
