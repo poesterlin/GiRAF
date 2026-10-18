@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { uniqueArray } from '$lib';
 	import { setLut } from '$lib/pp3-utils';
-	import { lutPreviewUrl } from '$lib/lut-preview';
+	import { lutPreviewSettings, lutPreviewUrl } from '$lib/lut-preview';
 	import { edits } from '$lib/state/editing.svelte';
 	import { IconCheck, IconStar, IconX } from './icons';
 	import { lutFavourites } from '$lib/state/lut-favourites.svelte';
@@ -11,10 +11,12 @@
 
 	interface Props {
 		imageId: string;
+		/** The photo's import profile; every preview is this plus one look. */
+		baseline: string;
 		luts: { name: string; path: string; tags: string[] }[];
 		onClose: () => void;
 	}
-	let { luts, onClose, imageId }: Props = $props();
+	let { luts, onClose, imageId, baseline }: Props = $props();
 	let search = $state('');
 	let selectedTags = $state<string[]>([]);
 	let favouritesOnly = $state(false);
@@ -28,9 +30,8 @@
 			.pop()
 			?.replace(/\.png$/i, '') ??
 		'';
-	const currentPreview = lutPreviewUrl(imageId, $state.snapshot(edits.effectivePP3));
-	// Keep the comparison stable while thumbnails arrive.
-	const previews = luts.map((lut) => ({ ...lut, src: lutPreviewUrl(imageId, edits.previewWithLut(lut.path)) }));
+	const currentPreview = $derived(currentPath ? lutPreviewUrl(imageId, lutPreviewSettings(baseline, currentPath)) : undefined);
+	const previews = $derived(luts.map((lut) => ({ ...lut, src: lutPreviewUrl(imageId, lutPreviewSettings(baseline, lut.path)) })));
 	const tags = uniqueArray(luts.flatMap((lut) => lut.tags)).sort((a, b) => a.localeCompare(b));
 	const filteredLuts = $derived(
 		previews.filter(

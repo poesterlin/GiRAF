@@ -169,7 +169,7 @@
 {/if}
 
 {#if showLutPicker && data.hasMatchingImages && !data.editorError}
-	<LutPicker luts={data.luts} onClose={() => (showLutPicker = false)} imageId={page.params.img!} />
+	<LutPicker luts={data.luts} onClose={() => (showLutPicker = false)} imageId={page.params.img!} baseline={data.image.importBaseline ?? BasePP3} />
 {/if}
 
 {#if showFilterModal}

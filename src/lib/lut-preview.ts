@@ -1,15 +1,12 @@
-import { createEditDocument, type StrengthWhiteBalance } from './edit-strength';
-import { setLut, toBase64, type PP3 } from './pp3-utils';
+import { parsePP3, setLut, toBase64, type PP3 } from './pp3-utils';
 
-/** Selecting a look enables its group; previews must use that same effective state. */
-export function lutPreviewSettings(settings: PP3, disabledGroups: string[], path: string, percent = 100, whiteBalance: StrengthWhiteBalance = {}): PP3 {
-	const candidate = setLut(structuredClone(settings), path);
-	return createEditDocument(
-		candidate,
-		disabledGroups.filter((group) => group !== 'look'),
-		percent,
-		whiteBalance
-	).settings;
+/**
+ * A look's preview is the photo as imported with only that look applied. It never changes while
+ * editing, so every tile keeps one URL and the browser serves it from cache after the first time.
+ */
+export function lutPreviewSettings(baseline: string | PP3, path: string): PP3 {
+	const settings = typeof baseline === 'string' ? parsePP3(baseline) : structuredClone(baseline);
+	return setLut(settings, path);
 }
 
 /** Tiles are at most a few hundred pixels wide, so they ask for a small, low-priority render. */

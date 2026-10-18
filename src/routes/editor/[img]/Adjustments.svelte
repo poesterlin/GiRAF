@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { map } from '$lib';
 	import { parsePP3 } from '$lib/pp3-utils';
-	import { lutPreviewUrl } from '$lib/lut-preview';
+	import { lutPreviewSettings, lutPreviewUrl } from '$lib/lut-preview';
 	import ClientPP3 from '$lib/assets/client.pp3?raw';
 	import type { Image } from '$lib/server/db/schema';
 	import { edits } from '$lib/state/editing.svelte';
@@ -403,7 +403,12 @@
 				{@const path = edits.pp3.Film_Simulation.ClutFilename as string}
 				<div class="relative">
 					<Button onclick={() => (showLutPicker = true)} class="w-full flex-col">
-						<img src={lutPreviewUrl(String(data.image.id), edits.effectivePP3)} alt="" class="h-32 w-full rounded-md object-contain" loading="lazy" />
+						<img
+							src={lutPreviewUrl(String(data.image.id), lutPreviewSettings(data.image.importBaseline ?? ClientPP3, path))}
+							alt=""
+							class="h-32 w-full rounded-md object-contain"
+							loading="lazy"
+						/>
 						<b class="mt-2 block w-full truncate">{lutPathToName(edits.pp3.Film_Simulation.ClutFilename as string)}</b>
 					</Button>
 					<LutFavouriteButton {path} name={lutPathToName(path) ?? path} class="absolute top-1 left-1" />

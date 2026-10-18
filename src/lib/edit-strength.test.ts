@@ -4,7 +4,6 @@ import { restoreGroupedSettings } from './adjustment-groups';
 import { parsePP3Document, stringifyPP3Document } from './pp3-document';
 import { parsePP3, type PP3 } from './pp3-utils';
 import { curveSamples, readToneCurve } from './tone-curve';
-import { lutPreviewSettings } from './lut-preview';
 
 const settings: PP3 = {
 	Exposure: { Auto: false, Compensation: 2, Contrast: -20, Saturation: 30, Black: -1200, HighlightCompr: 40, HighlightComprThreshold: 60, Curve2: '1;0;0;0.5;0.8;1;1;' },
@@ -81,14 +80,6 @@ test('serialized snapshots render scaled settings and restore original edits wit
 		expect(raw).toEqual(settings);
 	}
 	expect(createEditDocument(raw, [], 100).settings).toEqual(settings);
-});
-
-test('LUT previews apply global strength exactly once and preserve other section bypasses', () => {
-	const candidate = lutPreviewSettings(settings, ['look', 'toneCurve'], '/new.png', 25);
-	expect(candidate.Film_Simulation).toEqual({ Enabled: true, ClutFilename: '/new.png', Strength: 25 });
-	expect(candidate.Exposure.Compensation).toBe(0.5);
-	expect(candidate.Exposure.Curve2).toBe('0;');
-	expect(candidate.Spot_removal).toEqual(settings.Spot_removal);
 });
 
 test('strength metadata rejects invalid values and older snapshots default to full strength', () => {

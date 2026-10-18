@@ -4,7 +4,6 @@ import type { Image } from '$lib/server/db/schema';
 import { parsePP3Document, stringifyPP3Document } from '$lib/pp3-document';
 import { normalizeDisabledGroups, restoreGroupedSettings, groupNeutralSettings } from '$lib/adjustment-groups';
 import { createEditDocument, normalizeEditStrength, type StrengthWhiteBalance } from '$lib/edit-strength';
-import { lutPreviewSettings } from '$lib/lut-preview';
 import { EditPreviewScheduler } from '$lib/edit-preview-scheduler';
 import { SnapshotQueue } from '$lib/snapshot-queue';
 import { changedStructuralChapters, pp3EditDistance, snapshotDecision } from '$lib/snapshot-classifier';
@@ -179,10 +178,6 @@ class EditingState {
 
 	serialize() {
 		return stringifyPP3Document(createEditDocument($state.snapshot(this.pp3), [...this.disabledGroups], this.editStrength, this.strengthWhiteBalance));
-	}
-
-	previewWithLut(path: string) {
-		return lutPreviewSettings($state.snapshot(this.pp3), [...this.disabledGroups], path, this.editStrength, this.strengthWhiteBalance);
 	}
 
 	get canUndo() {
