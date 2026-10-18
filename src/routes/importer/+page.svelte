@@ -9,19 +9,22 @@
 	import UploadProgress from '$lib/ui/UploadProgress.svelte';
 	import { uploads } from '$lib/state/uploads.svelte';
 	import { ImporterState, dateKey, type ImageItem } from '$lib/state/importer.svelte';
+	import { autoScrollSpeed, dragSelection } from '$lib/drag-select';
 
 	let { data } = $props();
-	const importer = new ImporterState(() => data.items, (id) => {
-		selectedIds = new Set([...selectedIds].filter((selected) => selected !== id));
+	let selectedIds = $state<Set<number>>(new Set());
+	function deselect(id: number) {
+		selectedIds = selectedIds.difference(new Set([id]));
 		if (!selectedIds.size) inSelectionMode = false;
-	});
+	}
+	const importer = new ImporterState(() => data.items, deselect);
 	const duplicateCounts = $derived(importer.duplicateCounts);
 	let loadedPreviews = $state(new Set<number>());
 	let failedPreviews = $state(new Set<number>());
 	const allItems = $derived(importer.allItems);
+	const allIds = $derived(allItems.map((item) => item.id));
 
 	// Core State
-	let selectedIds = $state<Set<number>>(new Set());
 	function unavailable(id: number) {
 		return importer.unavailable(id);
 	}
@@ -38,36 +41,29 @@
 	let suppressClick = false;
 	let fileInput: HTMLInputElement;
 	let scrollContainer = $state<HTMLDivElement>();
-	let importPollingIntervals: Record<number, ReturnType<typeof setInterval>> = {};
-
-	type ImportJobStatus = 'idle' | 'running' | 'success' | 'error' | 'cancelled';
-	type ImportJobState = {
-		status: ImportJobStatus;
-		message?: string;
-	};
 
 	// Advanced Selection State
 	let inSelectionMode = $state(false);
 	let isDragging = $state(false);
 	let longPressTimer: number | null = null;
 	let touchOrigin = { x: 0, y: 0 };
+	let touchPoint = { x: 0, y: 0 };
 	// A resting finger still reports tiny moves, so only real movement cancels a long-press
 	const LONG_PRESS_SLOP_PX = 10;
+	const LONG_PRESS_MS = 450;
 	let lastSelectedIndex = $state(-1);
-	let dragStartIndex = $state(-1);
+	let dragStartIndex = -1;
+	let dragBaseline = new Set<number>();
+	let dragAdding = true;
+	// Browsers may still fire a click after a long-press; it must not toggle the photo back off.
+	// The next touch clears it, since that click always arrives before another touch starts.
+	let suppressTouchClick = false;
 
 	// Auto-scroll State
-	let scrollInterval: number | null = null;
+	let scrollFrame: number | null = null;
 
 	let groupedByDate = $derived.by(() => {
-		const groups = new Map<string, ImageItem[]>();
-		allItems.forEach((item) => {
-			const date = dateKey(item.date);
-			if (!groups.has(date)) {
-				groups.set(date, []);
-			}
-			groups.get(date)!.push(item);
-		});
+		const groups: Map<string, ImageItem[]> = Map.groupBy(allItems, (item) => dateKey(item.date));
 		for (const key of Object.keys(duplicateCounts)) {
 			if (duplicateCounts[key] && !groups.has(key)) groups.set(key, []);
 		}
@@ -81,47 +77,59 @@
 
 	// --- Event Handlers ---
 
+	/** Starts a drag selection from a photo, remembering what was selected before it. */
+	function beginDragSelection(index: number) {
+		dragStartIndex = index;
+		dragBaseline = new Set(selectedIds);
+		dragAdding = !selectedIds.has(allIds[index]);
+		selectedIds = selectRange(index, index);
+		lastSelectedIndex = index;
+	}
+
+	function selectRange(startIndex: number, currentIndex: number) {
+		return dragSelection(dragBaseline, allIds, startIndex, currentIndex, dragAdding, (id) => !unavailable(id));
+	}
+
+	function extendDragSelection(clientX: number, clientY: number) {
+		const card = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('[data-index]');
+		if (!card || dragStartIndex < 0) return;
+		const index = Number(card.dataset.index);
+		selectedIds = selectRange(dragStartIndex, index);
+		lastSelectedIndex = index;
+		inSelectionMode = selectedIds.size > 0;
+	}
+
 	function handleTouchStart(event: TouchEvent, id: number, index: number) {
-		touchOrigin = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+		cancelLongPress();
+		suppressTouchClick = false;
+		if (event.touches.length !== 1) return;
+		touchOrigin = touchPoint = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+		if (unavailable(id)) return;
 		longPressTimer = window.setTimeout(() => {
 			longPressTimer = null;
-			if (unavailable(id)) return;
 			inSelectionMode = true;
 			isDragging = true;
-			dragStartIndex = index;
-			selectedIds.add(id);
-			selectedIds = new Set(selectedIds);
-		}, 500);
+			suppressTouchClick = true;
+			beginDragSelection(index);
+			navigator.vibrate?.(20);
+		}, LONG_PRESS_MS);
+	}
+
+	function cancelLongPress() {
+		if (longPressTimer) {
+			clearTimeout(longPressTimer);
+			longPressTimer = null;
+		}
 	}
 
 	function handleTouchMove(event: TouchEvent) {
 		const touch = event.touches[0];
-		if (longPressTimer && Math.hypot(touch.clientX - touchOrigin.x, touch.clientY - touchOrigin.y) > LONG_PRESS_SLOP_PX) {
-			clearTimeout(longPressTimer);
-			longPressTimer = null;
-		}
-
+		if (!touch) return;
+		touchPoint = { x: touch.clientX, y: touch.clientY };
+		if (event.touches.length > 1 || Math.hypot(touch.clientX - touchOrigin.x, touch.clientY - touchOrigin.y) > LONG_PRESS_SLOP_PX) cancelLongPress();
 		if (!isDragging) return;
-
-		const element = document.elementFromPoint(touch.clientX, touch.clientY);
-		const targetButton = element?.closest<HTMLButtonElement>('[data-index]');
-
-		if (targetButton) {
-			const currentIndex = Number(targetButton.dataset.index);
-			const start = Math.min(dragStartIndex, currentIndex);
-			const end = Math.max(dragStartIndex, currentIndex);
-
-			const rangeIds = new Set<number>();
-			for (let i = start; i <= end; i++) {
-				const item = allItems[i];
-				if (item && !unavailable(item.id)) rangeIds.add(item.id);
-			}
-			selectedIds = new Set([...selectedIds, ...rangeIds]);
-		}
-
-		const edge = autoScrollEdge(touch.clientY);
-		if (edge) startScrolling(edge);
-		else stopScrolling();
+		extendDragSelection(touch.clientX, touch.clientY);
+		updateAutoScroll(touch.clientY);
 	}
 
 	// Svelte's ontouchmove is passive; a native listener lets a selection drag stop the list from scrolling
@@ -136,18 +144,20 @@
 	});
 
 	function handleTouchEnd() {
-		if (longPressTimer) {
-			clearTimeout(longPressTimer);
-			longPressTimer = null;
-		}
+		cancelLongPress();
 		stopScrolling();
 		isDragging = false;
 		dragStartIndex = -1;
+		if (!selectedIds.size) inSelectionMode = false;
 	}
 
 	function handleClick(id: number, index: number, event: MouseEvent) {
 		if (suppressClick) {
 			suppressClick = false;
+			return;
+		}
+		if (suppressTouchClick) {
+			suppressTouchClick = false;
 			return;
 		}
 		if (unavailable(id)) return;
@@ -156,18 +166,12 @@
 		}
 
 		if (event.shiftKey && lastSelectedIndex !== -1) {
-			const start = Math.min(lastSelectedIndex, index);
-			const end = Math.max(lastSelectedIndex, index);
-			for (let i = start; i <= end; i++) {
-				if (!unavailable(allItems[i].id)) selectedIds.add(allItems[i].id);
-			}
+			selectedIds = dragSelection(selectedIds, allIds, lastSelectedIndex, index, true, (candidate) => !unavailable(candidate));
 		} else if (selectedIds.has(id)) {
-			selectedIds.delete(id);
+			selectedIds = selectedIds.difference(new Set([id]));
 		} else {
-			selectedIds.add(id);
+			selectedIds = selectedIds.union(new Set([id]));
 		}
-
-		selectedIds = new Set(selectedIds);
 		lastSelectedIndex = index;
 
 		if (selectedIds.size === 0) {
@@ -176,47 +180,38 @@
 	}
 
 	/**
-	 * Which edge of the photo list the finger is dragging against. The list
+	 * Scrolls the photo list while the finger rests near its top or bottom edge, and
+	 * keeps extending the selection as new photos pass under the finger. The list
 	 * scrolls inside its own container, so the window edges are irrelevant.
 	 */
-	function autoScrollEdge(clientY: number): 'up' | 'down' | null {
-		if (!scrollContainer) return null;
+	function updateAutoScroll(clientY: number) {
+		if (!scrollContainer) return;
 		const rect = scrollContainer.getBoundingClientRect();
-		const threshold = Math.min(80, rect.height / 3);
-		if (clientY < rect.top + threshold) return 'up';
-		if (clientY > rect.bottom - threshold) return 'down';
-		return null;
-	}
-
-	function startScrolling(direction: 'up' | 'down') {
-		if (scrollInterval) return;
-		scrollInterval = window.setInterval(() => {
-			scrollContainer?.scrollBy({ top: direction === 'up' ? -20 : 20 });
-		}, 50);
+		if (!autoScrollSpeed(clientY, rect.top, rect.bottom)) return stopScrolling();
+		if (scrollFrame) return;
+		const step = () => {
+			const container = scrollContainer;
+			if (!container || !isDragging) return stopScrolling();
+			const bounds = container.getBoundingClientRect();
+			const speed = autoScrollSpeed(touchPoint.y, bounds.top, bounds.bottom);
+			if (!speed) return stopScrolling();
+			container.scrollTop += speed;
+			extendDragSelection(touchPoint.x, touchPoint.y);
+			scrollFrame = requestAnimationFrame(step);
+		};
+		scrollFrame = requestAnimationFrame(step);
 	}
 
 	function stopScrolling() {
-		if (scrollInterval) {
-			clearInterval(scrollInterval);
-			scrollInterval = null;
+		if (scrollFrame) {
+			cancelAnimationFrame(scrollFrame);
+			scrollFrame = null;
 		}
-	}
-
-	function selectAll() {
-		selectedIds = new Set(allItems.filter((item) => !unavailable(item.id)).map((item) => item.id));
-		inSelectionMode = true;
 	}
 
 	function toggleDateSelection(images: ImageItem[]) {
-		const allIdsInGroup = images.filter((item) => !unavailable(item.id)).map((img) => img.id);
-		const allAreSelected = allIdsInGroup.every((id) => selectedIds.has(id));
-
-		if (allAreSelected) {
-			allIdsInGroup.forEach((id) => selectedIds.delete(id));
-		} else {
-			allIdsInGroup.forEach((id) => selectedIds.add(id));
-		}
-		selectedIds = new Set(selectedIds);
+		const groupIds = new Set(images.filter((item) => !unavailable(item.id)).map((img) => img.id));
+		selectedIds = groupIds.isSubsetOf(selectedIds) ? selectedIds.difference(groupIds) : selectedIds.union(groupIds);
 		inSelectionMode = selectedIds.size > 0;
 	}
 
@@ -226,51 +221,9 @@
 		inSelectionMode = false;
 	}
 
-	function stopImportPolling(sessionId: number) {
-		const intervalId = importPollingIntervals[sessionId];
-		if (!intervalId) return;
-		clearInterval(intervalId);
-		delete importPollingIntervals[sessionId];
-	}
-
-	function startImportPolling(sessionId: number) {
-		stopImportPolling(sessionId);
-		importPollingIntervals[sessionId] = setInterval(async () => {
-			try {
-				const response = await fetch(`/api/sessions/${sessionId}/import`);
-				if (!response.ok) {
-					throw new Error('Failed to fetch import status');
-				}
-
-				const state = (await response.json()) as ImportJobState;
-				if (state.status === 'running') {
-					return;
-				}
-
-				stopImportPolling(sessionId);
-				await invalidateAll();
-
-				if (state.status === 'success') {
-					app.addToast('Import completed successfully.', 'success');
-				} else if (state.status === 'cancelled') {
-					app.addToast('Import was cancelled.', 'info');
-				} else if (state.status === 'error') {
-					app.addToast(state.message ? `Import failed: ${state.message}` : 'Import failed.', 'error');
-				}
-			} catch (error) {
-				console.error('Failed to poll import status', error);
-				stopImportPolling(sessionId);
-				app.addToast('Failed to check import status.', 'error');
-			}
-		}, 2000);
-	}
-
 	onDestroy(() => {
 		importer.dispose();
 		handleTouchEnd();
-		for (const sessionId of Object.keys(importPollingIntervals)) {
-			stopImportPolling(Number(sessionId));
-		}
 	});
 
 	async function importImages(e: Event) {
@@ -352,16 +305,13 @@
 	function handleMouseMove(e: MouseEvent) {
 		if (!mouseStart || !(e.buttons & 1)) return;
 		if (!mouseSelecting && Math.hypot(e.clientX - mouseStart.x, e.clientY - mouseStart.y) < 5) return;
-		const card = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLButtonElement>('[data-index]');
-		if (!card) return;
-		mouseSelecting = true;
-		suppressClick = true;
-		const index = Number(card.dataset.index);
-		for (let i = Math.min(mouseStart.index, index); i <= Math.max(mouseStart.index, index); i++) {
-			if (allItems[i] && !unavailable(allItems[i].id)) selectedIds.add(allItems[i].id);
+		if (!mouseSelecting) {
+			if (unavailable(mouseStart.id)) return;
+			mouseSelecting = true;
+			suppressClick = true;
+			beginDragSelection(mouseStart.index);
 		}
-		selectedIds = new Set(selectedIds);
-		inSelectionMode = selectedIds.size > 0;
+		extendDragSelection(e.clientX, e.clientY);
 	}
 </script>
 
@@ -370,6 +320,7 @@
 	onmouseup={() => {
 		mouseStart = undefined;
 		mouseSelecting = false;
+		dragStartIndex = -1;
 	}}
 	onblur={() => {
 		mouseStart = undefined;
@@ -494,7 +445,7 @@
 				</div>
 			{/snippet}
 
-			<div class="pb-32" ontouchend={handleTouchEnd} role="presentation">
+			<div class="pb-32" ontouchend={handleTouchEnd} ontouchcancel={handleTouchEnd} role="presentation">
 				{#if !groupedByDate.length}
 					{@render empty()}
 				{:else}
@@ -525,7 +476,7 @@
 									data-id={item.id}
 									data-index={itemIndex}
 									disabled={unavailable(item.id)}
-									class="group relative aspect-[3/2] select-none overflow-hidden rounded-2xl bg-neutral-900 ring-offset-black transition-all"
+									class="photo-card group relative aspect-[3/2] select-none overflow-hidden rounded-2xl bg-neutral-900 ring-offset-black transition-all"
 									draggable={false}
 									ondragstart={(e) => e.preventDefault()}
 									onmousedown={(e) => {
@@ -710,6 +661,13 @@
 </div>
 
 <style>
+	/* A long-press selects the photo; it must not open iOS's image callout instead */
+	.photo-card,
+	.photo-card :global(img) {
+		-webkit-touch-callout: none;
+		-webkit-user-select: none;
+		user-select: none;
+	}
 	.preview-shutter {
 		display: flex;
 		align-items: center;
