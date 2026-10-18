@@ -24,6 +24,7 @@ services:
       - IMPORT_DIR=/app/import
       - EXPORT_DIR=/app/export
       - TMP_DIR=/tmp
+      - DATA_DIR=/app/data
     volumes:
       - ./cluts:/app/cluts # for custom CLUTs, if needed
       - ./import:/app/import # import directory

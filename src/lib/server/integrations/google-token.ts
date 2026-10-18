@@ -2,7 +2,9 @@ import { env } from '$env/dynamic/private';
 import fs from 'fs';
 import path from 'path';
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const DATA_DIR = path.resolve(env.DATA_DIR || path.join(process.cwd(), 'data'));
+export const GOOGLE_STATE_COOKIE = 'giraf_google_state';
+
 const TOKEN_FILE = path.join(DATA_DIR, 'google_tokens.json');
 
 type StoredTokens = {
@@ -12,7 +14,7 @@ type StoredTokens = {
 };
 
 function ensureDataDir() {
-	if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+	if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
 }
 
 function readTokens(): StoredTokens {
@@ -29,7 +31,9 @@ function readTokens(): StoredTokens {
 
 function writeTokens(t: StoredTokens) {
 	ensureDataDir();
-	fs.writeFileSync(TOKEN_FILE, JSON.stringify(t, null, 2), 'utf8');
+	// The refresh token grants access to the linked Google account, so only the app's user may read it
+	fs.writeFileSync(TOKEN_FILE, JSON.stringify(t, null, 2), { encoding: 'utf8', mode: 0o600 });
+	fs.chmodSync(TOKEN_FILE, 0o600);
 }
 
 export async function exchangeCodeForTokens(code: string, redirect_uri: string) {

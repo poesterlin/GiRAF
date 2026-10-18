@@ -40,7 +40,7 @@ tmp/
 
 export/
 
-data/google_tokens.json
+/data/
 
 pgdata
 

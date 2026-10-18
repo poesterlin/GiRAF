@@ -33,6 +33,8 @@ services:
       - import:/app/import
       - ./export:/app/export
       - ./tmp:/app/tmp
+      # Google Photos sign-in tokens, kept across rebuilds
+      - ./data:/app/data
 
   # Copies new files from an SD card into the import folder and starts an import.
   # Opt in with: docker compose --profile sd-card up -d
