@@ -1,17 +1,20 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto, invalidate } from '$app/navigation';
+	import { exportPreviewSizeForScreen } from '$lib/export-preview';
 	import { IconChevronRight, IconChevronLeft, IconX, IconAdjustmentsHorizontal } from '$lib/ui/icons';
 
 	let { data } = $props();
 
 	let currentIndex = $state(0);
 	const currentFilename = $derived(data.images.length ? data.images[currentIndex % data.images.length] : undefined);
-	const exportUrl = (filename: string) => `/api/exporter/sessions/${data.session.id}/${filename}`;
+	// Known once the page runs in the browser; until then no preview is requested at a guessed size
+	let previewSize = $state<number>();
+	const exportUrl = (filename: string) => `/api/exporter/sessions/${data.session.id}/${filename}?size=${previewSize}`;
 
 	// Warm the neighbouring exports so stepping through them does not flash empty
 	$effect(() => {
-		if (data.images.length < 2) return;
+		if (data.images.length < 2 || !previewSize) return;
 		for (const offset of [1, -1]) {
 			const filename = data.images[(currentIndex + offset + data.images.length) % data.images.length];
 			new Image().src = exportUrl(filename);
@@ -43,6 +46,7 @@
 	}
 
 	onMount(() => {
+		previewSize = exportPreviewSizeForScreen(screen.width, screen.height, devicePixelRatio);
 		window.addEventListener('keydown', handleKeydown);
 		let refreshing = false;
 		const interval = setInterval(async () => {
@@ -170,11 +174,13 @@
 
 	{#if data.images.length > 0}
 		<div class="relative flex h-full min-h-0 w-full items-center justify-center px-2 pt-32 pb-20 sm:p-12">
-			<img
-				src={exportUrl(currentFilename!)}
-				alt={`Exported image ${currentIndex + 1} for session ${data.session.name}`}
-				class="h-full max-h-full w-full max-w-full object-contain"
-			/>
+			{#if previewSize}
+				<img
+					src={exportUrl(currentFilename!)}
+					alt={`Exported image ${currentIndex + 1} for session ${data.session.name}`}
+					class="h-full max-h-full w-full max-w-full object-contain"
+				/>
+			{/if}
 		</div>
 
 		<!-- Navigation Controls -->
