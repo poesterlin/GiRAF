@@ -22,7 +22,7 @@ export interface StackedImage {
 	recordedAt?: Date | string;
 }
 
-export function hammingDistance(hex1: string, hex2: string): number {
+function hammingDistance(hex1: string, hex2: string): number {
 	if (hex1.length !== hex2.length) throw new Error('Strings must have the same length');
 	let distance = 0;
 	for (let i = 0; i < hex1.length; i++) {
@@ -51,7 +51,7 @@ export function areSimilar(a: StackedImage, b: StackedImage): boolean {
  * upper bound rather than a fixed cost: for ordinary shooting the time bound is reached first. It
  * only bites during a fast burst, where it caps how far back a single frame can reach.
  */
-export const SIMILARITY_WINDOW = 32;
+const SIMILARITY_WINDOW = 32;
 
 /**
  * The group of similar shots around an image, in session order. Every photo is compared with the

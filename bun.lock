@@ -30,7 +30,6 @@
         "@tailwindcss/vite": "^4.1.18",
         "@types/bun": "latest",
         "@types/node": "^22.19.9",
-        "chokidar": "^4.0.3",
         "drizzle-kit": "^0.30.6",
         "eslint": "^9.39.2",
         "eslint-config-prettier": "^10.1.8",

@@ -47,6 +47,28 @@
 	}
 </script>
 
+{#snippet shadowsHighlightsSlider(label: string, field: 'Highlights' | 'Shadows')}
+	{@const shadowsHighlights = edits.pp3['Shadows_&_Highlights']}
+	<Slider
+		{label}
+		bind:value={shadowsHighlights[field] as number}
+		min={0}
+		max={100}
+		step={1}
+		ignored={toolIgnored('Shadows_&_Highlights', ['Highlights', 'Shadows'])}
+		onchange={() => { shadowsHighlights.Enabled = true; edits.pushHistory(); }}
+	/>
+{/snippet}
+
+{#snippet lumaSlider(label: string, field: 'Luma' | 'Ldetail')}
+	{@const denoise = edits.pp3.Directional_Pyramid_Denoising}
+	<Slider label={label} bind:value={denoise[field] as number} min={0} max={100} step={1} resetValue={0} ignored={!denoise.Enabled as boolean} onchange={() => {
+		denoise.LMethod = 'SLI';
+		denoise.Enabled = true;
+		edits.pushHistory();
+	}} />
+{/snippet}
+
 <section class="control-section" data-adjustment-sections use:limitExpandedGroups>
 	<div class="mb-4 px-1">
 		<Slider compact label="Edit strength" bind:value={edits.editStrength} min={0} max={100} step={1} precision={0} unit="%" resetValue={100} onchange={() => edits.pushHistory()} />
@@ -144,26 +166,9 @@
 	
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Dynamic Range" group="dynamicRange">
-		{@const shadowsHighlights = edits.pp3['Shadows_&_Highlights']}
-		<Slider
-			label="Highlights"
-			bind:value={shadowsHighlights.Highlights as number}
-			min={0}
-			max={100}
-			step={1}
-			ignored={toolIgnored('Shadows_&_Highlights', ['Highlights', 'Shadows'])}
-			onchange={() => { shadowsHighlights.Enabled = true; edits.pushHistory(); }}
-		/>
-		<Slider
-			label="Shadows"
-			bind:value={shadowsHighlights.Shadows as number}
-			min={0}
-			max={100}
-			step={1}
-			ignored={toolIgnored('Shadows_&_Highlights', ['Highlights', 'Shadows'])}
-			onchange={() => { shadowsHighlights.Enabled = true; edits.pushHistory(); }}
-		/>
-	
+		{@render shadowsHighlightsSlider('Highlights', 'Highlights')}
+		{@render shadowsHighlightsSlider('Shadows', 'Shadows')}
+
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Tone Curve" group="toneCurve">
 		{#key data.image.id}
@@ -214,22 +219,15 @@
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Noise Reduction" group="noiseReduction">
 		{@const denoise = edits.pp3.Directional_Pyramid_Denoising}
-		<Slider label="Luminance" bind:value={denoise.Luma as number} min={0} max={100} step={1} resetValue={0} ignored={!denoise.Enabled as boolean} onchange={() => {
-			denoise.LMethod = 'SLI';
-			denoise.Enabled = true;
-			edits.pushHistory();
-		}} />
+		{@render lumaSlider('Luminance', 'Luma')}
 		<Slider label="Colour noise" bind:value={denoise.Chroma as number} min={0} max={100} step={1} resetValue={0} ignored={!denoise.Enabled as boolean} onchange={() => {
 			denoise.CMethod = 'MAN';
 			denoise.C2Method = 'MANU';
 			denoise.Enabled = true;
 			edits.pushHistory();
 		}} />
-		<Slider label="Detail recovery" bind:value={denoise.Ldetail as number} min={0} max={100} step={1} resetValue={0} ignored={!denoise.Enabled as boolean} onchange={() => {
-			denoise.LMethod = 'SLI';
-			denoise.Enabled = true;
-			edits.pushHistory();
-		}} />
+		{@render lumaSlider('Detail recovery', 'Ldetail')}
+
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Sharpening" group="detail">
 		<Slider label="Amount" bind:value={edits.pp3.Sharpening.Amount as number} min={0} max={200} step={1} resetValue={50} onchange={() => { edits.pp3.Sharpening.Enabled = true; edits.pushHistory(); }} />

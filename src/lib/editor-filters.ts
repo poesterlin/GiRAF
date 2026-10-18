@@ -8,8 +8,6 @@ export type EditorFilters = {
 	newlyImported?: boolean;
 };
 
-export const defaultEditorFilters: EditorFilters = { show: 'all', archived: 'hide' };
-
 const shows: EditorShow[] = ['all', 'todo', 'changed', 'edited'];
 
 function validTime(value: string | null): value is string {
@@ -58,7 +56,7 @@ export function hasEditorFilters(query: URLSearchParams): boolean {
 	return isFiltered(readEditorFilters(query));
 }
 
-export const showLabels: Record<EditorShow, string> = {
+const showLabels: Record<EditorShow, string> = {
 	all: 'All',
 	todo: 'To edit',
 	changed: 'Changed',

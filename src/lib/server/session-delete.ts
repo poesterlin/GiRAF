@@ -53,7 +53,7 @@ async function removeExportIntermediates(rawNames: Set<string>): Promise<void> {
  * worthless once the session is gone; the imported and exported originals are only removed when the
  * caller asks, since those may be the user's only copy.
  */
-export async function deleteSessionFiles(session: Session, files: SessionDeleteFiles): Promise<void> {
+async function deleteSessionFiles(session: Session, files: SessionDeleteFiles): Promise<void> {
 	const images = await db
 		.select({ filepath: imageTable.filepath, previewPath: imageTable.previewPath, tifPath: imageTable.tifPath })
 		.from(imageTable)

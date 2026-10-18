@@ -1,23 +1,16 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, symlink, rm } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
-import { chromium } from 'playwright';
-import { createServer } from 'vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { closeProbe, collectPageErrors, createProbeProject, createProbeServer, launchProbeBrowser, listenOnPort, repoRoot, type ProbeBrowser } from './lib/browser-probe';
 
 // Mount the real toolbar twice, as the responsive editor does. Only the editor
 // state and SvelteKit context are stubbed; clipboard handling and dialogs are real.
-const root = resolve(import.meta.dir, '..');
-const temporary = await mkdtemp(join(tmpdir(), 'giraf-clipboard-'));
-await symlink(join(root, 'node_modules'), join(temporary, 'node_modules'));
-await writeFile(join(temporary, 'index.html'), '<div id="app"></div><script type="module" src="/main.ts"></script>');
-await writeFile(join(temporary, 'main.ts'), `import { mount } from 'svelte'; import App from './App.svelte'; mount(App, { target: document.querySelector('#app') });`);
+const temporary = await createProbeProject({ prefix: 'giraf-clipboard-', tailwind: false });
 await writeFile(
 	join(temporary, 'App.svelte'),
 	`
 <script>
- import EditModeNav from '${root}/src/lib/ui/EditModeNav.svelte';
+ import EditModeNav from '${repoRoot}/src/lib/ui/EditModeNav.svelte';
 </script>
 <div class="desktop"><EditModeNav img="1" showClipboard /></div>
 <div class="mobile"><EditModeNav img="1" showClipboard showHistory showUndoRedo={false} /></div>
@@ -48,34 +41,26 @@ export const edits = {
 };
 `
 );
-const server = await createServer({
-	root: temporary,
-	configFile: false,
-	plugins: [svelte({ configFile: false })],
-	resolve: {
-		alias: [
-			{ find: '$lib/state/editing.svelte', replacement: join(temporary, 'editing.ts') },
-			{ find: /^\$app\/(environment|state|navigation)$/, replacement: join(temporary, 'context.ts') },
-			{ find: '$lib', replacement: join(root, 'src/lib') }
-		]
-	},
-	server: { host: '127.0.0.1', port: 0, fs: { allow: [root, temporary] } }
+const server = await createProbeServer(temporary, {
+	tailwind: false,
+	aliases: [
+		{ find: '$lib/state/editing.svelte', replacement: join(temporary, 'editing.ts') },
+		{ find: /^\$app\/(environment|state|navigation)$/, replacement: join(temporary, 'context.ts') }
+	]
 });
-let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+let browser: ProbeBrowser | undefined;
 try {
-	await server.listen();
-	const address = server.httpServer!.address() as { port: number };
-	browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH });
+	const port = await listenOnPort(server);
+	browser = await launchProbeBrowser();
 	const page = await browser.newPage();
-	const errors: string[] = [];
-	page.on('pageerror', (error) => errors.push(error.message));
+	const errors = collectPageErrors(page);
 	await page.addInitScript(() => {
 		localStorage.setItem('giraf_pp3_clipboard', '[Crop]\nEnabled=true\nW=100\nH=100\n');
 		Object.defineProperty(navigator, 'clipboard', { value: { readText: async () => localStorage.getItem('giraf_pp3_clipboard'), writeText: async () => {} } });
 	});
 	for (const width of [1280, 390]) {
 		await page.setViewportSize({ width, height: 850 });
-		await page.goto(`http://127.0.0.1:${address.port}`);
+		await page.goto(`http://127.0.0.1:${port}`);
 		await page.locator('nav').first().waitFor({ state: 'attached' });
 		await page.locator('body').click({ position: { x: 5, y: 800 } });
 		await page.keyboard.press('v');
@@ -103,7 +88,5 @@ try {
 	}
 	assert.deepEqual(errors, []);
 } finally {
-	await browser?.close();
-	await server.close();
-	await rm(temporary, { recursive: true, force: true });
+	await closeProbe({ browser, server, temporary });
 }

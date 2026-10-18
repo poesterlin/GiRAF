@@ -9,8 +9,7 @@ import { prepareUploadSource } from '$lib/upload-source';
 import { UploadConcurrency } from '$lib/upload-concurrency';
 import { uploadResumable } from '$lib/resumable-upload';
 
-export type { UploadSessionTarget } from '$lib/upload-assignment';
-export type UploadBatchResult = { failedFiles: File[]; assignmentFailed: boolean; sessionId?: number };
+type UploadBatchResult = { failedFiles: File[]; assignmentFailed: boolean; sessionId?: number };
 export type UploadOptions = {
 	onFilePrepared?: (original: File, prepared: File) => Promise<void>;
 	onFileUploaded?: (file: File, id?: number, imported?: boolean, date?: string) => void;

@@ -45,62 +45,66 @@ export async function extractLocalPhotoPreview(file: File, options: { preferThum
 	return { url: URL.createObjectURL(preview), ...(capturedAt ? { capturedAt } : {}) };
 }
 
+// Returns the TIFF payload of the first APP1 Exif segment, or undefined if the JPEG header has none or is malformed.
+function findExifTiff(bytes: Uint8Array): Uint8Array | undefined {
+	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	let position = 2;
+	while (position + 4 <= bytes.length) {
+		if (bytes[position++] !== 0xff) return;
+		while (bytes[position] === 0xff) position++;
+		const marker = bytes[position++];
+		if (marker === 0xda || marker === 0xd9) return;
+		if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+		const size = view.getUint16(position);
+		if (size < 2 || position + size > bytes.length) return;
+		const start = position + 2;
+		if (marker === 0xe1 && new TextDecoder().decode(bytes.subarray(start, start + 6)) === 'Exif\0\0') return bytes.subarray(start + 6, position + size);
+		position += size;
+	}
+}
+
 // IFD offsets are relative to the TIFF header, and must stay inside this APP1.
 function readThumbnail(bytes: Uint8Array): Blob | undefined {
 	try {
-		const jpeg = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-		let position = 2;
-		while (position + 4 <= bytes.length) {
-			if (bytes[position++] !== 0xff) return;
-			while (bytes[position] === 0xff) position++;
-			const marker = bytes[position++];
-			if (marker === 0xda || marker === 0xd9) return;
-			if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
-			const size = jpeg.getUint16(position);
-			if (size < 2 || position + size > bytes.length) return;
-			const start = position + 2;
-			if (marker === 0xe1 && new TextDecoder().decode(bytes.subarray(start, start + 6)) === 'Exif\0\0') {
-				const tiff = bytes.subarray(start + 6, position + size);
-				const view = new DataView(tiff.buffer, tiff.byteOffset, tiff.byteLength);
-				const order = new TextDecoder().decode(tiff.subarray(0, 2));
-				if (order !== 'II' && order !== 'MM') return;
-				const little = order === 'II';
-				if (view.getUint16(2, little) !== 42) return;
-				const directory = (offset: number) => {
-					if (offset < 8 || offset + 2 > tiff.length) throw new Error('Invalid IFD');
-					const count = view.getUint16(offset, little);
-					const end = offset + 2 + count * 12;
-					if (end + 4 > tiff.length) throw new Error('Truncated IFD');
-					const values = new Map<number, number>();
-					for (let entry = offset + 2; entry < end; entry += 12) {
-						const type = view.getUint16(entry + 2, little);
-						const tag = view.getUint16(entry, little);
-						if ((tag === 0x201 || tag === 0x202) && type !== 4) continue;
-						if (tag === 0x112 && type !== 3) continue;
-						if (view.getUint32(entry + 4, little) !== 1) continue;
-						if (type === 3 || type === 4) values.set(view.getUint16(entry, little), type === 3 ? view.getUint16(entry + 8, little) : view.getUint32(entry + 8, little));
-					}
-					return { values, next: view.getUint32(end, little) };
-				};
-				const parent = directory(view.getUint32(4, little));
-				if (!parent.next) return;
-				const thumbnail = directory(parent.next).values;
-				const offset = thumbnail.get(0x201);
-				const length = thumbnail.get(0x202);
-				if (offset === undefined || length === undefined || offset < 8 || length < 4 || offset + length > tiff.length) return;
-				const data = tiff.subarray(offset, offset + length);
-				if (data[0] !== 255 || data[1] !== 216 || data[length - 2] !== 255 || data[length - 1] !== 217) return;
-				const dimensions = jpegDimensions(data);
-				if (dimensions && Math.max(...dimensions) < 160) return;
-				const orientation = thumbnail.get(0x112) ?? parent.values.get(0x112) ?? 1;
-				if (orientation < 1 || orientation > 8) return;
-				// Prepend a minimal orientation APP1. Decoders
-				// then apply the same EXIF transform as for the full camera preview.
-				const exif = new Uint8Array([255, 225, 0, 34, 69, 120, 105, 102, 0, 0, 77, 77, 0, 42, 0, 0, 0, 8, 0, 1, 1, 18, 0, 3, 0, 0, 0, 1, 0, orientation, 0, 0, 0, 0, 0, 0]);
-				return new Blob([data.slice(0, 2), exif, ...withoutExif(data)], { type: 'image/jpeg' });
+		const tiff = findExifTiff(bytes);
+		if (!tiff) return;
+		const view = new DataView(tiff.buffer, tiff.byteOffset, tiff.byteLength);
+		const order = new TextDecoder().decode(tiff.subarray(0, 2));
+		if (order !== 'II' && order !== 'MM') return;
+		const little = order === 'II';
+		if (view.getUint16(2, little) !== 42) return;
+		const directory = (offset: number) => {
+			if (offset < 8 || offset + 2 > tiff.length) throw new Error('Invalid IFD');
+			const count = view.getUint16(offset, little);
+			const end = offset + 2 + count * 12;
+			if (end + 4 > tiff.length) throw new Error('Truncated IFD');
+			const values = new Map<number, number>();
+			for (let entry = offset + 2; entry < end; entry += 12) {
+				const type = view.getUint16(entry + 2, little);
+				const tag = view.getUint16(entry, little);
+				if ((tag === 0x201 || tag === 0x202) && type !== 4) continue;
+				if (tag === 0x112 && type !== 3) continue;
+				if (view.getUint32(entry + 4, little) !== 1) continue;
+				if (type === 3 || type === 4) values.set(view.getUint16(entry, little), type === 3 ? view.getUint16(entry + 8, little) : view.getUint32(entry + 8, little));
 			}
-			position += size;
-		}
+			return { values, next: view.getUint32(end, little) };
+		};
+		const parent = directory(view.getUint32(4, little));
+		if (!parent.next) return;
+		const thumbnail = directory(parent.next).values;
+		const offset = thumbnail.get(0x201);
+		const length = thumbnail.get(0x202);
+		if (offset === undefined || length === undefined || offset < 8 || length < 4 || offset + length > tiff.length) return;
+		const data = tiff.subarray(offset, offset + length);
+		if (data[0] !== 255 || data[1] !== 216 || data[length - 2] !== 255 || data[length - 1] !== 217) return;
+		const dimensions = jpegDimensions(data);
+		if (dimensions && Math.max(...dimensions) < 160) return;
+		const orientation = thumbnail.get(0x112) ?? parent.values.get(0x112) ?? 1;
+		if (orientation < 1 || orientation > 8) return;
+		// Prepend a minimal orientation APP1. Decoders
+		// then apply the same EXIF transform as for the full camera preview.
+		const exif = new Uint8Array([255, 225, 0, 34, 69, 120, 105, 102, 0, 0, 77, 77, 0, 42, 0, 0, 0, 8, 0, 1, 1, 18, 0, 3, 0, 0, 0, 1, 0, orientation, 0, 0, 0, 0, 0, 0]);
+		return new Blob([data.slice(0, 2), exif, ...withoutExif(data)], { type: 'image/jpeg' });
 	} catch {
 		// Optional corrupt thumbnail metadata falls back to the full preview.
 	}
@@ -151,22 +155,8 @@ function jpegDimensions(bytes: Uint8Array): [number, number] | undefined {
 // Metadata is optional: malformed or larger-than-budget EXIF never prevents a preview.
 function readCaptureDate(bytes: Uint8Array): Date | undefined {
 	try {
-		const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-		let position = 2;
-		while (position + 4 <= bytes.length) {
-			if (bytes[position++] !== 0xff) return;
-			while (bytes[position] === 0xff) position++;
-			const marker = bytes[position++];
-			if (marker === 0xda || marker === 0xd9) return;
-			if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
-			const size = view.getUint16(position);
-			if (size < 2 || position + size > bytes.length) return;
-			const start = position + 2;
-			if (marker === 0xe1 && new TextDecoder().decode(bytes.subarray(start, start + 6)) === 'Exif\0\0') {
-				return readTiffDate(bytes.subarray(start + 6, position + size));
-			}
-			position += size;
-		}
+		const tiff = findExifTiff(bytes);
+		if (tiff) return readTiffDate(tiff);
 	} catch {
 		// Ignore corrupt optional metadata.
 	}

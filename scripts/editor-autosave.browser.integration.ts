@@ -1,30 +1,18 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, symlink, rm } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
-import { chromium } from 'playwright';
-import { createServer } from 'vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
-import tailwindcss from '@tailwindcss/vite';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { closeProbe, collectPageErrors, createProbeProject, createProbeServer, launchProbeBrowser, listenOnPort, repoRoot, type ProbeBrowser } from './lib/browser-probe';
 
 // Exercise the real autosave loop: the editing state, the version classifier and
 // the snapshot queue, with the server endpoints stubbed by the route handler.
-const root = resolve(import.meta.dir, '..');
-const temporary = await mkdtemp(join(tmpdir(), 'giraf-autosave-'));
-await symlink(join(root, 'node_modules'), join(temporary, 'node_modules'));
-await writeFile(join(temporary, 'index.html'), '<div id="app"></div><script type="module" src="/main.ts"></script>');
-await writeFile(join(temporary, 'fixture.css'), `@import '${root}/src/app.css'; @source '${root}/src';`);
-await writeFile(
-	join(temporary, 'main.ts'),
-	`import './fixture.css'; import { mount } from 'svelte'; import App from './App.svelte'; mount(App, { target: document.querySelector('#app') });`
-);
+const temporary = await createProbeProject({ prefix: 'giraf-autosave-', tailwind: true });
 await writeFile(
 	join(temporary, 'App.svelte'),
 	`
 <script>
- import EditorAutosave from '${root}/src/lib/ui/EditorAutosave.svelte';
+ import EditorAutosave from '${repoRoot}/src/lib/ui/EditorAutosave.svelte';
  import { edits } from '$lib/state/editing.svelte';
- import BasePP3 from '${root}/src/lib/assets/client.pp3?raw';
+ import BasePP3 from '${repoRoot}/src/lib/assets/client.pp3?raw';
  const image = { id: 12, whiteBalance: 5500, tint: 0 };
  edits.initialize(BasePP3, image);
  window.fixture = {
@@ -58,33 +46,25 @@ export const invalidateAll = async () => {};
 `
 );
 await writeFile(join(temporary, 'app.ts'), `export const app = { toasts: [], addToast: (message, type) => { window.toasts.push({ message, type }); return 'toast'; } };`);
-const server = await createServer({
-	root: temporary,
-	configFile: false,
-	plugins: [tailwindcss(), svelte({ configFile: false })],
-	resolve: {
-		alias: [
-			{ find: '$lib/state/app.svelte', replacement: join(temporary, 'app.ts') },
-			{ find: /^\$app\/(state|navigation)$/, replacement: join(temporary, 'context.svelte.ts') },
-			{ find: '$lib', replacement: join(root, 'src/lib') },
-			{ find: '$app/environment', replacement: join(temporary, 'app.ts') }
-		]
-	},
-	server: { host: '127.0.0.1', port: 0, fs: { allow: [root, temporary] } }
+const server = await createProbeServer(temporary, {
+	tailwind: true,
+	aliases: [
+		{ find: '$lib/state/app.svelte', replacement: join(temporary, 'app.ts') },
+		{ find: /^\$app\/(state|navigation)$/, replacement: join(temporary, 'context.svelte.ts') },
+		{ find: '$app/environment', replacement: join(temporary, 'app.ts') }
+	]
 });
 
 type Save = { method: string; body: { pp3: string; snapshotId?: number } };
-let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+let browser: ProbeBrowser | undefined;
 try {
-	await server.listen();
-	const address = server.httpServer!.address() as { port: number };
-	browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH });
+	const port = await listenOnPort(server);
+	browser = await launchProbeBrowser();
 	const page = await browser.newPage({ viewport: { width: 1280, height: 700 } });
-	const errors: string[] = [];
+	const errors = collectPageErrors(page);
 	const saves: Save[] = [];
 	let refuseUpdates = false;
 	let nextId = 70;
-	page.on('pageerror', (error) => errors.push(error.message));
 	await page.addInitScript(() => ((window as any).toasts = []));
 	await page.route('**/api/images/12/snapshots', async (route) => {
 		const request = route.request();
@@ -104,7 +84,7 @@ try {
 		}
 	}
 
-	await page.goto(`http://127.0.0.1:${address.port}/`);
+	await page.goto(`http://127.0.0.1:${port}/`);
 	await page.waitForFunction(() => Boolean((window as any).fixture?.edits?.currentImageId));
 	await page.evaluate(() => {
 		const state = (window as any).fixture.edits;
@@ -165,7 +145,5 @@ try {
 	assert.deepEqual(errors, []);
 	console.log('PASS: autosave debounces, updates in place, versions structural work, replaces refused versions and flushes on leave');
 } finally {
-	await browser?.close();
-	await server.close();
-	await rm(temporary, { recursive: true, force: true });
+	await closeProbe({ browser, server, temporary });
 }

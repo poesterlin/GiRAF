@@ -38,6 +38,18 @@ export async function findExportPath(image: Pick<Image, 'id' | 'recordedAt'>, se
 	}
 }
 
+async function moveMatches(names: string[], fromDir: string, toDir: string): Promise<void> {
+	if (!names.length) return;
+	await mkdir(toDir, { recursive: true });
+	for (const name of names) {
+		try {
+			await rename(join(fromDir, name), join(toDir, name));
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+		}
+	}
+}
+
 export async function moveExportFile(outputPath: string, archived: boolean): Promise<void> {
 	const archivedPath = join(dirname(outputPath), 'archived', basename(outputPath));
 	const source = archived ? outputPath : archivedPath;
@@ -52,13 +64,7 @@ export async function moveExportFile(outputPath: string, archived: boolean): Pro
 	const filename = basename(outputPath);
 	if (/^\d{6}_\d{6}_\d+\.jpg$/.test(filename)) {
 		const matches = names.filter((name) => exportImageId(name) === exportImageId(filename));
-		if (!matches.length) return;
-		await mkdir(dirname(destination), { recursive: true });
-		for (const name of matches) {
-			try { await rename(join(dirname(source), name), join(dirname(destination), name)); } catch (error) {
-				if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-			}
-		}
+		await moveMatches(matches, dirname(source), dirname(destination));
 		return;
 	}
 	const separator = filename.indexOf('_');
@@ -68,13 +74,5 @@ export async function moveExportFile(outputPath: string, archived: boolean): Pro
 		const index = name.indexOf('_');
 		return /^\d+$/.test(name.slice(0, index)) && Number(name.slice(0, index)) === id && name.slice(index) === filename.slice(separator);
 	});
-	if (!matches.length) return;
-	await mkdir(dirname(destination), { recursive: true });
-	for (const name of matches) {
-		try {
-			await rename(join(dirname(source), name), join(dirname(destination), name));
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-		}
-	}
+	await moveMatches(matches, dirname(source), dirname(destination));
 }

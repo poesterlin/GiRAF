@@ -16,6 +16,16 @@ const rotations: Record<number, number> = {
     8: 270
 };
 
+function webpResponse(buffer: Buffer) {
+    return new Response(buffer as any, {
+        headers: {
+            'Content-Type': 'image/webp',
+            'Content-Length': String(buffer.length),
+            'Cache-Control': `public, max-age=${31536000}`
+        },
+    });
+}
+
 export const GET: RequestHandler = async ({ params, url }) => {
     const id = Number(params.id);
     const requestedSize = Number(url.searchParams.get("size") || 400);
@@ -39,13 +49,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
             .webp({ quality })
             .toBuffer();
 
-        return new Response(buffer as any, {
-            headers: {
-                'Content-Type': 'image/webp',
-                'Content-Length': String(buffer.length),
-                'Cache-Control': `public, max-age=${31536000}`
-            },
-        });
+        return webpResponse(buffer);
     }
 
     if (!await Bun.file(image.filepath).exists()) {
@@ -88,13 +92,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
             .webp({ quality })
             .toBuffer();
 
-        return new Response(buffer as any, {
-            headers: {
-                'Content-Type': 'image/webp',
-                'Content-Length': String(buffer.length),
-                'Cache-Control': `public, max-age=${31536000}`
-            },
-        });
+        return webpResponse(buffer);
     } catch (err) {
         console.error("Error extracting thumbnail:", err);
     }

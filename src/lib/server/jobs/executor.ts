@@ -1,10 +1,10 @@
 import { areSimilar } from '$lib/similar-images';
-import { parsePP3, stringifyPP3 } from '$lib/pp3-utils';
+import { stringifyPP3 } from '$lib/pp3-utils';
 import { db } from '$lib/server/db';
 import { editImage, generateImportTif, importProfileFor, mapCropFromPreviewToExport } from '$lib/server/image-editor';
 import { acquireDevelopBase } from '$lib/server/develop-cache';
 import { bmvbhash } from 'blockhash-core';
-import { and, asc, desc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
 import { readFile, mkdir, rm, stat } from 'fs/promises';
 import { decode } from 'jpeg-js';
 import { dirname, join } from 'path';
@@ -16,7 +16,7 @@ async function fileExists(path: string) {
 		return false;
 	}
 }
-import { imageTable, mediaTable, sessionTable, snapshotTable, albumTable, type Album, type Image, type Session } from '../db/schema';
+import { imageTable, mediaTable, sessionTable, albumTable, type Album, type Image, type Session } from '../db/schema';
 import type { ExportPayload, ImportPayload, JobResult } from './types';
 import { integrations } from '../integrations';
 import { exiftool } from 'exiftool-vendored';
@@ -25,8 +25,9 @@ import { makeOutputPath, moveExportFile, findExportPath } from '../export-files'
 import { calculateImportBaseline } from '../auto-exposure';
 import { sameProfile } from '../redevelop';
 import { withinDirectory } from '../session-delete';
+import { loadEditPP3 } from '../image-records';
 import { env } from '$env/dynamic/private';
-export { makeOutputPath, makeSessionPath } from '../export-files';
+export { makeSessionPath } from '../export-files';
 
 export async function runImport(payload: ImportPayload, signal?: AbortSignal): Promise<JobResult> {
 	const { sessionId, redevelop = false } = payload;
@@ -188,12 +189,7 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 				console.log(`[Executor] Exporting ${image.filepath}`);
 				// Stamp the export with when it started, so an edit saved while rendering is exported again
 				const exportStartedAt = new Date();
-				const edit = await db.query.snapshotTable.findFirst({
-					where: eq(snapshotTable.imageId, image.id),
-					orderBy: desc(snapshotTable.createdAt)
-				});
-
-				const pp3 = parsePP3(edit?.pp3 ?? image.importBaseline ?? '');
+				const pp3 = await loadEditPP3(image);
 				await ensureDir(outputPath);
 
 				// Two-step pipeline: RAW → cached full-res develop base (intermediate representation) → JPEG

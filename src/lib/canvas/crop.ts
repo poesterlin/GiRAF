@@ -95,6 +95,18 @@ export function getPreviewDimensions(
 	return { width: Math.round(previewWidth), height: Math.round(previewHeight) };
 }
 
+/** Flip a crop with negative width or height so that W and H are positive, moving X or Y to match. */
+export function normalizeCropSize(crop: Record<string, number>): void {
+	if (crop.W < 0) {
+		crop.X += crop.W;
+		crop.W = -crop.W;
+	}
+	if (crop.H < 0) {
+		crop.Y += crop.H;
+		crop.H = -crop.H;
+	}
+}
+
 export function sanitizeCrop(
 	crop: CropRect,
 	imageDimensions: Dimensions,
@@ -105,15 +117,7 @@ export function sanitizeCrop(
 	crop.W = safeNumber(crop.W);
 	crop.H = safeNumber(crop.H);
 
-	// normalize negative sizes
-	if (crop.W < 0) {
-		crop.X += crop.W;
-		crop.W = -crop.W;
-	}
-	if (crop.H < 0) {
-		crop.Y += crop.H;
-		crop.H = -crop.H;
-	}
+	normalizeCropSize(crop);
 
 	crop.W = Math.max(20, crop.W);
 	crop.H = Math.max(20, crop.H);

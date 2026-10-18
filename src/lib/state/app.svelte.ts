@@ -10,7 +10,7 @@ interface Toast {
 }
 
 /** Repeats of a keyed toast keep counting instead of adding another. */
-export interface ToastOptions {
+interface ToastOptions {
 	key?: string;
 	/** Message once more than one repeat has folded in. */
 	countMessage?: (count: number) => string;

@@ -15,7 +15,7 @@ export const SNAPSHOT_INTERVAL_MS = 10 * 60 * 1000;
 export const SNAPSHOT_DISTANCE = 2.5;
 
 /** Chapters whose chapters describe geometry, looks or localised work. */
-export const structuralChapters = [
+const structuralChapters = [
 	'Crop',
 	'Rotation',
 	'Coarse_Transformation',
@@ -45,7 +45,7 @@ const fieldScales: Record<string, number> = {
 type ChangedField = { chapter: string; key: string; previous: unknown; next: unknown };
 
 /** Every field that differs, including fields and chapters that were removed. */
-export function changedPP3Fields(base: PP3, target: PP3): ChangedField[] {
+function changedPP3Fields(base: PP3, target: PP3): ChangedField[] {
 	const changed: ChangedField[] = [];
 	const chapters = new Set([...Object.keys(base ?? {}), ...Object.keys(target ?? {})]);
 	for (const chapter of chapters) {

@@ -6,7 +6,7 @@ import type { PageServerLoad } from "./$types";
 const RECENT_STRIP = 24;
 const RECENT_SHEET = 150;
 
-export type GalleryView = { kind: 'sessions'; sessionId?: number; sort: SessionSort } | { kind: 'recent' } | { kind: 'archived' } | { kind: 'tag'; tag: string };
+type GalleryView = { kind: 'sessions'; sessionId?: number; sort: SessionSort } | { kind: 'recent' } | { kind: 'archived' } | { kind: 'tag'; tag: string };
 
 export const load: PageServerLoad = async ({ fetch, url, cookies }) => {
 	const tag = url.searchParams.get('tag');

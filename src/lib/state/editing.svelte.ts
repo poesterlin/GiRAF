@@ -12,7 +12,7 @@ import { creativeDefaults } from '$lib/creative-adjustments';
 
 type EditState = { settings: PP3; disabledGroups: string[]; editStrength: number };
 type SavedVersion = { imageId: string; id: number; createdAt: number; settings: PP3; exported: boolean };
-export type SnapshotOutcome = 'create' | 'update' | 'unchanged';
+type SnapshotOutcome = 'create' | 'update' | 'unchanged';
 
 class EditingState {
 	public currentImageId = $state<string | null>(null);

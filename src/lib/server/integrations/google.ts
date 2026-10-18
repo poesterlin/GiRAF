@@ -34,6 +34,20 @@ function maskHeadersForLog(headers: Record<string, string> | undefined): string 
 	}
 }
 
+function formatResponseHeaders(res: Response): string {
+	return Array.from(res.headers.entries())
+		.map(([k, v]) => `${k}: ${truncate(v, 200)}`)
+		.join(', ');
+}
+
+// A created media item counts as ok when it has a mediaItem and either status code 0, a success message, or no status.
+function isMediaItemCreated(result: any): boolean {
+	const statusCode = result?.status?.code;
+	const statusMessage = (result?.status?.message || '').toString().toLowerCase();
+	const hasMediaItem = !!result?.mediaItem;
+	return hasMediaItem && (statusCode === 0 || statusMessage.includes('success') || !result?.status);
+}
+
 class Semaphore {
 	private max: number;
 	private count: number;
@@ -151,10 +165,7 @@ class CreateBatcher {
 					it.reject(new Error(`Google.createMediaItem: missing result for item ${i}`));
 					continue;
 				}
-				const statusCode = r?.status?.code;
-				const statusMessage = (r?.status?.message || '').toString().toLowerCase();
-				const hasMediaItem = !!r?.mediaItem;
-				const ok = hasMediaItem && (statusCode === 0 || statusMessage.includes('success') || !r?.status);
+				const ok = isMediaItemCreated(r);
 				if (!ok) {
 					it.reject(new Error(`Google.createMediaItem failed for ${it.filename}: ${JSON.stringify(r ?? data)}`));
 					continue;
@@ -343,9 +354,7 @@ export class GooglePhotosProvider implements PhotoIntegration {
 						.clone()
 						.text()
 						.catch(() => '<unable to read body>');
-					const respHeaders = Array.from(res.headers.entries())
-						.map(([k, v]) => `${k}: ${truncate(v, 200)}`)
-						.join(', ');
+					const respHeaders = formatResponseHeaders(res);
 					console.warn(
 						`Google API ${methodOrUrlForLog(init.method, url)} returned ${status} ${res.statusText}; attempt ${attempt}/${maxAttempts}; requestHeaders=[${maskedHeaders}]; responseHeaders=[${respHeaders}]; responseBody=${truncate(cloneBody, 1000)}`
 					);
@@ -427,9 +436,7 @@ export class GooglePhotosProvider implements PhotoIntegration {
 			if (!res.ok) {
 				// If we cannot query album contents, return null (unknown) so callers can try removal rather than assuming absence.
 				const responseText = await res.text().catch(() => '<no body>');
-				const respHeaders = Array.from(res.headers.entries())
-					.map(([k, v]) => `${k}: ${truncate(v, 200)}`)
-					.join(', ');
+				const respHeaders = formatResponseHeaders(res);
 				const reqBodyTrunc = truncate(JSON.stringify(body), 2000);
 				console.warn(
 					`Google.isMediaInAlbum: mediaItems.search failed ${res.status} ${res.statusText}; request=${methodOrUrlForLog('POST', `${GOOGLE_API_BASE}/mediaItems:search`)}; album=${albumId}; mediaId=${mediaId}; pageToken=${pageToken ?? '<none>'}; requestBody=${reqBodyTrunc}; responseHeaders=[${respHeaders}]; responseBody=${truncate(responseText, 2000)}`
@@ -489,9 +496,7 @@ export class GooglePhotosProvider implements PhotoIntegration {
 					if (still === null) return true;
 				} else {
 					const text = await rem.text().catch(() => '<no body>');
-					const respHeaders = Array.from(rem.headers.entries())
-						.map(([k, v]) => `${k}: ${truncate(v, 200)}`)
-						.join(', ');
+					const respHeaders = formatResponseHeaders(rem);
 					console.warn(
 						`Google.ensureRemovedFromAlbum: remove returned ${rem.status} ${rem.statusText}; album=${albumId}; mediaId=${oldMediaId}; responseHeaders=[${respHeaders}]; responseBody=${truncate(text, 1000)}`
 					);
@@ -547,9 +552,7 @@ export class GooglePhotosProvider implements PhotoIntegration {
 		});
 		if (!res.ok) {
 			const body = await res.text().catch(() => '<no body>');
-			const respHeaders = Array.from(res.headers.entries())
-				.map(([k, v]) => `${k}: ${truncate(v, 200)}`)
-				.join(', ');
+			const respHeaders = formatResponseHeaders(res);
 			console.warn(
 				`Google.replaceInAlbum create failed ${res.status} ${res.statusText}; album=${album.externalId}; filename=${filename}; responseHeaders=[${respHeaders}]; response=${truncate(body, 1000)}`
 			);
@@ -568,10 +571,7 @@ export class GooglePhotosProvider implements PhotoIntegration {
 		else if (data.newMediaItemResult) r = data.newMediaItemResult;
 		else r = data;
 
-		const statusCode = r?.status?.code;
-		const statusMessage = (r?.status?.message || '').toString().toLowerCase();
-		const hasMediaItem = !!r?.mediaItem;
-		const ok = hasMediaItem && (statusCode === 0 || statusMessage.includes('success') || !r?.status);
+		const ok = isMediaItemCreated(r);
 		if (!ok) {
 			console.warn('Google.replaceInAlbum: unexpected create response:', truncate(JSON.stringify(r ?? data), 2000));
 			throw new Error(`Google.replaceInAlbum create failed: ${JSON.stringify(r ?? data)}`);

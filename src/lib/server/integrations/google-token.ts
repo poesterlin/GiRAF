@@ -5,7 +5,7 @@ import path from 'path';
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 const TOKEN_FILE = path.join(DATA_DIR, 'google_tokens.json');
 
-export type StoredTokens = {
+type StoredTokens = {
 	access_token?: string;
 	refresh_token?: string;
 	expires_at?: number; // epoch ms
@@ -15,7 +15,7 @@ function ensureDataDir() {
 	if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-export function readTokens(): StoredTokens {
+function readTokens(): StoredTokens {
 	ensureDataDir();
 	try {
 		if (!fs.existsSync(TOKEN_FILE)) return {};
@@ -27,7 +27,7 @@ export function readTokens(): StoredTokens {
 	}
 }
 
-export function writeTokens(t: StoredTokens) {
+function writeTokens(t: StoredTokens) {
 	ensureDataDir();
 	fs.writeFileSync(TOKEN_FILE, JSON.stringify(t, null, 2), 'utf8');
 }

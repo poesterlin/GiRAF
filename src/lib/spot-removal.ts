@@ -23,11 +23,8 @@ export type SpotEntry = {
 };
 export type SpotRemovalSettings = { enabled: boolean; entries: SpotEntry[] };
 
-export const SPOT_MIN_RADIUS = 1;
-export const SPOT_MAX_RADIUS = 400;
-export const SPOT_DEFAULT_RADIUS = 25;
-export const SPOT_DEFAULT_FEATHER = 1;
-export const SPOT_DEFAULT_OPACITY = 1;
+const SPOT_MIN_RADIUS = 1;
+const SPOT_MAX_RADIUS = 400;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 

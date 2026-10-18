@@ -3,6 +3,7 @@
 	import BasePP3 from '$lib/assets/client.pp3?raw';
 	import { edits } from '$lib/state/editing.svelte';
 	import { excludePP3, toBase64 } from '$lib/pp3-utils';
+	import { DoubleTapDetector } from '$lib/double-tap';
 	import { maskIndices, maskSize, setMaskSize } from '$lib/local-masks';
 	import LocalMasks from '$lib/ui/LocalMasks.svelte';
 	import EditorToolPanel from '$lib/ui/EditorToolPanel.svelte';
@@ -20,8 +21,7 @@
 	let zoom = $state(1);
 	let pan = $state({ x: 0, y: 0 });
 	const pointers = new Map<number, { x: number; y: number }>();
-	let tapStart: { id: number; x: number; y: number; time: number } | undefined;
-	let lastTap: { x: number; y: number; time: number; type: string } | undefined;
+	const doubleTap = new DoubleTapDetector();
 	let gesture: { x: number; y: number; panX: number; panY: number } | undefined;
 	let pinch: { distance: number; zoom: number; x: number; y: number; panX: number; panY: number } | undefined;
 	let surface = $state<HTMLDivElement>();
@@ -56,7 +56,7 @@
 			if (loadedImageId === image.id) return;
 			loadedImageId = image.id;
 			zoom = 1; pan = { x: 0, y: 0 }; pointers.clear(); drag = undefined;
-			gesture = undefined; pinch = undefined; tapStart = undefined; lastTap = undefined;
+			gesture = undefined; pinch = undefined; doubleTap.reset();
 			compare = false; showOverlay = true;
 		});
 	});
@@ -99,9 +99,8 @@
 		if (event.button !== 0) return;
 		event.preventDefault();
 		pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-		tapStart = pointers.size === 1 ? { id: event.pointerId, x: event.clientX, y: event.clientY, time: performance.now() } : undefined;
+		doubleTap.down(event, pointers.size);
 		if (pointers.size === 2) {
-			lastTap = undefined;
 			if (drag) { drag = undefined; edits.pushHistory(true); }
 			const [a, b] = [...pointers.values()];
 			const middle = localPoint((a.x + b.x) / 2, (a.y + b.y) / 2);
@@ -114,7 +113,7 @@
 	}
 	function surfaceMove(event: PointerEvent) {
 		if (!pointers.has(event.pointerId)) return;
-		if (tapStart && Math.hypot(event.clientX - tapStart.x, event.clientY - tapStart.y) > 10) { tapStart = undefined; lastTap = undefined; }
+		doubleTap.move(event);
 		pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 		if (pinch && pointers.size === 2) {
 			const [a, b] = [...pointers.values()];
@@ -129,14 +128,7 @@
 	}
 	function surfaceEnd(event: PointerEvent) {
 		if (!pointers.has(event.pointerId)) return;
-		const now = performance.now();
-		if (event.type === 'pointerup' && tapStart?.id === event.pointerId && now - tapStart.time < 300 && Math.hypot(event.clientX - tapStart.x, event.clientY - tapStart.y) <= 10) {
-			if (lastTap && lastTap.type === event.pointerType && now - lastTap.time < 350 && Math.hypot(event.clientX - lastTap.x, event.clientY - lastTap.y) < 32) {
-				setZoom(zoom > 1.05 ? 1 : 3.2, localPoint(event.clientX, event.clientY));
-				lastTap = undefined;
-			} else lastTap = { x: event.clientX, y: event.clientY, time: now, type: event.pointerType };
-		} else lastTap = undefined;
-		tapStart = undefined;
+		if (doubleTap.up(event)) setZoom(zoom > 1.05 ? 1 : 3.2, localPoint(event.clientX, event.clientY));
 		pointers.delete(event.pointerId);
 		pinch = undefined;
 		gesture = undefined;

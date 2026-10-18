@@ -1,28 +1,16 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, symlink, rm } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
-import { chromium } from 'playwright';
-import { createServer } from 'vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
-import tailwindcss from '@tailwindcss/vite';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { closeProbe, collectPageErrors, createProbeProject, createProbeServer, launchProbeBrowser, listenOnPort, repoRoot, type ProbeBrowser } from './lib/browser-probe';
 
 // Exercise the real adjustment groups and the desktop limit that keeps the
 // panel from turning into a wall of open sections.
-const root = resolve(import.meta.dir, '..');
-const temporary = await mkdtemp(join(tmpdir(), 'giraf-groups-'));
-await symlink(join(root, 'node_modules'), join(temporary, 'node_modules'));
-await writeFile(join(temporary, 'index.html'), '<div id="app"></div><script type="module" src="/main.ts"></script>');
-await writeFile(join(temporary, 'fixture.css'), `@import '${root}/src/app.css'; @source '${root}/src';`);
-await writeFile(
-	join(temporary, 'main.ts'),
-	`import './fixture.css'; import { mount } from 'svelte'; import App from './App.svelte'; mount(App, { target: document.querySelector('#app') });`
-);
+const temporary = await createProbeProject({ prefix: 'giraf-groups-', tailwind: true });
 await writeFile(
 	join(temporary, 'App.svelte'),
 	`
 <script>
- import Section from '${root}/src/lib/ui/Section.svelte';
+ import Section from '${repoRoot}/src/lib/ui/Section.svelte';
  import { limitExpandedGroups } from '$lib/ui/adjustment-expansion';
  const sections = ['Light', 'Colour', 'Detail', 'Grain', 'Vignette', 'Mask'];
 </script>
@@ -43,30 +31,20 @@ export const edits = {
 };
 `
 );
-const server = await createServer({
-	root: temporary,
-	configFile: false,
-	plugins: [tailwindcss(), svelte({ configFile: false })],
-	resolve: {
-		alias: [
-			{ find: '$lib/state/editing.svelte', replacement: join(temporary, 'editing.ts') },
-			{ find: '$lib', replacement: join(root, 'src/lib') }
-		]
-	},
-	server: { host: '127.0.0.1', port: 0, fs: { allow: [root, temporary] } }
+const server = await createProbeServer(temporary, {
+	tailwind: true,
+	aliases: [{ find: '$lib/state/editing.svelte', replacement: join(temporary, 'editing.ts') }]
 });
-let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+let browser: ProbeBrowser | undefined;
 try {
-	await server.listen();
-	const address = server.httpServer!.address() as { port: number };
-	browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH });
+	const port = await listenOnPort(server);
+	browser = await launchProbeBrowser();
 	const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-	const errors: string[] = [];
-	page.on('pageerror', (error) => errors.push(error.message));
+	const errors = collectPageErrors(page);
 	const openGroups = () =>
 		page.evaluate(() => Array.from(document.querySelectorAll('details[data-adjustment-group][open]')).map((details) => details.getAttribute('data-adjustment-group')));
 
-	await page.goto(`http://127.0.0.1:${address.port}/`);
+	await page.goto(`http://127.0.0.1:${port}/`);
 	await page.locator('details[data-adjustment-group]').first().waitFor();
 	assert.deepEqual(await openGroups(), []);
 
@@ -89,7 +67,5 @@ try {
 	assert.deepEqual(errors, []);
 	console.log('PASS: desktop keeps the last four groups open, mobile keeps one at a time');
 } finally {
-	await browser?.close();
-	await server.close();
-	await rm(temporary, { recursive: true, force: true });
+	await closeProbe({ browser, server, temporary });
 }

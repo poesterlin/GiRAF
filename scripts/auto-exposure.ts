@@ -5,7 +5,7 @@ export type ExposureValues = [number, number, number, number, number, number];
 
 // Bound native decoding and the RGB buffer (at most 384 MiB). The parent also
 // imposes a wall-clock deadline, including JS histogram analysis.
-export const MAX_ANALYSIS_PIXELS = 64 * 1024 * 1024;
+const MAX_ANALYSIS_PIXELS = 64 * 1024 * 1024;
 const MAX_TIFF_BYTES = 1024 * 1024 * 1024;
 const BINS = 8192;
 const f = Math.fround;

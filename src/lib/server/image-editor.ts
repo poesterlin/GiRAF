@@ -200,7 +200,7 @@ export async function getImageDimensions(path: string): Promise<{ width: number;
     }
 }
 
-export function mapCropToTarget(pp3: PP3, sourceWidth: number, sourceHeight: number, targetWidth: number, targetHeight: number): PP3 {
+function mapCropToTarget(pp3: PP3, sourceWidth: number, sourceHeight: number, targetWidth: number, targetHeight: number): PP3 {
     if (!pp3.Crop) {
         return pp3;
     }
@@ -260,23 +260,4 @@ export async function mapCropFromPreviewToExport(pp3: PP3, previewPath: string |
 
     const mapped = mapSpotRemovalToTarget(pp3, previewDims.width, previewDims.height, exportDims.width, exportDims.height);
     return mapCropToTarget(mapped, previewDims.width, previewDims.height, exportDims.width, exportDims.height);
-}
-
-export function setWhiteBalance(pp3: PP3, temperature: number | null, green: number | null): PP3 {
-    if (temperature === null || green === null) {
-        return pp3;
-    }
-
-    if (pp3.White_Balance?.Setting !== 'Custom') {
-        return pp3;
-    }
-
-    const whiteBalanceMatches = pp3.White_Balance?.Temperature === temperature && pp3.White_Balance?.Green === green;
-    const tintMatches = pp3.White_Balance?.Green === green;
-
-    if (whiteBalanceMatches && tintMatches) {
-        pp3.White_Balance.Setting = 'Camera';
-    }
-
-    return pp3;
 }

@@ -1,29 +1,17 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, symlink, rm } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
-import { chromium } from 'playwright';
-import { createServer } from 'vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
-import tailwindcss from '@tailwindcss/vite';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { closeProbe, collectPageErrors, createProbeProject, createProbeServer, launchProbeBrowser, listenOnPort, repoRoot, type ProbeBrowser } from './lib/browser-probe';
 
 // Exercise the real shared layout, footer, tool history binding, and filters,
 // without connecting to a photo database or writing any real edits.
-const root = resolve(import.meta.dir, '..');
-const temporary = await mkdtemp(join(tmpdir(), 'giraf-footer-'));
-await symlink(join(root, 'node_modules'), join(temporary, 'node_modules'));
-await writeFile(join(temporary, 'index.html'), '<div id="app"></div><script type="module" src="/main.ts"></script>');
-await writeFile(join(temporary, 'fixture.css'), `@import '${root}/src/app.css'; @source '${root}/src';`);
-await writeFile(
-	join(temporary, 'main.ts'),
-	`import './fixture.css'; import { mount } from 'svelte'; import App from './App.svelte'; mount(App, { target: document.querySelector('#app') });`
-);
+const temporary = await createProbeProject({ prefix: 'giraf-footer-', tailwind: true });
 await writeFile(
 	join(temporary, 'App.svelte'),
 	`
 <script>
- import Layout from '${root}/src/routes/editor/[img]/+layout.svelte';
- import HistoryBinding from '${root}/src/lib/ui/EditorHistoryBinding.svelte';
+ import Layout from '${repoRoot}/src/routes/editor/[img]/+layout.svelte';
+ import HistoryBinding from '${repoRoot}/src/lib/ui/EditorHistoryBinding.svelte';
 </script>
 <div class="h-[500px] w-full bg-neutral-950">
  <Layout>
@@ -65,31 +53,20 @@ window.fixture = { page: undefined, edits };
 `
 );
 await writeFile(join(temporary, 'app.ts'), `export const app = { toasts: [], addToast: () => 'toast' };`);
-const server = await createServer({
-	root: temporary,
-	configFile: false,
-	plugins: [tailwindcss(), svelte({ configFile: false })],
-	resolve: {
-		alias: [
-			{ find: '$lib/state/editing.svelte', replacement: join(temporary, 'editing.svelte.ts') },
-			{ find: '$lib/state/app.svelte', replacement: join(temporary, 'app.ts') },
-			{ find: /^\$app\/(state|navigation)$/, replacement: join(temporary, 'context.svelte.ts') },
-			{ find: '$lib', replacement: join(root, 'src/lib') }
-		]
-	},
-	server: { host: '127.0.0.1', port: 0, fs: { allow: [root, temporary] } }
+const server = await createProbeServer(temporary, {
+	tailwind: true,
+	aliases: [
+		{ find: '$lib/state/editing.svelte', replacement: join(temporary, 'editing.svelte.ts') },
+		{ find: '$lib/state/app.svelte', replacement: join(temporary, 'app.ts') },
+		{ find: /^\$app\/(state|navigation)$/, replacement: join(temporary, 'context.svelte.ts') }
+	]
 });
-let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+let browser: ProbeBrowser | undefined;
 try {
-	await server.listen();
-	const address = server.httpServer!.address() as { port: number };
-	browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH });
+	const port = await listenOnPort(server);
+	browser = await launchProbeBrowser();
 	const page = await browser.newPage({ viewport: { width: 1280, height: 700 } });
-	const errors: string[] = [];
-	page.on('pageerror', (error) => {
-		errors.push(error.message);
-		console.error(error.message);
-	});
+	const errors = collectPageErrors(page, { log: true });
 	await page.route('**/api/images/12/archive', async (route) => {
 		await page.evaluate((method) => {
 			(window as any).archiveMethod = method;
@@ -97,7 +74,7 @@ try {
 		await route.fulfill({ status: 200, body: '{}' });
 	});
 	for (const tool of ['adjustments', 'crop', 'masks', 'retouch']) {
-		await page.goto(`http://127.0.0.1:${address.port}/?tool=${tool}`);
+		await page.goto(`http://127.0.0.1:${port}/?tool=${tool}`);
 		const footer = page.getByRole('navigation', { name: 'Image navigation' });
 		await footer.getByRole('button', { name: 'Undo', exact: true }).waitFor();
 		assert.equal(await footer.getByRole('button', { name: 'Save edits' }).count(), 0, 'autosave replaces the manual save button');
@@ -160,7 +137,5 @@ try {
 	assert.deepEqual(errors, []);
 	console.log('PASS: mobile footer controls remain available');
 } finally {
-	await browser?.close();
-	await server.close();
-	await rm(temporary, { recursive: true, force: true });
+	await closeProbe({ browser, server, temporary });
 }

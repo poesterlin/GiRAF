@@ -1,4 +1,5 @@
 import type { PP3 } from "$lib/pp3-utils";
+import { normalizeCropSize } from "$lib/canvas/crop";
 
 export function getCropHandles(pp3: PP3<number>) {
     const crop = pp3.Crop;
@@ -211,15 +212,7 @@ export function moveHandle(
     }
 
     // recitfy crop dimensions
-    if (crop.W < 0) {
-        crop.X += crop.W;
-        crop.W = -crop.W;
-    }
-
-    if (crop.H < 0) {
-        crop.Y += crop.H;
-        crop.H = -crop.H;
-    }
+    normalizeCropSize(crop);
 
     // Use bounds if provided, otherwise fall back to dimensions
     const minX = bounds?.left ?? 0;

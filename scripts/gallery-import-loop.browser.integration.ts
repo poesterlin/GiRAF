@@ -1,21 +1,14 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, symlink, rm } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
-import { chromium } from 'playwright';
-import { createServer } from 'vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { closeProbe, collectPageErrors, createProbeProject, createProbeServer, launchProbeBrowser, listenOnPort, repoRoot, type ProbeBrowser } from './lib/browser-probe';
 
-const root = resolve(import.meta.dir, '..');
-const temporary = await mkdtemp(join(tmpdir(), 'giraf-gallery-loop-'));
-await symlink(join(root, 'node_modules'), join(temporary, 'node_modules'));
-await writeFile(join(temporary, 'index.html'), '<div id="app"></div><script type="module" src="/main.ts"></script>');
-await writeFile(join(temporary, 'main.ts'), `import { mount } from 'svelte'; import App from './App.svelte'; mount(App, { target: document.querySelector('#app') });`);
+const temporary = await createProbeProject({ prefix: 'giraf-gallery-loop-', tailwind: false });
 await writeFile(
 	join(temporary, 'App.svelte'),
 	`
 <script>
- import Gallery from '${root}/src/routes/gallery/+page.svelte';
+ import Gallery from '${repoRoot}/src/routes/gallery/+page.svelte';
  let data = $state({
   triageEnabled: true,
   next: 10,
@@ -30,40 +23,30 @@ await writeFile(
 );
 await writeFile(join(temporary, 'navigation.ts'), `export const invalidateAll = async () => {};`);
 await writeFile(join(temporary, 'app.ts'), `export const app = { addToast: () => {} };`);
-const server = await createServer({
-	root: temporary,
-	configFile: false,
-	plugins: [svelte({ configFile: false })],
-	optimizeDeps: { noDiscovery: true },
-	resolve: {
-		alias: [
-			{ find: '$app/navigation', replacement: join(temporary, 'navigation.ts') },
-			{ find: '$lib/state/app.svelte', replacement: join(temporary, 'app.ts') },
-			{ find: '$lib', replacement: join(root, 'src/lib') }
-		]
-	},
-	server: { host: '127.0.0.1', port: 0, fs: { allow: [root, temporary] } }
+const server = await createProbeServer(temporary, {
+	tailwind: false,
+	noDiscovery: true,
+	aliases: [
+		{ find: '$app/navigation', replacement: join(temporary, 'navigation.ts') },
+		{ find: '$lib/state/app.svelte', replacement: join(temporary, 'app.ts') }
+	]
 });
-let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+let browser: ProbeBrowser | undefined;
 try {
-	await server.listen();
-	const address = server.httpServer!.address() as { port: number };
-	browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH });
+	const port = await listenOnPort(server);
+	browser = await launchProbeBrowser();
 	const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-	const errors: string[] = [];
-	page.on('pageerror', (error) => errors.push(error.message));
+	const errors = collectPageErrors(page);
 	await page.route('**/api/sessions/1/import', async (route) => {
 		await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'running' }) });
 	});
 	await page.route('**/api/sessions?cursor=*', async (route) => {
 		await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sessions: [], next: null }) });
 	});
-	await page.goto(`http://127.0.0.1:${address.port}`, { waitUntil: 'networkidle' });
+	await page.goto(`http://127.0.0.1:${port}`, { waitUntil: 'networkidle' });
 	await page.evaluate(() => window.dispatchEvent(new Event('resize')));
 	console.log('CAPTURED_ERRORS:', JSON.stringify(errors));
 	assert.deepEqual(errors, [], `Expected zero runtime errors, got: ${errors.join(' | ')}`);
 } finally {
-	await browser?.close();
-	await server.close();
-	await rm(temporary, { recursive: true, force: true });
+	await closeProbe({ browser, server, temporary });
 }
