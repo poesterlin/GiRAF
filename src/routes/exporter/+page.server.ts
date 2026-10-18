@@ -44,6 +44,10 @@ export const actions: Actions = {
 			.where(eq(sessionTable.id, Number(sessionId)))
 			.limit(1);
 
+		if (!session) {
+			return fail(404, { error: 'Session not found' });
+		}
+
 		const year = new Date(session.startedAt).getFullYear();
 		const title = `${session.name} - ${year}`;
 
