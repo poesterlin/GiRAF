@@ -28,9 +28,39 @@ export function exportSettingsKey(settings: ExportSettings): string {
 	return `${settings.quality}:${settings.longEdge}`;
 }
 
-/** Adds the export size to an edit. */
+/** Adds the export size and post-resize sharpening to an edit. */
 export function applyExportSettings(pp3: PP3, settings: ExportSettings): PP3 {
-	return settings.longEdge ? withLongEdge(pp3, settings.longEdge) : pp3;
+	if (!settings.longEdge) return pp3;
+	return withPostResizeSharpening(withLongEdge(pp3, settings.longEdge));
+}
+
+/**
+ * RawTherapee's post-resize sharpening at its own defaults. Shrinking a photo for export is where
+ * it loses crispness, and this is the sharpening RawTherapee provides for exactly that: it runs
+ * after the resize, so it cannot be softened again by one. Full-size exports get nothing, because
+ * the photo's own Sharpening already ran.
+ */
+export const postResizeSharpening = {
+	Enabled: true,
+	Method: 'rld',
+	Contrast: 15,
+	Radius: 0.5,
+	Amount: 200,
+	Threshold: '20;80;2000;1200;',
+	OnlyEdges: false,
+	EdgedetectionRadius: 1.9,
+	EdgeTolerance: 1800,
+	HalocontrolEnabled: false,
+	HalocontrolAmount: 85,
+	DeconvRadius: 0.45,
+	DeconvAmount: 100,
+	DeconvDamping: 0,
+	DeconvIterations: 100
+};
+
+/** A moderate sharpen for a resized export, leaving whatever the photo already had alone. */
+export function withPostResizeSharpening(pp3: PP3): PP3 {
+	return { ...pp3, PostResizeSharpening: { ...postResizeSharpening } };
 }
 
 /** Shrinks a render to `longEdge` pixels. Resizing applies after the crop, so the long edge is the cropped photo's. */

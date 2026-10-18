@@ -74,6 +74,8 @@ The image has a health check on `GET /api/health`.
 
 The JPEG quality and size of exports are chosen on the **Settings** page and stored in the database. They apply to every session. After you change them, the next export of a session renders all its photos again.
 
+When a long edge is set, every export also gets one fixed, moderate level of RawTherapee's post-resize sharpening, which runs after the photo is scaled down. There is no setting for it: a full-size export gets none, because the photo's own sharpening already ran.
+
 ## Background cleanup
 
 GiRAF cleans up after itself on start and then on a schedule:
