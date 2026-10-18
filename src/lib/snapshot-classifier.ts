@@ -20,7 +20,7 @@ export const SNAPSHOT_INTERVAL_MS = 10 * 60 * 1000;
  * Trying looks, toggling tools on and off or dragging a slider far would otherwise leave a version
  * every few seconds. Saving explicitly still creates one at any time.
  */
-export const MIN_SNAPSHOT_AGE_MS = 5 * 60 * 1000;
+export const MIN_SNAPSHOT_AGE_MS = 3 * 60 * 1000;
 
 /** Accumulated slider distance that separates two versions of one look. */
 export const SNAPSHOT_DISTANCE = 2.5;
