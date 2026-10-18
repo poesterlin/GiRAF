@@ -131,6 +131,12 @@ COPY --from=build /app/LICENSE /app/LICENSE
 # Copy drizzle migration files
 COPY --from=build /app/drizzle drizzle
 
+# Hands the writable folders to PUID:PGID and drops root before the app starts
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 3000
 
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 CMD curl -fsS http://localhost:3000/api/health || exit 1
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["bun", "/app/build/index.js"]

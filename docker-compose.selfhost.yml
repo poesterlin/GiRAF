@@ -23,12 +23,13 @@ services:
       - CLUT_DIR=/app/cluts
       - IMPORT_DIR=/app/import
       - EXPORT_DIR=/app/export
-      - TMP_DIR=/tmp
+      - TMP_DIR=/app/tmp
       - DATA_DIR=/app/data
     volumes:
       - ./cluts:/app/cluts # for custom CLUTs, if needed
       - ./import:/app/import # import directory
       - ./export:/app/export # export directory
+      - ./tmp:/app/tmp # developed TIFFs and previews, kept across updates
       - ./data:/app/data # optional, persist google photos tokens
     ports:
       - '4893:3000'
