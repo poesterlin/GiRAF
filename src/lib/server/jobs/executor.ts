@@ -60,7 +60,7 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 				if (!needsTiff && !needsRedevelop && !needsPreview && image.phash) continue;
 				console.log(`[Executor] ${needsRedevelop ? 'Re-developing' : 'Repairing'} image ${image.id}: ${image.filepath}`);
 				if (needsTiff || needsRedevelop) {
-					const { pp3, tif } = await generateImportTif(image.filepath, { signal });
+					const { pp3, tif } = await generateImportTif(image.filepath, { signal, background: true });
 					if (!(await usable(tif))) throw new Error('Generated editor TIFF is missing or empty');
 					// Save the repaired TIFF even if preview extraction subsequently fails.
 					await db.update(imageTable).set({
@@ -197,14 +197,15 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 				await ensureDir(outputPath);
 
 				// Two-step pipeline: RAW → cached full-res develop base (intermediate representation) → JPEG
-				const base = await acquireDevelopBase(image.filepath, { signal, previewTif: image.tifPath });
+				const base = await acquireDevelopBase(image.filepath, { signal, previewTif: image.tifPath, background: true });
 				try {
 					const mappedPP3 = await mapCropFromPreviewToExport(pp3, image.tifPath, base.path);
 					await editImage(base.path, stringifyPP3(mappedPP3), {
 						signal,
 						outputPath,
 						recordedAt: image.recordedAt,
-						quality: 90
+						quality: 90,
+						background: true
 					});
 				} finally {
 					base.release();

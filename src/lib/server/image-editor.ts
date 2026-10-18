@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
  * @param options 
  * @returns 
 */
-export async function editImage(imagePath: string, pp3: string, options: { signal?: AbortSignal, outputPath?: string, recordedAt?: Date, quality?: number } = {}): Promise<string> {
+export async function editImage(imagePath: string, pp3: string, options: { signal?: AbortSignal, outputPath?: string, recordedAt?: Date, quality?: number, background?: boolean } = {}): Promise<string> {
     const start = performance.now();
 
     // Each render owns its profile and output, including simultaneous LUT previews.
@@ -52,7 +52,7 @@ export async function editImage(imagePath: string, pp3: string, options: { signa
     console.log(`Running command: ${command.join(" ")}`);
 
     try {
-        await runCommand(command, { signal: options.signal });
+        await runCommand(command, { signal: options.signal, background: options.background });
     } catch (error) {
         await rm(tempDir, { recursive: true, force: true });
         throw error;
@@ -86,7 +86,7 @@ export async function editImage(imagePath: string, pp3: string, options: { signa
 /**
  * takes a path to a raw file to retrieve its default PP3 settings
  */
-export async function generateImportTif(imagePath: string, options: { signal?: AbortSignal } = {}) {
+export async function generateImportTif(imagePath: string, options: { signal?: AbortSignal, background?: boolean } = {}) {
     const start = performance.now();
 
     // Cards reuse file names (DSC00001.ARW); a shared folder would let one import overwrite another's TIFF
@@ -110,7 +110,7 @@ export async function generateImportTif(imagePath: string, options: { signal?: A
 
     console.log(`Running command: ${command.join(" ")}`);
 
-    await runCommand(command, { signal: options.signal });
+    await runCommand(command, { signal: options.signal, background: options.background });
 
     const outputName = basename(imagePath, extname(imagePath)) + ".tif";
     const pp3FileName = outputName + ".pp3";
@@ -142,17 +142,20 @@ export async function importProfileFor(tifPath: string | null | undefined): Prom
  * The resulting TIFF is the "develop base" intermediate representation: RawTherapee can load it
  * back through StdImageSource, skipping RAW decode and demosaicing on every later render. Pass
  * outputDir to build the base at a stable location (e.g. a cache) instead of a throwaway temp dir.
+ * longEdge shrinks the base, so previews that never need full resolution render far less.
  */
-export async function generateExportTif(imagePath: string, options: { signal?: AbortSignal, outputDir?: string, profile?: string } = {}) {
+export async function generateExportTif(imagePath: string, options: { signal?: AbortSignal, outputDir?: string, profile?: string, longEdge?: number, background?: boolean } = {}) {
     const start = performance.now();
 
     const name = getFileNameFromPath(imagePath) + '-export-tiff-' + randomUUID();
     const outDir = options.outputDir ?? await createTempDir(name);
     if (options.outputDir) await mkdir(outDir, { recursive: true });
 
-    // Parse import PP3 and disable resize for full-resolution output
+    // Parse import PP3 and resize to the requested long edge, or disable resize for full resolution
     const importPP3 = parsePP3(options.profile ?? ImportPP3);
-    importPP3.Resize = { ...importPP3.Resize, Enabled: false };
+    importPP3.Resize = options.longEdge
+        ? { Enabled: true, AppliesTo: 'Cropped area', Method: 'Lanczos', DataSpecified: 3, Width: options.longEdge, Height: options.longEdge, LongEdge: options.longEdge, ShortEdge: options.longEdge, AllowUpscaling: false }
+        : { ...importPP3.Resize, Enabled: false };
 
     const pp3FilePath = join(outDir, 'edit.pp3');
     await Bun.write(pp3FilePath, stringifyPP3(importPP3));
@@ -170,7 +173,7 @@ export async function generateExportTif(imagePath: string, options: { signal?: A
     console.log(`Running command: ${command.join(" ")}`);
 
     try {
-        await runCommand(command, { signal: options.signal });
+        await runCommand(command, { signal: options.signal, background: options.background });
     } catch (error) {
         await rm(outDir, { recursive: true, force: true });
         throw error;
@@ -183,7 +186,7 @@ export async function generateExportTif(imagePath: string, options: { signal?: A
     return join(outDir, outputName);
 }
 
-async function getImageDimensions(path: string): Promise<{ width: number; height: number } | null> {
+export async function getImageDimensions(path: string): Promise<{ width: number; height: number } | null> {
     try {
         const tags = await exiftool.read(path);
         const width = Number((tags as any).ImageWidth ?? (tags as any).ExifImageWidth);

@@ -15,11 +15,17 @@ export async function createTempDir(prefix: string) {
     return path;
 }
 
-export async function runCommand(command: string[], options: { signal?: AbortSignal } = {}) {
+/**
+ * Runs a command to completion. `background` lowers its CPU priority so editor previews
+ * stay responsive while imports, exports and thumbnails render.
+ */
+export async function runCommand(command: string[], options: { signal?: AbortSignal, background?: boolean } = {}) {
     return new Promise<void>((resolve, reject) => {
-        const args = command.slice(1);
-        const commandName = command[0];
-        const proc = spawn(commandName, args, options);
+        // nice execs the command in place, so aborting still kills the renderer itself.
+        const prefixed = options.background ? ['nice', '-n', '19', ...command] : command;
+        const args = prefixed.slice(1);
+        const commandName = prefixed[0];
+        const proc = spawn(commandName, args, { signal: options.signal });
         let output = '';
         let errorOutput = '';
 

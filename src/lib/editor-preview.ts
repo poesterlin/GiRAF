@@ -53,13 +53,20 @@ export function getPreviewDevice(): PreviewDevice {
 	return previewDevice({ width: window.innerWidth, memory: hints.deviceMemory, cores: hints.hardwareConcurrency, saveData: hints.connection?.saveData, connection: hints.connection?.effectiveType, connectionType: hints.connection?.type });
 }
 
-/** Only transports server-rendered JPEGs. Decode before publishing to avoid flashes. */
-export async function loadEditorPreview(imageId: string, config: string, device: PreviewDevice, signal: AbortSignal, publish: (url: string) => void) {
+/**
+ * Only transports server-rendered JPEGs. Decode before publishing to avoid flashes.
+ * `quickDone` runs once the quick stage has finished, before any refinement starts.
+ */
+export async function loadEditorPreview(imageId: string, config: string, device: PreviewDevice, signal: AbortSignal, publish: (url: string) => void, quickDone?: () => void) {
 	clientId ??= crypto.randomUUID();
 	const requestId = crypto.randomUUID();
 	const started = performance.now();
 	let ready = false;
 	for (const stage of ['quick', 'final'] as const) {
+		if (stage === 'final') {
+			quickDone?.();
+			signal.throwIfAborted();
+		}
 		// Do not spend a second download or RAW render on constrained connections.
 		if (stage === 'final' && device === 'constrained' && ready) {
 			trackPreview('preview-refinement-skipped', { requestId, device, engine: 'server', reason: 'constrained-device-or-connection' });
@@ -134,5 +141,59 @@ export async function loadEditorPreview(imageId: string, config: string, device:
 			// quick pass if refinement fails rather than replacing it with an error.
 			if (stage === 'final' && !ready) throw error;
 		}
+	}
+}
+
+/**
+ * Runs one editor preview at a time. While a quick render is in flight, newer edits wait and only the
+ * newest runs once it lands, so dragging a slider keeps showing updates instead of cancelling every
+ * render before it finishes. A pending refinement is cheap to drop, so edits replace it immediately.
+ */
+export class EditorPreviewQueue {
+	private current: { imageId: string; controller: AbortController; quickDone: boolean } | null = null;
+	private waiting: (() => void) | null = null;
+
+	/**
+	 * @param publish receives each decoded preview and its image; `latest` is false while a newer edit still waits.
+	 * @param finished runs when the newest request has finished, with the error if it failed.
+	 */
+	constructor(private publish: (url: string, imageId: string, latest: boolean) => void, private finished: (error?: unknown) => void) {}
+
+	request(imageId: string, config: string, device: PreviewDevice) {
+		const start = () => this.start(imageId, config, device);
+		if (this.current && !this.current.quickDone && this.current.imageId === imageId) {
+			this.waiting = start;
+			return;
+		}
+		this.waiting = null;
+		this.current?.controller.abort('superseded');
+		start();
+	}
+
+	cancel(reason = 'edit-or-navigation') {
+		this.waiting = null;
+		this.current?.controller.abort(reason);
+		this.current = null;
+	}
+
+	private start(imageId: string, config: string, device: PreviewDevice) {
+		const run = { imageId, controller: new AbortController(), quickDone: false };
+		this.current = run;
+		const { signal } = run.controller;
+		const done = () => {
+			run.quickDone = true;
+			const next = this.waiting;
+			this.waiting = null;
+			if (!next) return;
+			run.controller.abort('superseded');
+			next();
+		};
+		loadEditorPreview(imageId, config, device, signal, (url) => this.publish(url, imageId, !this.waiting), done)
+			.then(() => {
+				if (this.current === run) this.finished();
+			})
+			.catch((error) => {
+				if (!signal.aborted && this.current === run) this.finished(error);
+			});
 	}
 }

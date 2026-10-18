@@ -12,12 +12,14 @@ const env: Record<string, string | undefined> = {
 mock.module('$env/dynamic/private', () => ({ env }));
 
 let builds = 0;
+const builtEdges: (number | undefined)[] = [];
 
 // Stand in for the real RawTherapee call: create a small file where the base would land.
 mock.module('./image-editor', () => ({
 	importProfileFor: async (tifPath?: string | null) => (tifPath ? `profile:${tifPath}` : 'profile:current'),
-	generateExportTif: async (_imagePath: string, options: { outputDir?: string } = {}) => {
+	generateExportTif: async (_imagePath: string, options: { outputDir?: string; longEdge?: number } = {}) => {
 		builds++;
+		builtEdges.push(options.longEdge);
 		const dir = options.outputDir!;
 		mkdirSync(dir, { recursive: true });
 		const path = join(dir, 'base.tif');
@@ -84,6 +86,21 @@ test("each photo's recorded import profile gets its own base", async () => {
 	expect(builds).toBe(2);
 	expect(after.path).not.toBe(before.path);
 	expect(again.path).toBe(before.path);
+});
+
+test('a smaller preview base is cached separately from the full-resolution base', async () => {
+	builds = 0;
+	builtEdges.length = 0;
+	const raw = makeRaw('preview-edge.RAF');
+	const full = await acquireDevelopBase(raw);
+	full.release();
+	const preview = await acquireDevelopBase(raw, { longEdge: 2560 });
+	preview.release();
+	const again = await acquireDevelopBase(raw, { longEdge: 2560 });
+	again.release();
+	expect(builtEdges).toEqual([undefined, 2560]);
+	expect(preview.path).not.toBe(full.path);
+	expect(again.path).toBe(preview.path);
 });
 
 test('a missing source rejects', async () => {

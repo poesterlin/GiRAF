@@ -17,7 +17,13 @@ import { generateExportTif, importProfileFor } from './image-editor';
  * TIFF was developed with, so a re-imported or modified source produces a fresh base and each photo's
  * base matches the geometry it was edited on. Entries are reference counted while in use and evicted by TTL and a
  * total-size budget.
+ *
+ * Editor previews ask for a smaller base (PREVIEW_BASE_EDGE): every tool then runs on ~4 instead of ~26
+ * megapixels, which renders a 2560px preview several times faster with no visible difference.
  */
+
+/** Long edge of the develop base used for editor previews; exports always use the full-resolution base. */
+export const PREVIEW_BASE_EDGE = 2560;
 
 export interface DevelopBase {
 	/** Absolute path to the cached TIFF. */
@@ -104,7 +110,9 @@ export async function evictDevelopBase(rawPath: string, previewTif?: string | nu
 	const keys = new Set<string>();
 	try {
 		const info = await stat(rawPath);
-		keys.add(keyFor(rawPath, info.mtimeMs, info.size, await importProfileFor(previewTif)));
+		const profile = await importProfileFor(previewTif);
+		keys.add(keyFor(rawPath, info.mtimeMs, info.size, profile));
+		keys.add(keyFor(rawPath, info.mtimeMs, info.size, profile, PREVIEW_BASE_EDGE));
 	} catch {
 		// The source is already gone; fall back to entries that recorded where they came from.
 	}
@@ -142,8 +150,10 @@ export async function pruneDevelopCache(): Promise<void> {
 	}
 }
 
-function keyFor(rawPath: string, mtimeMs: number, size: number, profile: string): string {
-	return createHash('sha256').update(`${rawPath}\0${mtimeMs}\0${size}\0${profile}`).digest('hex');
+function keyFor(rawPath: string, mtimeMs: number, size: number, profile: string, longEdge?: number): string {
+	// Full-resolution keys stay unchanged so existing cached bases remain valid.
+	const variant = longEdge ? `\0${longEdge}` : '';
+	return createHash('sha256').update(`${rawPath}\0${mtimeMs}\0${size}\0${profile}${variant}`).digest('hex');
 }
 
 async function loadExisting(key: string): Promise<Entry | null> {
@@ -162,12 +172,12 @@ async function loadExisting(key: string): Promise<Entry | null> {
 	}
 }
 
-async function build(rawPath: string, key: string, profile: string, signal?: AbortSignal): Promise<Entry> {
+async function build(rawPath: string, key: string, profile: string, options: BuildOptions): Promise<Entry> {
 	const root = cacheRoot();
 	await mkdir(root, { recursive: true });
 	const buildDir = join(root, `.build-${key}-${randomUUID()}`);
 	try {
-		const produced = await generateExportTif(rawPath, { signal, outputDir: buildDir, profile });
+		const produced = await generateExportTif(rawPath, { ...options, outputDir: buildDir, profile });
 		const target = join(root, `${key}.tif`);
 		await rename(produced, target);
 		const info = await stat(target);
@@ -180,16 +190,24 @@ async function build(rawPath: string, key: string, profile: string, signal?: Abo
 	}
 }
 
+interface BuildOptions {
+	signal?: AbortSignal;
+	/** Shrinks the base to this long edge; omit for full resolution. */
+	longEdge?: number;
+	/** Builds at low CPU priority, for imports and exports. */
+	background?: boolean;
+}
+
 /**
  * Returns a cached develop base for `rawPath`, building it from the RAW on first use with the profile
  * recorded beside `previewTif` (the photo's editor TIFF).
  * Call `release()` when the render that consumes the path has finished.
  */
-export async function acquireDevelopBase(rawPath: string, options: { signal?: AbortSignal; previewTif?: string | null } = {}): Promise<DevelopBase> {
+export async function acquireDevelopBase(rawPath: string, options: BuildOptions & { previewTif?: string | null } = {}): Promise<DevelopBase> {
 	await pruneDevelopCache();
 	const info = await stat(rawPath);
 	const profile = await importProfileFor(options.previewTif);
-	const key = keyFor(rawPath, info.mtimeMs, info.size, profile);
+	const key = keyFor(rawPath, info.mtimeMs, info.size, profile, options.longEdge);
 
 	let entry = entries.get(key) ?? (await loadExisting(key));
 	const reused = !!entry;
@@ -197,7 +215,8 @@ export async function acquireDevelopBase(rawPath: string, options: { signal?: Ab
 	if (!entry) {
 		let pending = inflight.get(key);
 		if (!pending) {
-			pending = build(rawPath, key, profile, options.signal).finally(() => inflight.delete(key));
+			const { signal, longEdge, background } = options;
+			pending = build(rawPath, key, profile, { signal, longEdge, background }).finally(() => inflight.delete(key));
 			inflight.set(key, pending);
 		}
 		entry = await pending;

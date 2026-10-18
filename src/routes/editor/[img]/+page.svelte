@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getPreviewDevice, loadEditorPreview } from '$lib/editor-preview';
+	import { EditorPreviewQueue, getPreviewDevice } from '$lib/editor-preview';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
 	import { filterPP3, toBase64 } from '$lib/pp3-utils';
 	import { app } from '$lib/state/app.svelte';
@@ -25,7 +25,24 @@
 
 	let sampleImage = $state('');
 	let sampleImageId = $state<string | null>(null);
+	const previews = new EditorPreviewQueue(
+		(url, imageId, latest) => {
+			if (sampleImage.startsWith('blob:')) URL.revokeObjectURL(sampleImage);
+			sampleImage = url;
+			sampleImageId = imageId;
+			edits.isFaulty = false;
+			if (latest) edits.isLoading = false;
+		},
+		(error) => {
+			if (error) {
+				console.error('Error refreshing image:', error);
+				edits.isFaulty = true;
+			}
+			edits.isLoading = false;
+		}
+	);
 	onDestroy(() => {
+		previews.cancel();
 		if (sampleImage.startsWith('blob:')) URL.revokeObjectURL(sampleImage);
 	});
 	let apiPath = $derived(`/api/images/${data.image.id}`);
@@ -42,32 +59,13 @@
 
 	$effect(() => {
 		if (!data.hasMatchingImages || data.editorError) {
+			previews.cancel();
 			edits.isLoading = false;
 			return;
 		}
-		const controller = new AbortController();
 		edits.isLoading = true;
-		const imageId = page.params.img!;
-		const config = toBase64(edits.throttledPP3);
-		void loadEditorPreview(imageId, config, getPreviewDevice(), controller.signal, (url) => {
-			if (sampleImage.startsWith('blob:')) URL.revokeObjectURL(sampleImage);
-			sampleImage = url;
-			sampleImageId = imageId;
-			edits.isFaulty = false;
-			edits.isLoading = false;
-		})
-			.then(() => {
-				if (!controller.signal.aborted) edits.isLoading = false;
-			})
-			.catch((error) => {
-				if (controller.signal.aborted) return;
-				console.error('Error refreshing image:', error);
-				edits.isFaulty = true;
-				edits.isLoading = false;
-			});
-		return () => {
-			controller.abort('edit-or-navigation');
-		};
+		// The queue lets an in-flight quick render finish, so dragging keeps updating the photo.
+		previews.request(page.params.img!, toBase64(edits.throttledPP3), getPreviewDevice());
 	});
 
 	$effect(() => {
