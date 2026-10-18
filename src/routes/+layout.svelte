@@ -40,8 +40,8 @@
 	let sessionName = $derived(session?.name ?? null);
 	let sessionId = $derived(session?.id ?? null);
 	let showNotifications = $state(false);
-	let notificationsButton: HTMLButtonElement;
-	let notificationsPanel: HTMLDivElement;
+	let notificationsButton = $state<HTMLButtonElement>();
+	let notificationsPanel = $state<HTMLDivElement>();
 	let runningTaskCount = $state(0);
 	let runningTasksPollingInterval: ReturnType<typeof setInterval> | undefined;
 	let notificationsPollingInterval: ReturnType<typeof setInterval> | undefined;
