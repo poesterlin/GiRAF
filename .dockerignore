@@ -46,3 +46,16 @@ data/google_tokens.json
 
 pgdata
 
+
+# Not needed to build the image. Leaving them out keeps the context small and
+# stops commits or doc edits from invalidating the build cache.
+.git
+.github
+.fallow
+.svelte-kit
+dist
+docs
+kernel.errors.txt
+input
+README.md
+src/lib/assets/THIRD_PARTY_LICENSES.txt

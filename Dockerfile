@@ -6,16 +6,14 @@ WORKDIR /app
 
 COPY package.json bun.lock ./
 
-# Install dependencies (dev + prod) for the build
-RUN bun install
-
-# Generate third-party license report for the UI
-RUN bun run licenses:generate
+# Install dependencies (dev + prod) for the build. The cache mount keeps downloaded
+# packages between builds, so a lockfile change only fetches what changed.
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile
 
 # Copy source (use .dockerignore to exclude unnecessary files like node_modules, .git)
 COPY . .
 
-# Create the JS bundle
+# Create the JS bundle (this also writes the third-party license report for the UI)
 RUN bun run build
 
 #####################################################################
@@ -28,7 +26,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 
 # Only production deps
-RUN bun install --production
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --production --frozen-lockfile
 
 #####################################################################
 
@@ -118,17 +116,17 @@ WORKDIR /app
 # Ensure import dir exists for the RAF file
 RUN mkdir -p /app/import
 
-# Copy the single compiled executable from the 'build' stage
+# Dependencies change less often than the app, so their layer comes first and stays cached
+COPY --from=deps /app/node_modules/ node_modules
+COPY --from=build /app/package.json ./
+
+# Copy the compiled app from the 'build' stage
 COPY --from=build /app/build/ build/
 COPY --from=build /app/scripts/resolve-auto-exposure.ts scripts/resolve-auto-exposure.ts
 COPY --from=build /app/scripts/auto-exposure.ts scripts/auto-exposure.ts
 
 # Include app license in the runtime image
 COPY --from=build /app/LICENSE /app/LICENSE
-
-# Copy production-only node_modules and package.json
-COPY --from=deps /app/node_modules/ node_modules
-COPY --from=build /app/package.json ./
 
 # Copy drizzle migration files
 COPY --from=build /app/drizzle drizzle
