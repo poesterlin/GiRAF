@@ -1,0 +1,1 @@
+ALTER TABLE "session" ADD COLUMN "last_export_settings" text;

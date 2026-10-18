@@ -36,6 +36,13 @@
       "when": 1792221726097,
       "tag": "0004_icy_maggott",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792316955422,
+      "tag": "0005_curved_pride",
+      "breakpoints": true
     }
   ]
 }

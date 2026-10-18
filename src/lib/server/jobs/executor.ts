@@ -22,6 +22,8 @@ import { integrations } from '../integrations';
 import { exiftool } from 'exiftool-vendored';
 import { assert } from '$lib';
 import { makeOutputPath, moveExportFile, findExportPath } from '../export-files';
+import { getExportSettings } from '../export-settings';
+import { applyExportSettings, defaultExportSettings, exportSettingsKey } from '$lib/export-settings';
 import { calculateImportBaseline } from '../auto-exposure';
 import { sameProfile } from '../redevelop';
 import { withinDirectory } from '../session-delete';
@@ -173,66 +175,93 @@ export async function runExport(payload: ExportPayload, signal?: AbortSignal): P
 
 	console.log(`[Executor] Starting export/sync for session: ${sessionId}`);
 	try {
+		const settings = await getExportSettings();
+		const settingsKey = exportSettingsKey(settings);
+		// Sessions exported before export settings existed were exported with the defaults
+		const settingsChanged = (session.lastExportSettings ?? exportSettingsKey(defaultExportSettings)) !== settingsKey;
 		const images = await db.query.imageTable.findMany({
 			where: eq(imageTable.sessionId, sessionId),
 			orderBy: asc(imageTable.recordedAt)
 		});
 
-		for (let i = 0; i < images.length; i++) {
+		const failures: string[] = [];
+		const fail = (image: Image, step: string, cause: unknown) => {
+			const message = `${image.name} (ID ${image.id}) ${step}: ${cause instanceof Error ? cause.message : String(cause)}`;
+			failures.push(message);
+			console.error(`[Executor] ${message}`);
+		};
+		let exported = 0;
+
+		for (const image of images) {
 			if (signal?.aborted) {
 				throw new Error('Aborted');
 			}
-			const image = images[i];
 			let outputPath = makeOutputPath(image, session);
-			if (image.isArchived) {
-				await moveExportFile(outputPath, true);
-				for (const album of albums) {
-					if (album.integration === 'immich') await removeArchivedAlbumImage(album, image);
+			// One photo RawTherapee can't render, or one failed upload, must not hold back the rest of the session
+			try {
+				if (image.isArchived) {
+					await moveExportFile(outputPath, true);
+					for (const album of albums) {
+						if (album.integration !== 'immich') continue;
+						try {
+							await removeArchivedAlbumImage(album, image);
+						} catch (cause) {
+							fail(image, `removing from ${album.integration} album`, cause);
+						}
+					}
+					continue;
 				}
+
+				await moveExportFile(outputPath, false);
+				const existingPath = await findExportPath(image, session);
+				const needsExport = settingsChanged || !image.lastExportedAt || image.lastExportedAt < image.updatedAt || !(await fileExists(existingPath));
+
+				if (needsExport) {
+					console.log(`[Executor] Exporting ${image.filepath}`);
+					// Stamp the export with when it started, so an edit saved while rendering is exported again
+					const exportStartedAt = new Date();
+					const pp3 = await loadEditPP3(image);
+					await ensureDir(outputPath);
+
+					// Two-step pipeline: RAW → cached full-res develop base (intermediate representation) → JPEG
+					const base = await acquireDevelopBase(image.filepath, { signal, previewTif: image.tifPath, background: true });
+					try {
+						const mappedPP3 = applyExportSettings(await mapCropFromPreviewToExport(pp3, image.tifPath, base.path), settings);
+						await editImage(base.path, stringifyPP3(mappedPP3), {
+							signal,
+							outputPath,
+							recordedAt: image.recordedAt,
+							quality: settings.quality,
+							background: true
+						});
+					} finally {
+						base.release();
+					}
+					await db.update(imageTable).set({ lastExportedAt: exportStartedAt }).where(eq(imageTable.id, image.id));
+					exported++;
+				} else {
+					outputPath = existingPath;
+				}
+			} catch (cause) {
+				if (signal?.aborted) throw cause;
+				fail(image, 'export', cause);
 				continue;
 			}
 
-			await moveExportFile(outputPath, false);
-			const existingPath = await findExportPath(image, session);
-			const needsExport = !image.lastExportedAt || image.lastExportedAt < image.updatedAt || !(await fileExists(existingPath));
-			let isReadyForUpload = false;
-
-			if (needsExport) {
-				console.log(`[Executor] Exporting ${image.filepath}`);
-				// Stamp the export with when it started, so an edit saved while rendering is exported again
-				const exportStartedAt = new Date();
-				const pp3 = await loadEditPP3(image);
-				await ensureDir(outputPath);
-
-				// Two-step pipeline: RAW → cached full-res develop base (intermediate representation) → JPEG
-				const base = await acquireDevelopBase(image.filepath, { signal, previewTif: image.tifPath, background: true });
+			for (const album of albums) {
 				try {
-					const mappedPP3 = await mapCropFromPreviewToExport(pp3, image.tifPath, base.path);
-					await editImage(base.path, stringifyPP3(mappedPP3), {
-						signal,
-						outputPath,
-						recordedAt: image.recordedAt,
-						quality: 90,
-						background: true
-					});
-				} finally {
-					base.release();
-				}
-				await db.update(imageTable).set({ lastExportedAt: exportStartedAt }).where(eq(imageTable.id, image.id));
-				isReadyForUpload = true;
-			} else {
-				outputPath = existingPath;
-				isReadyForUpload = true;
-			}
-
-			if (isReadyForUpload) {
-				for (const album of albums) {
 					await upsertAlbumImage(album, image, outputPath);
+				} catch (cause) {
+					if (signal?.aborted) throw cause;
+					fail(image, `upload to ${album.integration}`, cause);
 				}
 			}
 		}
+		if (!failures.length) await db.update(sessionTable).set({ lastExportSettings: settingsKey }).where(eq(sessionTable.id, sessionId));
 		console.log(`[Executor] Finished export for session: ${sessionId}`);
-		return { status: 'success' };
+		const summary = `Exported ${exported} of ${images.filter((image) => !image.isArchived).length} photos`;
+		if (failures.length) return { status: 'error', message: `${summary}; ${failures.length} problem${failures.length === 1 ? '' : 's'}. ${failures.slice(0, 5).join('; ')}` };
+		return { status: 'success', message: `${summary}.` };
 	} catch (e) {
 		console.error(`[Executor] Failed export for session: ${sessionId}`, e);
 		return { status: 'error', message: errorMessage(e) };
@@ -285,31 +314,22 @@ async function upsertAlbumImage(album: Album, image: Image, outputPath: string) 
 	if (media) {
 		console.log(`Image ${image.id} already in album ${album.id}, replacing...`);
 
-		try {
-			const { id } = await integration.replaceInAlbum(album, media.externalId, buffer, outputPath, image);
-			await db.update(mediaTable).set({ externalId: id }).where(eq(mediaTable.id, media.id));
-		} catch (error) {
-			console.error(`Failed to replace image in album ${album.id} for image ${image.id}:`, error);
-		}
-
+		const { id } = await integration.replaceInAlbum(album, media.externalId, buffer, outputPath, image);
+		await db.update(mediaTable).set({ externalId: id }).where(eq(mediaTable.id, media.id));
 		return;
 	}
 
-	try {
-		console.log(`Uploading image ${image.id} to album ${album.id}...`);
-		await db.transaction(async (trx) => {
-			const { id } = await integration.uploadFile(buffer, outputPath, image);
-			console.log(`Uploaded image ${image.id} to integration, got id ${id}`);
-			await trx.insert(mediaTable).values({
-				imageId: image.id,
-				albumId: album.id,
-				externalId: id,
-				integration: integrationType
-			});
-			await integration.addToAlbum(album, [id]);
-			console.log(`Added image ${image.id} to album ${album.id}`);
-		});
-	} catch (error) {
-		console.error(`Failed to upload image to album ${album.id} for image ${image.id}:`, error);
-	}
+	console.log(`Uploading image ${image.id} to album ${album.id}...`);
+	const { id } = await integration.uploadFile(buffer, outputPath, image);
+	console.log(`Uploaded image ${image.id} to integration, got id ${id}`);
+	// Record the upload before adding it to the album. If adding fails, the next sync then replaces this
+	// upload (which also adds it to the album) instead of uploading the photo a second time.
+	await db.insert(mediaTable).values({
+		imageId: image.id,
+		albumId: album.id,
+		externalId: id,
+		integration: integrationType
+	});
+	await integration.addToAlbum(album, [id]);
+	console.log(`Added image ${image.id} to album ${album.id}`);
 }
