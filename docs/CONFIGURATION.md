@@ -76,3 +76,7 @@ The JPEG quality and size of exports are chosen on the **Settings** page and sto
 ## Temporary files
 
 On start, GiRAF removes working folders older than an hour that interrupted renders left in `TMP_DIR`. Editor TIFFs and the develop cache are kept.
+
+## Hidden render settings
+
+Every render removes hot pixels and isolated speckles (RawTherapee's impulse noise reduction at its default threshold). It is not part of the edit, so it does not appear in the editor, in versions or in copied settings.
