@@ -20,7 +20,7 @@ Copy `.env.example` to `.env` and adjust values. Docker Compose reads `.env` for
 
 ## Imports
 
-- `UPLOAD_RESUME_HOURS`: How long an unfinished upload may wait to be resumed before its chunks are deleted (default 48).
+- `UPLOAD_RESUME_HOURS`: How long an unfinished upload may wait to be resumed before its chunks are deleted (default 4).
 - `IMPORT_EXTRA_DIRS`: More folders to scan for RAW files, separated by `:`. They are only read; uploads still land in `IMPORT_DIR`.
 
 ### Automatic SD-card import

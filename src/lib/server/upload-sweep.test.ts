@@ -41,3 +41,9 @@ test('half-written chunks are removed once they are clearly abandoned', () => {
 	};
 	expect(uploadLeftovers(folder, now, resume)).toEqual(['4-abc.tmp']);
 });
+
+test('by default an unfinished upload may be resumed for 4 hours', () => {
+	const folder = (age: number) => ({ mtimeMs: now - age, files: [{ name: '0', mtimeMs: now - age }] });
+	expect(uploadLeftovers(folder(3 * HOUR), now)).toEqual([]);
+	expect(uploadLeftovers(folder(5 * HOUR), now)).toBe('folder');
+});

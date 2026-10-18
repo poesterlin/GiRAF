@@ -9,10 +9,10 @@ const RECEIPT_MS = 30 * 24 * HOUR;
 /** A chunk still being written is never this old. */
 const TEMP_CHUNK_MS = HOUR;
 
-/** How long an unfinished upload may wait for its client to resume it (UPLOAD_RESUME_HOURS, default 48). */
+/** How long an unfinished upload may wait for its client to resume it (UPLOAD_RESUME_HOURS, default 4). */
 function resumeWindowMs(): number {
 	const hours = Number(env.UPLOAD_RESUME_HOURS);
-	return (Number.isFinite(hours) && hours > 0 ? hours : 48) * HOUR;
+	return (Number.isFinite(hours) && hours > 0 ? hours : 4) * HOUR;
 }
 
 export type UploadFolder = { files: { name: string; mtimeMs: number }[]; mtimeMs: number };
