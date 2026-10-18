@@ -13,7 +13,9 @@ test('publishes only the latest immutable edit after the throttle interval', asy
 		latest.Exposure.Compensation = 3;
 		await Bun.sleep(30);
 		expect(published).toEqual([{ Exposure: { Compensation: 0 } }, { Exposure: { Compensation: 2 } }]);
-	} finally { scheduler.cancel(); }
+	} finally {
+		scheduler.cancel();
+	}
 });
 
 test('reset discards edits queued for the previous image', async () => {
@@ -25,7 +27,9 @@ test('reset discards edits queued for the previous image', async () => {
 		scheduler.reset({ Exposure: { Compensation: -1 } });
 		await Bun.sleep(30);
 		expect(published).toEqual([{ Exposure: { Compensation: 0 } }, { Exposure: { Compensation: -1 } }]);
-	} finally { scheduler.cancel(); }
+	} finally {
+		scheduler.cancel();
+	}
 });
 
 test('returning to the published edit cancels a pending update, including removed settings', async () => {
@@ -37,5 +41,7 @@ test('returning to the published edit cancels a pending update, including remove
 		scheduler.update({ Exposure: { Compensation: 0 }, Dehaze: { Enabled: false } });
 		await Bun.sleep(30);
 		expect(published).toHaveLength(1);
-	} finally { scheduler.cancel(); }
+	} finally {
+		scheduler.cancel();
+	}
 });

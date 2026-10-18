@@ -3,11 +3,7 @@
 	import { flowNavState } from '$lib/flow-nav';
 	import { IconChevronLeft } from '$lib/ui/icons';
 
-	let {
-		triageEnabled,
-		sessionName = null,
-		sessionId = null
-	}: { triageEnabled: boolean; sessionName?: string | null; sessionId?: number | null } = $props();
+	let { triageEnabled, sessionName = null, sessionId = null }: { triageEnabled: boolean; sessionName?: string | null; sessionId?: number | null } = $props();
 
 	const linkBase =
 		'flex shrink-0 items-center rounded-full px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-200 sm:px-3.5 sm:text-sm';

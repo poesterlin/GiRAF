@@ -20,19 +20,21 @@
 	};
 </script>
 
-<div 
+<div
 	class="relative flex items-center justify-center"
 	onmouseenter={() => (visible = true)}
 	onmouseleave={() => (visible = false)}
-    onfocusin={() => (visible = true)}
-    onfocusout={() => (visible = false)}
+	onfocusin={() => (visible = true)}
+	onfocusout={() => (visible = false)}
 >
 	{@render children()}
 
 	{#if visible}
 		<div
 			transition:fade={{ duration: 100 }}
-			class="pointer-events-none absolute z-50 whitespace-nowrap rounded-md border border-neutral-800 bg-neutral-900 px-2 py-1 text-xs text-neutral-200 shadow-xl backdrop-blur-md {positionClasses[position]}"
+			class="pointer-events-none absolute z-50 rounded-md border border-neutral-800 bg-neutral-900 px-2 py-1 text-xs whitespace-nowrap text-neutral-200 shadow-xl backdrop-blur-md {positionClasses[
+				position
+			]}"
 		>
 			{text}
 		</div>

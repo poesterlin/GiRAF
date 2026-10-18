@@ -142,7 +142,7 @@ test('inset curve endpoints fade toward identity over the entire input range', (
 		const samples = curveSamples(points);
 		for (const i of [0, 8, 16, 64, 128, 192, 248, 256]) {
 			const { x, y } = baseline[i];
-			expect(samples[i].y).toBeCloseTo(x + percent / 100 * (y - x), 5);
+			expect(samples[i].y).toBeCloseTo(x + (percent / 100) * (y - x), 5);
 		}
 		if (percent === 1) expect(samples.every(({ x, y }) => Math.abs(y - x) <= 0.010001)).toBe(true);
 	}

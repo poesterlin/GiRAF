@@ -1,26 +1,26 @@
 services:
-#   db:
-#     image: postgres
-#     restart: always
-#     ports:
-#       - 5432:5432
-#     environment:
-#       POSTGRES_USER: root
-#       POSTGRES_PASSWORD: mysecretpassword
-#       POSTGRES_DB: local
-#     volumes:
-#       - pgdata:/var/lib/postgresql/data
-# volumes:
-#   pgdata:
+  #   db:
+  #     image: postgres
+  #     restart: always
+  #     ports:
+  #       - 5432:5432
+  #     environment:
+  #       POSTGRES_USER: root
+  #       POSTGRES_PASSWORD: mysecretpassword
+  #       POSTGRES_DB: local
+  #     volumes:
+  #       - pgdata:/var/lib/postgresql/data
+  # volumes:
+  #   pgdata:
 
   editor:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
       args:
         RAWTHERAPEE_VERSION: ${RAWTHERAPEE_VERSION}
-    env_file: 
-     - .env
+    env_file:
+      - .env
     ports:
       - 3000:3000
     environment:

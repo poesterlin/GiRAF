@@ -15,7 +15,17 @@ export async function getExportDownload(sessionId: number) {
 	const exportSession = { ...session, images };
 	const files = await Promise.all(images.map((image) => findExportPath(image, exportSession)));
 	const exported = images.length > 0 && images.every((image) => image.lastExportedAt && image.lastExportedAt >= image.updatedAt);
-	const available = exported && !jobManager.getActiveJobs().includes(sessionId) &&
-		(await Promise.all(files.map((path) => stat(path).then((file) => file.isFile()).catch(() => false)))).every(Boolean);
+	const available =
+		exported &&
+		!jobManager.getActiveJobs().includes(sessionId) &&
+		(
+			await Promise.all(
+				files.map((path) =>
+					stat(path)
+						.then((file) => file.isFile())
+						.catch(() => false)
+				)
+			)
+		).every(Boolean);
 	return { session, files, available };
 }

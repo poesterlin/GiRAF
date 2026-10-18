@@ -9,12 +9,10 @@
 	const hasAppLicense = Boolean(appLicenseText);
 </script>
 
-<section class="mx-auto flex h-full w-full max-w-3xl flex-col gap-6 p-6 text-neutral-200 overflow-auto">
+<section class="mx-auto flex h-full w-full max-w-3xl flex-col gap-6 overflow-auto p-6 text-neutral-200">
 	<header class="flex flex-col gap-2">
 		<h1 class="text-2xl font-semibold text-neutral-100">Legal</h1>
-		<p class="text-sm text-neutral-400">
-			This software uses RawTherapee (GPLv3) to process images.
-		</p>
+		<p class="text-sm text-neutral-400">This software uses RawTherapee (GPLv3) to process images.</p>
 	</header>
 
 	<div class="rounded-xl border border-neutral-800 bg-neutral-900/40 p-5">
@@ -34,12 +32,7 @@
 			<li>
 				RawTherapee source code (exact version used by this deployment):
 				{#if hasSourceUrl}
-					<a
-						class="text-neutral-100 underline decoration-neutral-600 underline-offset-4 hover:text-white"
-						href={rawtherapeeSourceUrl}
-						target="_blank"
-						rel="noreferrer"
-					>
+					<a class="text-neutral-100 underline decoration-neutral-600 underline-offset-4 hover:text-white" href={rawtherapeeSourceUrl} target="_blank" rel="noreferrer">
 						{rawtherapeeSourceUrl}
 					</a>
 					{#if rawtherapeeVersion}
@@ -55,7 +48,7 @@
 
 	<div class="rounded-xl border border-neutral-800 bg-neutral-900/40 p-5">
 		<h2 class="text-base font-semibold text-neutral-100">Third-party licenses</h2>
-		<pre class="mt-3 max-h-[50vh] overflow-auto whitespace-pre-wrap text-xs text-neutral-300">
+		<pre class="mt-3 max-h-[50vh] overflow-auto text-xs whitespace-pre-wrap text-neutral-300">
 {thirdPartyLicenses}
 		</pre>
 	</div>
@@ -63,7 +56,7 @@
 	{#if hasAppLicense}
 		<div class="rounded-xl border border-neutral-800 bg-neutral-900/40 p-5">
 			<h2 class="text-base font-semibold text-neutral-100">Application license</h2>
-			<pre class="mt-3 max-h-[50vh] overflow-auto whitespace-pre-wrap text-xs text-neutral-300">
+			<pre class="mt-3 max-h-[50vh] overflow-auto text-xs whitespace-pre-wrap text-neutral-300">
 {appLicenseText}
 			</pre>
 		</div>

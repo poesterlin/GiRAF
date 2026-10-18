@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import {
-	getDisplayScale,
-	getPreviewDimensions,
-	sanitizeCrop,
-	screenToCropSpace
-} from '$lib/canvas/crop';
+import { getDisplayScale, getPreviewDimensions, sanitizeCrop, screenToCropSpace } from '$lib/canvas/crop';
 
 describe('crop utilities', () => {
 	it('sanitizeCrop normalizes and enforces minimum size', () => {

@@ -42,7 +42,9 @@ class EditingState {
 	private history = $state<EditState[]>([]);
 	private historyIndex = $state(0);
 	private lastChangeKey: string | null = null;
-	private previewScheduler = new EditPreviewScheduler((settings) => { this.throttledPP3 = settings; });
+	private previewScheduler = new EditPreviewScheduler((settings) => {
+		this.throttledPP3 = settings;
+	});
 	private snapshots = new SnapshotQueue();
 	/** The version autosave updates in place until a meaningful change lands. */
 	private savedVersion = $state.raw<SavedVersion | null>(null);
@@ -107,19 +109,35 @@ class EditingState {
 		ensureSectionDefaults(newPp3, 'Film_Simulation', { Enabled: false, ClutFilename: '', Strength: 100 });
 		ensureSectionDefaults(newPp3, 'Sharpening', { Enabled: false, Amount: 50, Radius: 1, Method: 'usm' });
 		ensureSectionDefaults(newPp3, 'Directional_Pyramid_Denoising', {
-			Enabled: false, Luma: 0, Ldetail: 0, Chroma: 0, Method: 'Lab', LMethod: 'SLI', CMethod: 'MAN', C2Method: 'MANU', AutoGain: true, Gamma: 1.7
+			Enabled: false,
+			Luma: 0,
+			Ldetail: 0,
+			Chroma: 0,
+			Method: 'Lab',
+			LMethod: 'SLI',
+			CMethod: 'MAN',
+			C2Method: 'MANU',
+			AutoGain: true,
+			Gamma: 1.7
 		});
 		ensureSectionDefaults(newPp3, 'White_Balance', { Setting: 'Camera' });
 		setDefault(newPp3.White_Balance, 'Temperature', image.whiteBalance);
 		setDefault(newPp3.White_Balance, 'Green', image.tint);
 		// Neutral tools are ready for input; preserve disabled non-neutral edits.
 		for (const [section, fields] of Object.entries({
-			Dehaze: ['Strength'], Local_Contrast: ['Amount'], PCVignette: ['Strength'],
-			Vibrance: ['Pastels', 'Saturated'], 'Shadows_&_Highlights': ['Highlights', 'Shadows']
+			Dehaze: ['Strength'],
+			Local_Contrast: ['Amount'],
+			PCVignette: ['Strength'],
+			Vibrance: ['Pastels', 'Saturated'],
+			'Shadows_&_Highlights': ['Highlights', 'Shadows']
 		})) {
-			if (fields.every(field => Number(newPp3[section]?.[field] ?? 0) === 0)) newPp3[section].Enabled = true;
+			if (fields.every((field) => Number(newPp3[section]?.[field] ?? 0) === 0)) newPp3[section].Enabled = true;
 		}
-		if (newPp3.ColorToning.Method === 'Splitlr' && ['ShadowsColorSaturation', 'HighlightsColorSaturation'].every(key => Number(String(newPp3.ColorToning[key]).split(';')[0]) === 0)) newPp3.ColorToning.Enabled = true;
+		if (
+			newPp3.ColorToning.Method === 'Splitlr' &&
+			['ShadowsColorSaturation', 'HighlightsColorSaturation'].every((key) => Number(String(newPp3.ColorToning[key]).split(';')[0]) === 0)
+		)
+			newPp3.ColorToning.Enabled = true;
 		return newPp3;
 	}
 
@@ -221,15 +239,16 @@ class EditingState {
 		const saved = this.captureState();
 		const serialized = stringifyPP3Document(createEditDocument(saved.settings, saved.disabledGroups, saved.editStrength, this.strengthWhiteBalance));
 		const version = this.savedVersion?.imageId === id ? this.savedVersion : undefined;
-		const outcome = options.force || !version
-			? 'create'
-			: snapshotDecision({
-				hasSnapshot: true,
-				ageMs: Date.now() - version.createdAt,
-				exported: version.exported,
-				structural: changedStructuralChapters(version.settings, parsePP3(serialized)).length > 0,
-				distance: pp3EditDistance(version.settings, parsePP3(serialized))
-			});
+		const outcome =
+			options.force || !version
+				? 'create'
+				: snapshotDecision({
+						hasSnapshot: true,
+						ageMs: Date.now() - version.createdAt,
+						exported: version.exported,
+						structural: changedStructuralChapters(version.settings, parsePP3(serialized)).length > 0,
+						distance: pp3EditDistance(version.settings, parsePP3(serialized))
+					});
 
 		this.isSaving = true;
 		try {
@@ -259,16 +278,21 @@ class EditingState {
 		const prev = this.history[this.historyIndex];
 		if (prev) {
 			const changes = diffPP3(prev.settings, this.pp3);
-			const changedSections = Object.entries(changes).filter(([, fields]) => Object.keys(fields).some(key => key !== 'Enabled')).map(([section]) => section);
+			const changedSections = Object.entries(changes)
+				.filter(([, fields]) => Object.keys(fields).some((key) => key !== 'Enabled'))
+				.map(([section]) => section);
 			for (const section of changedSections) {
 				// Explicit tool toggles and resets keep their requested enabled state.
 				if ('Enabled' in this.pp3[section] && !('Enabled' in changes[section])) this.pp3[section].Enabled = true;
 			}
-			this.disabledGroups = this.disabledGroups.filter(group => !Object.entries(groupNeutralSettings[group] ?? {}).some(([section, neutral]) => {
-				const fields = changes[section];
-				if (!fields) return false;
-				return Object.keys(fields).some(key => key !== 'Enabled' && ('Enabled' in neutral || key in neutral));
-			}));
+			this.disabledGroups = this.disabledGroups.filter(
+				(group) =>
+					!Object.entries(groupNeutralSettings[group] ?? {}).some(([section, neutral]) => {
+						const fields = changes[section];
+						if (!fields) return false;
+						return Object.keys(fields).some((key) => key !== 'Enabled' && ('Enabled' in neutral || key in neutral));
+					})
+			);
 		}
 		const snapshot = this.captureState();
 

@@ -7,7 +7,10 @@ export class EditPreviewScheduler {
 	private published: PP3 = {};
 	private lastPublished = 0;
 
-	constructor(private publish: (settings: PP3) => void, private interval = 100) {}
+	constructor(
+		private publish: (settings: PP3) => void,
+		private interval = 100
+	) {}
 
 	update(settings: PP3) {
 		if (countPP3Properties(diffPP3(this.published, settings)) === 0 && countPP3Properties(diffPP3(settings, this.published)) === 0) {

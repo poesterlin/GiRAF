@@ -28,11 +28,14 @@ export const POST: RequestHandler = async ({ request, params }) => {
 		.insert(snapshotTable)
 		.values({
 			imageId,
-			pp3,
+			pp3
 		})
 		.returning();
 
-	await db.update(imageTable).set({ updatedAt: new Date() }).where(and(eq(imageTable.id, imageId)));
+	await db
+		.update(imageTable)
+		.set({ updatedAt: new Date() })
+		.where(and(eq(imageTable.id, imageId)));
 	queueEditedThumbnail(image, newSnapshot);
 
 	return json(newSnapshot, { status: 201 });

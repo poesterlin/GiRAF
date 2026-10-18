@@ -1,7 +1,9 @@
 import type { PP3 } from './pp3-utils';
 
 export function maskIndices(settings: PP3): number[] {
-	return Object.keys(settings.Locallab ?? {}).flatMap(key => /^Name_\d+$/.test(key) ? [Number(key.slice(5))] : []).sort((a, b) => a - b);
+	return Object.keys(settings.Locallab ?? {})
+		.flatMap((key) => (/^Name_\d+$/.test(key) ? [Number(key.slice(5))] : []))
+		.sort((a, b) => a - b);
 }
 
 export function addLocalMask(settings: PP3, shape: 'ELI' | 'RECT'): number {
@@ -9,12 +11,31 @@ export function addLocalMask(settings: PP3, shape: 'ELI' | 'RECT'): number {
 	const indices = maskIndices(settings);
 	const index = indices.length ? Math.max(...indices) + 1 : 0;
 	const defaults = {
-		Name: `Mask ${index + 1}`, Isvisible: true, Activ: true, Shape: shape,
-		SpotMethod: 'norm', ShapeMethod: 'IND', QualityMethod: 'enh', ComplexMethod: 'mod',
-		Loc: '500;500;500;500;', CenterX: 0, CenterY: 0,
-		Transit: 60, Feather: 25, Colorscope: 100, Deltae: false,
-		Expcolor: true, Complexcolor: 0, Lightness: 0, Contrast: 0, Chroma: 0, Sensi: 100,
-		Expexpose: true, Complexexpose: 0, Expcomp: 0, Sensiex: 100
+		Name: `Mask ${index + 1}`,
+		Isvisible: true,
+		Activ: true,
+		Shape: shape,
+		SpotMethod: 'norm',
+		ShapeMethod: 'IND',
+		QualityMethod: 'enh',
+		ComplexMethod: 'mod',
+		Loc: '500;500;500;500;',
+		CenterX: 0,
+		CenterY: 0,
+		Transit: 60,
+		Feather: 25,
+		Colorscope: 100,
+		Deltae: false,
+		Expcolor: true,
+		Complexcolor: 0,
+		Lightness: 0,
+		Contrast: 0,
+		Chroma: 0,
+		Sensi: 100,
+		Expexpose: true,
+		Complexexpose: 0,
+		Expcomp: 0,
+		Sensiex: 100
 	};
 	for (const [key, value] of Object.entries(defaults)) settings.Locallab[`${key}_${index}`] = value;
 	settings.Locallab.Enabled = true;
@@ -24,7 +45,7 @@ export function addLocalMask(settings: PP3, shape: 'ELI' | 'RECT'): number {
 
 /** RT loads consecutive numbered spots; compact all fields, including unknown tools. */
 export function deleteLocalMask(settings: PP3, index: number) {
-	const remaining = maskIndices(settings).filter(value => value !== index);
+	const remaining = maskIndices(settings).filter((value) => value !== index);
 	const original = settings.Locallab;
 	const next: PP3[string] = Object.fromEntries(Object.entries(original).filter(([key]) => !/_\d+$/.test(key)));
 	for (const [destination, source] of remaining.entries()) {

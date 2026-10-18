@@ -14,7 +14,10 @@ export function whitePointToCurve(value: number): string {
 
 /** Reads a curve back to a slider value; curves this slider did not write read as neutral. */
 export function whitePointFromCurve(curve: unknown): number {
-	const points = String(curve ?? '').split(';').filter(Boolean).map(Number);
+	const points = String(curve ?? '')
+		.split(';')
+		.filter(Boolean)
+		.map(Number);
 	if (points.length !== 5 || points[0] !== 1 || points[1] !== 0 || points[2] !== 0) return 0;
 	const [x, y] = points.slice(3);
 	if (y === 1 && x < 1) return ((1 - x) / REACH) * 100;

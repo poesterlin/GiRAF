@@ -34,9 +34,14 @@ test('keeps the successful quick preview when refinement fails', async () => {
 
 test('a superseded request cannot publish after decoding completes', async () => {
 	const controller = new AbortController();
-	decodingImage(async () => { controller.abort(); });
+	decodingImage(async () => {
+		controller.abort();
+	});
 	let requests = 0;
-	globalThis.fetch = (async () => { requests++; return new Response('jpeg'); }) as unknown as typeof fetch;
+	globalThis.fetch = (async () => {
+		requests++;
+		return new Response('jpeg');
+	}) as unknown as typeof fetch;
 	const urls: string[] = [];
 	await expect(loadEditorPreview('1', 'config', 'desktop', controller.signal, (url) => urls.push(url))).rejects.toThrow();
 	expect(urls).toHaveLength(0);
@@ -46,7 +51,10 @@ test('a superseded request cannot publish after decoding completes', async () =>
 test('constrained connections keep the normal preview without requesting refinement', async () => {
 	decodingImage();
 	let requests = 0;
-	globalThis.fetch = (async () => { requests++; return new Response('jpeg'); }) as unknown as typeof fetch;
+	globalThis.fetch = (async () => {
+		requests++;
+		return new Response('jpeg');
+	}) as unknown as typeof fetch;
 	const urls: string[] = [];
 	await loadEditorPreview('1', 'config', 'constrained', new AbortController().signal, (url) => urls.push(url));
 	expect(requests).toBe(1);
@@ -92,10 +100,13 @@ test('a running quick render finishes and only the newest waiting edit runs next
 		return new Response('jpeg');
 	}) as typeof fetch;
 	const published: { config: string; latest: boolean }[] = [];
-	const previews = new EditorPreviewQueue((url, _imageId, latest) => {
-		published.push({ config: requests.at(-1)!.config, latest });
-		URL.revokeObjectURL(url);
-	}, () => {});
+	const previews = new EditorPreviewQueue(
+		(url, _imageId, latest) => {
+			published.push({ config: requests.at(-1)!.config, latest });
+			URL.revokeObjectURL(url);
+		},
+		() => {}
+	);
 	const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 	previews.request('1', 'first', 'desktop');

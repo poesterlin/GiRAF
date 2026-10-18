@@ -2,23 +2,22 @@
 	import { IconFlag, IconLayoutGrid } from '$lib/ui/icons';
 </script>
 
-<div class="flex h-full flex-col items-center justify-center p-6 text-center lg:p-12 font-sans">
+<div class="flex h-full flex-col items-center justify-center p-6 text-center font-sans lg:p-12">
 	<div class="mb-8 flex h-24 w-24 items-center justify-center rounded-3xl bg-neutral-900 text-neutral-500 shadow-inner ring-1 ring-neutral-800">
 		<IconFlag size={48} stroke-width={1.5} />
 	</div>
-	
+
 	<h1 class="mb-4 text-4xl font-black tracking-tight text-neutral-100 italic">
-		TRIAGE<span class="text-neutral-500 not-italic font-light">MODE</span>
+		TRIAGE<span class="font-light text-neutral-500 not-italic">MODE</span>
 	</h1>
-	
-	<p class="mb-10 max-w-md text-lg font-medium leading-relaxed text-neutral-400">
-		Select a session from your gallery to begin the selection process. 
-		Cull and organize your best shots with speed.
+
+	<p class="mb-10 max-w-md text-lg leading-relaxed font-medium text-neutral-400">
+		Select a session from your gallery to begin the selection process. Cull and organize your best shots with speed.
 	</p>
-	
-	<a 
-		href="/gallery" 
-		class="group flex items-center gap-3 rounded-2xl bg-neutral-100 px-8 py-4 text-sm font-bold uppercase tracking-widest text-neutral-950 transition-all hover:bg-neutral-200 hover:scale-[1.02] active:scale-95 shadow-xl"
+
+	<a
+		href="/gallery"
+		class="group flex items-center gap-3 rounded-2xl bg-neutral-100 px-8 py-4 text-sm font-bold tracking-widest text-neutral-950 uppercase shadow-xl transition-all hover:scale-[1.02] hover:bg-neutral-200 active:scale-95"
 	>
 		<IconLayoutGrid size={20} />
 		Go to Gallery

@@ -196,10 +196,16 @@
 				try {
 					if (controller.signal.aborted) return;
 					const canvas = document.createElement('canvas');
-					canvas.width = bitmap.width; canvas.height = bitmap.height;
+					canvas.width = bitmap.width;
+					canvas.height = bitmap.height;
 					const context = canvas.getContext('2d', { willReadFrequently: true });
-					if (context) { context.drawImage(bitmap,0,0); originalPixels = context.getImageData(0,0,canvas.width,canvas.height); }
-				} finally { bitmap.close(); }
+					if (context) {
+						context.drawImage(bitmap, 0, 0);
+						originalPixels = context.getImageData(0, 0, canvas.width, canvas.height);
+					}
+				} finally {
+					bitmap.close();
+				}
 			} catch (error) {
 				if (!controller.signal.aborted) console.error('Could not load spot thumbnails', error);
 			}
@@ -307,12 +313,24 @@
 				detail = p;
 				focusAt(p, 3);
 				if (originalPixels) {
-					const sx=originalPixels.width/dimensions.width, sy=originalPixels.height/dimensions.height;
-					const source = suggestSpotSource(originalPixels, {x:p.x*sx,y:p.y*sy}, radius*Math.min(sx,sy), feather, spots.flatMap(s => [{x:s.x*sx,y:s.y*sy,radius:s.radius*(1+s.feather)*Math.max(sx,sy)}, {x:s.sourceX*sx,y:s.sourceY*sy,radius:s.radius*(1+s.feather)*Math.max(sx,sy)}]));
+					const sx = originalPixels.width / dimensions.width,
+						sy = originalPixels.height / dimensions.height;
+					const source = suggestSpotSource(
+						originalPixels,
+						{ x: p.x * sx, y: p.y * sy },
+						radius * Math.min(sx, sy),
+						feather,
+						spots.flatMap((s) => [
+							{ x: s.x * sx, y: s.y * sy, radius: s.radius * (1 + s.feather) * Math.max(sx, sy) },
+							{ x: s.sourceX * sx, y: s.sourceY * sy, radius: s.radius * (1 + s.feather) * Math.max(sx, sy) }
+						])
+					);
 					if (source) {
-						const index=spots.length;
-						commit([...spots,{x:p.x,y:p.y,sourceX:Math.round(source.x/sx),sourceY:Math.round(source.y/sy),radius,feather,opacity:1}]);
-						selected=index; target=undefined; adding=false;
+						const index = spots.length;
+						commit([...spots, { x: p.x, y: p.y, sourceX: Math.round(source.x / sx), sourceY: Math.round(source.y / sy), radius, feather, opacity: 1 }]);
+						selected = index;
+						target = undefined;
+						adding = false;
 					}
 				}
 			} else {
@@ -358,12 +376,12 @@
 	<g transform={`translate(${x} ${y}) scale(${hitRadius / zoom / 22})`} pointer-events="none" role="img" aria-label="Copy source" opacity="0.65">
 		<title>Copy source</title>
 		<g stroke="var(--color-accent-soft)" stroke-width="1.25" fill="none">
-			<rect x="-3" y="-3" width="9" height="9" rx="1.5"/><path d="M2-6h-7a1 1 0 0 0-1 1v7"/>
+			<rect x="-3" y="-3" width="9" height="9" rx="1.5" /><path d="M2-6h-7a1 1 0 0 0-1 1v7" />
 		</g>
 	</g>
 {/snippet}
 
-<div class="retouch-workspace flex h-full min-h-0 select-none flex-col bg-neutral-950 text-neutral-200 lg:flex-row">
+<div class="retouch-workspace flex h-full min-h-0 flex-col bg-neutral-950 text-neutral-200 select-none lg:flex-row">
 	<div class="relative min-h-0 flex-1 bg-black">
 		{#if dimensions.width && dimensions.height}
 			<svg
@@ -387,7 +405,16 @@
 						<g stroke={index === selected ? '#fff' : '#aaa'} stroke-width="2" fill="transparent">
 							<circle data-spot={index} cx={spot.x} cy={spot.y} r={Math.max(spot.radius, hitRadius / zoom)} stroke="none" />
 							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={Math.max(spot.radius, hitRadius / zoom)} stroke="none" />
-							<line class:source-flow={index === selected} x1={spot.sourceX} y1={spot.sourceY} x2={spot.x} y2={spot.y} vector-effect="non-scaling-stroke" stroke-dasharray="4 4" pointer-events="none" />
+							<line
+								class:source-flow={index === selected}
+								x1={spot.sourceX}
+								y1={spot.sourceY}
+								x2={spot.x}
+								y2={spot.y}
+								vector-effect="non-scaling-stroke"
+								stroke-dasharray="4 4"
+								pointer-events="none"
+							/>
 							{#if index === selected && spot.feather > 0}
 								<circle
 									cx={spot.x}
@@ -410,10 +437,19 @@
 								/>
 							{/if}
 							<circle data-spot={index} cx={spot.x} cy={spot.y} r={spot.radius} vector-effect="non-scaling-stroke" />
-							<circle data-spot={index} data-source="true" cx={spot.sourceX} cy={spot.sourceY} r={spot.radius} stroke={index === selected ? 'var(--color-accent)' : '#aaa'} stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
+							<circle
+								data-spot={index}
+								data-source="true"
+								cx={spot.sourceX}
+								cy={spot.sourceY}
+								r={spot.radius}
+								stroke={index === selected ? 'var(--color-accent)' : '#aaa'}
+								stroke-dasharray="3 3"
+								vector-effect="non-scaling-stroke"
+							/>
 							{#if index === selected}
-								{@const labelSize = hitRadius / zoom * 0.5}
-								{@render pointBadge(spot.sourceX, spot.sourceY+spot.radius+labelSize*1.5)}
+								{@const labelSize = (hitRadius / zoom) * 0.5}
+								{@render pointBadge(spot.sourceX, spot.sourceY + spot.radius + labelSize * 1.5)}
 							{/if}
 						</g>
 					{/each}
@@ -452,13 +488,34 @@
 				>
 			</div>
 		{/if}
-		<EditorZoomControls {zoom} onzoomout={() => focusAt({ x: view.x + view.width / 2, y: view.y + view.height / 2 }, zoom / 1.5)} onzoomin={() => focusAt(target ?? active ?? { x: dimensions.width / 2, y: dimensions.height / 2 }, zoom * 1.5)} onfit={() => (zoom = 1)}>
-				<PreviewToggle disabled={!spots.length} pressed={showOriginal} onclick={() => (showOriginal = !showOriginal)} />
+		<EditorZoomControls
+			{zoom}
+			onzoomout={() => focusAt({ x: view.x + view.width / 2, y: view.y + view.height / 2 }, zoom / 1.5)}
+			onzoomin={() => focusAt(target ?? active ?? { x: dimensions.width / 2, y: dimensions.height / 2 }, zoom * 1.5)}
+			onfit={() => (zoom = 1)}
+		>
+			<PreviewToggle disabled={!spots.length} pressed={showOriginal} onclick={() => (showOriginal = !showOriginal)} />
 		</EditorZoomControls>
 		<PreviewLoading {loading} overlay />
-		{#if renderError}<p role="alert" class="absolute bottom-3 left-3 right-3 rounded-lg bg-black/80 p-3 text-sm">{renderError}</p>{/if}
+		{#if renderError}<p role="alert" class="absolute right-3 bottom-3 left-3 rounded-lg bg-black/80 p-3 text-sm">{renderError}</p>{/if}
 	</div>
-	<EditorToolPanel img={String(data.image.id)} tool="retouch" {loading} onundo={() => { edits.undo(); target = undefined; adding = false; showOriginal = false; }} onredo={() => { edits.redo(); target = undefined; adding = false; showOriginal = false; }}>
+	<EditorToolPanel
+		img={String(data.image.id)}
+		tool="retouch"
+		{loading}
+		onundo={() => {
+			edits.undo();
+			target = undefined;
+			adding = false;
+			showOriginal = false;
+		}}
+		onredo={() => {
+			edits.redo();
+			target = undefined;
+			adding = false;
+			showOriginal = false;
+		}}
+	>
 		<div class="flex items-center gap-1 rounded-2xl bg-neutral-900/70 p-1" aria-label="Spot selection">
 			<button class="tool shrink-0" class:chosen={adding} aria-label="Add spot" aria-pressed={adding} onclick={addMode}><IconPlus size={18} /></button>
 			<div class="spot-list flex min-w-0 flex-1 items-center gap-2 overflow-x-auto p-1" aria-label="Spots">
@@ -474,45 +531,60 @@
 					>
 						{#if !adding && selected === i && originalUrl}
 							{@const extent = Math.min(dimensions.width / 2, dimensions.height / 2, Math.max(12, spot.radius * (1 + spot.feather) * 1.3))}
-							<svg class="absolute inset-0 h-full w-full bg-black" viewBox={`${Math.max(0,Math.min(dimensions.width-extent*2,spot.x-extent))} ${Math.max(0,Math.min(dimensions.height-extent*2,spot.y-extent))} ${extent * 2} ${extent * 2}`} aria-hidden="true"
-								><image href={originalUrl} width={dimensions.width} height={dimensions.height} /></svg
+							<svg
+								class="absolute inset-0 h-full w-full bg-black"
+								viewBox={`${Math.max(0, Math.min(dimensions.width - extent * 2, spot.x - extent))} ${Math.max(0, Math.min(dimensions.height - extent * 2, spot.y - extent))} ${extent * 2} ${extent * 2}`}
+								aria-hidden="true"><image href={originalUrl} width={dimensions.width} height={dimensions.height} /></svg
 							>
 						{:else}{i + 1}{/if}
 					</button>{/each}
 			</div>
 			{#if target}
 				<button class="icon-tool shrink-0" aria-label="Cancel source" title="Cancel source" onclick={addMode}><IconX size={18} /></button>
-			{:else}<button
-					class="icon-tool shrink-0"
-					disabled={!active || adding}
-					aria-label="Delete selected spot"
-					onclick={deleteSelectedSpot}><IconTrash size={18} /></button
-				>{/if}
+			{:else}<button class="icon-tool shrink-0" disabled={!active || adding} aria-label="Delete selected spot" onclick={deleteSelectedSpot}><IconTrash size={18} /></button>{/if}
 		</div>
-			<fieldset disabled={showOriginal || (!active && !adding)} class="spot-settings grid min-w-0 grid-cols-2 gap-2" aria-label="Spot settings">
-				<Slider
-					label="Size"
-					bind:value={sizeValue}
-					min={1}
-					max={data.maxRadius}
-					step={1}
-					precision={0}
-					unit="px"
-					resetValue={Math.min(40, data.maxRadius)}
-					onchange={(value) => change('radius', value)}
-				/>
-				<Slider label="Feather" bind:value={featherValue} min={0} max={100} step={1} precision={0} unit="%" resetValue={50} onchange={(value) => change('feather', value / 100)} />
-			</fieldset>
+		<fieldset disabled={showOriginal || (!active && !adding)} class="spot-settings grid min-w-0 grid-cols-2 gap-2" aria-label="Spot settings">
+			<Slider
+				label="Size"
+				bind:value={sizeValue}
+				min={1}
+				max={data.maxRadius}
+				step={1}
+				precision={0}
+				unit="px"
+				resetValue={Math.min(40, data.maxRadius)}
+				onchange={(value) => change('radius', value)}
+			/>
+			<Slider label="Feather" bind:value={featherValue} min={0} max={100} step={1} precision={0} unit="%" resetValue={50} onchange={(value) => change('feather', value / 100)} />
+		</fieldset>
 	</EditorToolPanel>
 </div>
 
 <style>
-	.spot-list { height: 52px; scrollbar-width: none; }
-	.spot-list::-webkit-scrollbar { display: none; }
-	.spot-settings:disabled { opacity: .4; pointer-events: none; }
-	.source-flow { animation: source-flow 1.2s linear infinite; }
-	@keyframes source-flow { to { stroke-dashoffset: -8; } }
-	@media (prefers-reduced-motion: reduce) { .source-flow { animation: none; } }
+	.spot-list {
+		height: 52px;
+		scrollbar-width: none;
+	}
+	.spot-list::-webkit-scrollbar {
+		display: none;
+	}
+	.spot-settings:disabled {
+		opacity: 0.4;
+		pointer-events: none;
+	}
+	.source-flow {
+		animation: source-flow 1.2s linear infinite;
+	}
+	@keyframes source-flow {
+		to {
+			stroke-dashoffset: -8;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.source-flow {
+			animation: none;
+		}
+	}
 	.retouch-workspace,
 	.retouch-workspace :global(*) {
 		-webkit-user-select: none;
@@ -527,8 +599,14 @@
 		min-height: 44px;
 		border-radius: 9999px;
 	}
-	.icon-tool:hover { background: #262626; }
-	button:focus-visible, a:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+	.icon-tool:hover {
+		background: #262626;
+	}
+	button:focus-visible,
+	a:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: 2px;
+	}
 	button:disabled {
 		opacity: 0.3;
 	}

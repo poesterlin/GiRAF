@@ -78,13 +78,13 @@
 	<div class="flex border-b border-neutral-800">
 		<button
 			onclick={() => (activeTab = 'snapshots')}
-			class="px-4 pb-3 pt-6 text-sm font-medium text-neutral-400 transition-colors {activeTab === 'snapshots' ? 'border-b-2 border-neutral-500 text-white' : ''}"
+			class="px-4 pt-6 pb-3 text-sm font-medium text-neutral-400 transition-colors {activeTab === 'snapshots' ? 'border-b-2 border-neutral-500 text-white' : ''}"
 		>
 			Snapshots
 		</button>
 		<button
 			onclick={() => (activeTab = 'profiles')}
-			class="px-4 pb-3 pt-6 text-sm font-medium text-neutral-400 transition-colors {activeTab === 'profiles' ? 'border-b-2 border-neutral-500 text-white' : ''}"
+			class="px-4 pt-6 pb-3 text-sm font-medium text-neutral-400 transition-colors {activeTab === 'profiles' ? 'border-b-2 border-neutral-500 text-white' : ''}"
 		>
 			Profiles
 		</button>

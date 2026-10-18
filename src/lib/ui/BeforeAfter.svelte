@@ -4,7 +4,13 @@
 	import { IconChevronRight } from '$lib/ui/icons';
 	import { DoubleTapDetector } from '$lib/double-tap';
 
-	const { beforeImage, savedImage, afterImage, imageId, isLoading = false } = $props<{
+	const {
+		beforeImage,
+		savedImage,
+		afterImage,
+		imageId,
+		isLoading = false
+	} = $props<{
 		beforeImage: string;
 		savedImage: string;
 		afterImage: string;
@@ -17,9 +23,14 @@
 	function revealLabels() {
 		labelsVisible = true;
 		clearTimeout(labelTimer);
-		labelTimer = setTimeout(() => { labelsVisible = false; }, 3000);
+		labelTimer = setTimeout(() => {
+			labelsVisible = false;
+		}, 3000);
 	}
-	$effect(() => { imageId; revealLabels(); });
+	$effect(() => {
+		imageId;
+		revealLabels();
+	});
 	onDestroy(() => clearTimeout(labelTimer));
 	const comparisonImage = $derived(comparison === 'saved' ? savedImage : beforeImage);
 
@@ -34,12 +45,17 @@
 		let active = true;
 		const preview = new Image();
 		preview.src = url;
-		void preview.decode().then(() => {
-			if (active) readyPreview = { imageId: id, url };
-		}).catch(() => {
-			// Keep the original or last ready preview if the next image fails to load.
-		});
-		return () => { active = false; };
+		void preview
+			.decode()
+			.then(() => {
+				if (active) readyPreview = { imageId: id, url };
+			})
+			.catch(() => {
+				// Keep the original or last ready preview if the next image fails to load.
+			});
+		return () => {
+			active = false;
+		};
 	});
 
 	let split = $state(0.5);
@@ -59,9 +75,13 @@
 	const doubleTap = new DoubleTapDetector();
 	$effect(() => {
 		imageId;
-		scale = 1; x = 0; y = 0;
+		scale = 1;
+		x = 0;
+		y = 0;
 		doubleTap.reset();
-		pointers.clear(); lastMidpoint = null; lastDistance = 0;
+		pointers.clear();
+		lastMidpoint = null;
+		lastDistance = 0;
 	});
 
 	function applyChange(opts: { panX?: number; panY?: number; scaleDiff?: number; originX?: number; originY?: number }) {
@@ -160,8 +180,11 @@
 	function onPointerUp(event: PointerEvent) {
 		if (!pointers.has(event.pointerId)) return;
 		if (doubleTap.up(event) && containerEl) {
-			if (scale > 1.05) { scale = 1; x = 0; y = 0; }
-			else {
+			if (scale > 1.05) {
+				scale = 1;
+				x = 0;
+				y = 0;
+			} else {
 				const rect = containerEl.getBoundingClientRect();
 				applyChange({ scaleDiff: 3.2 / scale, originX: event.clientX - rect.left, originY: event.clientY - rect.top });
 			}
@@ -211,7 +234,7 @@
 </script>
 
 <div
-	class="container group lg:rounded-xl shadow-2xl overflow-hidden border border-neutral-800"
+	class="group container overflow-hidden border border-neutral-800 shadow-2xl lg:rounded-xl"
 	class:labels-idle={!labelsVisible}
 	onfocusin={revealLabels}
 	bind:this={containerEl}
@@ -226,7 +249,12 @@
 >
 	<!-- Before -->
 	<div class="pane">
-		<img src={comparisonImage} alt={comparison === 'saved' ? 'Currently saved version' : 'Original'} draggable="false" style:transform={`translate(${x}px, ${y}px) scale(${scale})`} />
+		<img
+			src={comparisonImage}
+			alt={comparison === 'saved' ? 'Currently saved version' : 'Original'}
+			draggable="false"
+			style:transform={`translate(${x}px, ${y}px) scale(${scale})`}
+		/>
 	</div>
 
 	<!-- After (clipped) -->
@@ -234,15 +262,23 @@
 		<img src={displayedPreview} alt={showingEdited ? 'After' : 'Original preview'} draggable="false" style:transform={`translate(${x}px, ${y}px) scale(${scale})`} />
 	</div>
 
-	<div class="comparison-label absolute top-4 left-4 z-30 rounded-full border border-neutral-700/50 bg-neutral-950/40 text-[10px] font-bold tracking-widest uppercase text-neutral-300 backdrop-blur-md">
-		<select bind:value={comparison} aria-label="Left comparison version" class="cursor-pointer appearance-none rounded-full bg-transparent py-1 pl-3 pr-7 text-[10px] font-bold tracking-widest uppercase focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300">
+	<div
+		class="comparison-label absolute top-4 left-4 z-30 rounded-full border border-neutral-700/50 bg-neutral-950/40 text-[10px] font-bold tracking-widest text-neutral-300 uppercase backdrop-blur-md"
+	>
+		<select
+			bind:value={comparison}
+			aria-label="Left comparison version"
+			class="cursor-pointer appearance-none rounded-full bg-transparent py-1 pr-7 pl-3 text-[10px] font-bold tracking-widest uppercase focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
+		>
 			<option value="original" class="bg-neutral-900">Original</option>
 			<option value="saved" class="bg-neutral-900">Saved</option>
 		</select>
 		<IconChevronRight size={12} class="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rotate-90" />
 	</div>
 	<div class="absolute top-4 right-4 z-30 flex flex-col items-center gap-2">
-		<div class="comparison-label rounded-full border border-neutral-700/50 bg-neutral-100 px-3 py-1 text-[10px] font-bold tracking-widest uppercase text-neutral-950 backdrop-blur-md">
+		<div
+			class="comparison-label rounded-full border border-neutral-700/50 bg-neutral-100 px-3 py-1 text-[10px] font-bold tracking-widest text-neutral-950 uppercase backdrop-blur-md"
+		>
 			Edited
 		</div>
 	</div>
@@ -267,19 +303,41 @@
 		onpointercancel={onSliderPointerUp}
 		onlostpointercapture={onSliderPointerUp}
 	>
-		<div class="flex h-7 w-7 lg:h-10 lg:w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 backdrop-blur-xl shadow-lg transition-transform hover:scale-110">
-			<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white">
-				<path d="m9 18-6-6 6-6"/>
-				<path d="m15 6 6 6-6 6"/>
+		<div
+			class="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-lg backdrop-blur-xl transition-transform hover:scale-110 lg:h-10 lg:w-10"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="20"
+				height="20"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2.5"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				class="text-white"
+			>
+				<path d="m9 18-6-6 6-6" />
+				<path d="m15 6 6 6-6 6" />
 			</svg>
 		</div>
 	</div>
 </div>
 
 <style>
-	.comparison-label { transition: opacity 250ms ease; }
-	.labels-idle .comparison-label:not(:focus-within) { opacity: 0; pointer-events: none; }
-	@media (prefers-reduced-motion: reduce) { .comparison-label { transition: none; } }
+	.comparison-label {
+		transition: opacity 250ms ease;
+	}
+	.labels-idle .comparison-label:not(:focus-within) {
+		opacity: 0;
+		pointer-events: none;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.comparison-label {
+			transition: none;
+		}
+	}
 	.container {
 		position: relative;
 		width: 100%;

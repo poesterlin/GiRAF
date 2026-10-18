@@ -27,7 +27,7 @@ export class UploadConcurrency {
 		if (this.measuredSeconds < 6 || largestFile <= 0) return this.concurrency;
 		// Target <=7 minutes with an additional 30% bandwidth margin against the
 		// deployment's 10-minute body-read timeout. Never exceed three jobs.
-		const safe = Math.max(1, Math.min(3, Math.floor(this.rate * 420 * 0.7 / largestFile)));
+		const safe = Math.max(1, Math.min(3, Math.floor((this.rate * 420 * 0.7) / largestFile)));
 		this.concurrency = Math.min(safe, this.concurrency + 1);
 		return this.concurrency;
 	}

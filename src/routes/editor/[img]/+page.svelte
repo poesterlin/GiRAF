@@ -73,11 +73,7 @@
 		tagStore.selected = data.imageTags.map((it) => it.name);
 	});
 
-	const keyMap = $derived(
-		new Map<string, () => void>([
-			['p', () => showPreview()]
-		])
-	);
+	const keyMap = $derived(new Map<string, () => void>([['p', () => showPreview()]]));
 
 	function handleKeyDown(event: KeyboardEvent) {
 		if (!data.hasMatchingImages) return;
@@ -101,7 +97,6 @@
 		const url = new URL(apiPath + `/render`, location.origin);
 		window.open(url, '_blank');
 	}
-
 </script>
 
 <svelte:window onkeydown={handleKeyDown} />
@@ -113,7 +108,9 @@
 			<h1 class="text-2xl font-bold">No photos match this filter</h1>
 			<div class="flex flex-wrap justify-center gap-3">
 				<button class="min-h-12 rounded-xl border border-neutral-600 px-5 font-semibold hover:bg-neutral-800" onclick={() => (showFilterModal = true)}>Change filter</button>
-				<a href={`/editor/${data.image.id}?archived=any`} class="flex min-h-12 items-center rounded-xl bg-neutral-100 px-5 font-semibold text-neutral-950 hover:bg-white">Show all photos</a>
+				<a href={`/editor/${data.image.id}?archived=any`} class="flex min-h-12 items-center rounded-xl bg-neutral-100 px-5 font-semibold text-neutral-950 hover:bg-white"
+					>Show all photos</a
+				>
 			</div>
 		</div>
 	</div>
@@ -121,7 +118,9 @@
 	<div class="flex h-full items-center justify-center overflow-y-auto bg-neutral-950 px-6 py-12 text-center text-neutral-200">
 		<div class="flex max-w-md flex-col items-center gap-5" role="alert">
 			<div class="rounded-full border border-neutral-700 bg-neutral-900 p-5 text-neutral-300">
-				<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3 2 21h20Z" /><path d="M12 9v5m0 3v1" /></svg>
+				<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+					><path d="M12 3 2 21h20Z" /><path d="M12 9v5m0 3v1" /></svg
+				>
 			</div>
 			<h1 class="text-2xl font-bold">Photo not ready for editing</h1>
 			<p class="text-sm font-semibold text-neutral-300">{data.image.name}</p>
@@ -133,40 +132,41 @@
 		</div>
 	</div>
 {:else}
-<div class="flex h-full flex-col overflow-hidden bg-neutral-950 text-neutral-200 lg:flex-row">
-	<!-- Image Preview Section -->
-	<div role="region" aria-label="Photo preview" class="relative min-h-0 flex-1 overflow-hidden bg-neutral-900 shadow-inner">
-		<div class="flex h-full items-center justify-center p-0 lg:p-2">
-			<BeforeAfter {beforeImage} {savedImage} isLoading={edits.isLoading} imageId={data.image.id} afterImage={sampleImageId === String(data.image.id) ? sampleImage : ''} />
-		</div>
-		<div class="absolute inset-y-0 left-4 z-30 hidden flex-col justify-center pointer-events-none lg:flex">
-			<div class="pointer-events-auto"><EditModeNav img={page.params.img!} showSnapshots showClipboard showFlag showLast /></div>
-		</div>
-		<div class="absolute bottom-1 left-0 right-0 z-40 flex justify-center pointer-events-none lg:hidden">
-			<div class="mobile-photo-toolbar pointer-events-auto"><EditModeNav img={page.params.img!} showHistory showUndoRedo={false} showSnapshots showClipboard showFlag showLast /></div>
-		</div>
-
-
-	</div>
-
-	<!-- Controls Panel Section -->
-	<aside aria-label="Adjustments" class="flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-neutral-800 bg-neutral-950 transition-all duration-300 lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l h-[46dvh] lg:h-auto">
-		<div class="hidden shrink-0 px-6 pt-2 lg:block"><EditorTools img={page.params.img!} /></div>
-		<EditorHistoryBinding loading={edits.isLoading} />
-
-		<!-- Scrollable Controls -->
-		<div data-adjustment-scroll class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain custom-scrollbar">
-			<EditorMobileToolbar img={page.params.img!} />
-			<div class="px-3 py-2 lg:px-6 lg:py-4">
-			{#if edits.pp3}
-				<Adjustments {data} bind:showLutPicker previewSrc={sampleImageId === String(data.image.id) && !edits.isFaulty ? sampleImage : ''} />
-			{/if}
+	<div class="flex h-full flex-col overflow-hidden bg-neutral-950 text-neutral-200 lg:flex-row">
+		<!-- Image Preview Section -->
+		<div role="region" aria-label="Photo preview" class="relative min-h-0 flex-1 overflow-hidden bg-neutral-900 shadow-inner">
+			<div class="flex h-full items-center justify-center p-0 lg:p-2">
+				<BeforeAfter {beforeImage} {savedImage} isLoading={edits.isLoading} imageId={data.image.id} afterImage={sampleImageId === String(data.image.id) ? sampleImage : ''} />
+			</div>
+			<div class="pointer-events-none absolute inset-y-0 left-4 z-30 hidden flex-col justify-center lg:flex">
+				<div class="pointer-events-auto"><EditModeNav img={page.params.img!} showSnapshots showClipboard showFlag showLast /></div>
+			</div>
+			<div class="pointer-events-none absolute right-0 bottom-1 left-0 z-40 flex justify-center lg:hidden">
+				<div class="mobile-photo-toolbar pointer-events-auto">
+					<EditModeNav img={page.params.img!} showHistory showUndoRedo={false} showSnapshots showClipboard showFlag showLast />
+				</div>
 			</div>
 		</div>
 
-	</aside>
-</div>
+		<!-- Controls Panel Section -->
+		<aside
+			aria-label="Adjustments"
+			class="flex h-[46dvh] min-h-0 w-full shrink-0 flex-col overflow-hidden border-t border-neutral-800 bg-neutral-950 transition-all duration-300 lg:h-auto lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l"
+		>
+			<div class="hidden shrink-0 px-6 pt-2 lg:block"><EditorTools img={page.params.img!} /></div>
+			<EditorHistoryBinding loading={edits.isLoading} />
 
+			<!-- Scrollable Controls -->
+			<div data-adjustment-scroll class="custom-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
+				<EditorMobileToolbar img={page.params.img!} />
+				<div class="px-3 py-2 lg:px-6 lg:py-4">
+					{#if edits.pp3}
+						<Adjustments {data} bind:showLutPicker previewSrc={sampleImageId === String(data.image.id) && !edits.isFaulty ? sampleImage : ''} />
+					{/if}
+				</div>
+			</div>
+		</aside>
+	</div>
 {/if}
 
 {#if showLutPicker && data.hasMatchingImages && !data.editorError}

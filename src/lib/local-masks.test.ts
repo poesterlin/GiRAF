@@ -17,7 +17,7 @@ test('local masks round trip multiple regions and compact unknown tool fields on
 	expect(parsed.Locallab.Shape_0).toBe('RECT');
 	expect(parsed.Locallab.CustomTool_0).toBe(42);
 	expect(parsed.Locallab.Expcomp_0).toBe(1.5);
-	expect(scaleEditSettings(parsed, 50).Locallab.Expcomp_0).toBe(.75);
+	expect(scaleEditSettings(parsed, 50).Locallab.Expcomp_0).toBe(0.75);
 	expect(scaleEditSettings(parsed, 0).Locallab.Enabled).toBe(false);
 	deleteLocalMask(parsed, 0);
 	expect(parsed.Locallab.Enabled).toBe(false);

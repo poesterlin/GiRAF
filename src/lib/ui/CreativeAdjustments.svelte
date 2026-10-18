@@ -11,17 +11,25 @@
 		setToneColor(edits.pp3, range, hue, saturation);
 		edits.pushHistory();
 	}
-	const gradingIgnored = $derived(edits.pp3.ColorToning.Enabled === false && (toneColor(edits.pp3, 'Shadows').saturation !== 0 || toneColor(edits.pp3, 'Highlights').saturation !== 0));
+	const gradingIgnored = $derived(
+		edits.pp3.ColorToning.Enabled === false && (toneColor(edits.pp3, 'Shadows').saturation !== 0 || toneColor(edits.pp3, 'Highlights').saturation !== 0)
+	);
 </script>
 
 {#if mode === 'grading'}
 	{#each ['Shadows', 'Highlights'] as range}
 		{@const color = toneColor(edits.pp3, range as ToneRange)}
 		<div class="space-y-3">
-			<div class="flex min-h-9 items-center gap-2 text-xs font-semibold uppercase tracking-wider text-neutral-300">
+			<div class="flex min-h-9 items-center gap-2 text-xs font-semibold tracking-wider text-neutral-300 uppercase">
 				<span class="h-3 w-3 rounded-full ring-1 ring-white/20" style:background-color={`hsl(${color.hue} 100% 55%)`} aria-hidden="true"></span>{range}
 			</div>
-			<ColorWheel label={`${range} color`} hue={color.hue} saturation={color.saturation} ignored={gradingIgnored} onchange={(hue) => colorChange(range as ToneRange, hue, color.saturation)} />
+			<ColorWheel
+				label={`${range} color`}
+				hue={color.hue}
+				saturation={color.saturation}
+				ignored={gradingIgnored}
+				onchange={(hue) => colorChange(range as ToneRange, hue, color.saturation)}
+			/>
 			<Slider
 				label={`${range} saturation`}
 				value={color.saturation}

@@ -22,7 +22,7 @@
 			},
 			body: JSON.stringify({ tags: tagStore.selected })
 		});
-		
+
 		await invalidateAll();
 		onClose();
 	}

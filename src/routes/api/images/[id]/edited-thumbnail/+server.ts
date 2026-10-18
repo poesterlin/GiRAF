@@ -14,7 +14,8 @@ export const GET: RequestHandler = async ({ params, url, fetch }) => {
 		const snapshot = await db.query.snapshotTable.findFirst({ where: and(eq(snapshotTable.id, snapshotId), eq(snapshotTable.imageId, id)) });
 		if (snapshot) {
 			const file = Bun.file(editedThumbnailPath(image, snapshotId));
-			if (await file.exists()) return new Response(await file.arrayBuffer(), { headers: { 'Content-Type': 'image/webp', 'Cache-Control': 'private, max-age=31536000, immutable' } });
+			if (await file.exists())
+				return new Response(await file.arrayBuffer(), { headers: { 'Content-Type': 'image/webp', 'Cache-Control': 'private, max-age=31536000, immutable' } });
 			queueEditedThumbnail(image, snapshot);
 		}
 	}

@@ -12,7 +12,7 @@ export const load: PageServerLoad = async ({ fetch }) => {
 		throw error(response.status, 'Could not fetch import sessions');
 	}
 
-	const initialData = await response.json() as ImportResponse;
+	const initialData = (await response.json()) as ImportResponse;
 
 	const sessions = await db.query.sessionTable.findMany({
 		where: eq(sessionTable.isArchived, false),
@@ -24,8 +24,8 @@ export const load: PageServerLoad = async ({ fetch }) => {
 				}
 			}
 		},
-		orderBy: (sessions, { desc }) => [desc(sessions.startedAt)],
+		orderBy: (sessions, { desc }) => [desc(sessions.startedAt)]
 	});
 
 	return { ...initialData, sessions };
-}
+};

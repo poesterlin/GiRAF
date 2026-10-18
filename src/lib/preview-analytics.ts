@@ -38,7 +38,7 @@ export function previewResponseMetrics(response: Response, requestId: string): P
 	const serverRequestId = response.headers.get('X-Preview-Request');
 	const fresh = serverRequestId === requestId;
 	return {
-		responseReuse: serverRequestId ? fresh ? 'fresh' : 'reused' : 'unknown',
+		responseReuse: serverRequestId ? (fresh ? 'fresh' : 'reused') : 'unknown',
 		serverTimingsFresh: fresh,
 		serverRequestId: serverRequestId || 'unknown',
 		serverCache: fresh ? response.headers.get('X-Preview-Cache') || 'unknown' : 'not-current',

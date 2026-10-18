@@ -18,7 +18,10 @@ export function levelsToCurve(input: Levels): string {
 		const t = i / 32;
 		return [(black + (white - black) * t) / 255, t ** (1 / gamma)];
 	});
-	return `1;${points.flat().map((n) => Number(n.toFixed(8))).join(';')};`;
+	return `1;${points
+		.flat()
+		.map((n) => Number(n.toFixed(8)))
+		.join(';')};`;
 }
 
 /** Recognize only our sampled levels curves; leave arbitrary imported curves intact. */

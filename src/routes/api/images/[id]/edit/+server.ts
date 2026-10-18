@@ -25,13 +25,18 @@ async function withRefinement<T>(clientKey: string | null, signal: AbortSignal, 
 
 function previewResponse(result: Awaited<ReturnType<typeof editorPreview>>, requestId: string, cacheOnly: boolean, timings: Record<string, number>) {
 	if (!result) return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store', 'X-Preview-Request': requestId } });
-	return new Response(new Uint8Array(result.jpeg), { headers: {
-		'Content-Type': 'image/jpeg', 'Cache-Control': cacheOnly ? 'no-store' : 'private, max-age=3600',
-		'Server-Timing': Object.entries(timings).map(([name, duration]) => `${name};dur=${duration.toFixed(1)}`).join(', '),
-		'X-Preview-Cache': result.cacheHit ? 'hit' : 'miss',
-		'X-Preview-Request': requestId,
-		'X-Preview-Source-Cache': result.sourceCache
-	} });
+	return new Response(new Uint8Array(result.jpeg), {
+		headers: {
+			'Content-Type': 'image/jpeg',
+			'Cache-Control': cacheOnly ? 'no-store' : 'private, max-age=3600',
+			'Server-Timing': Object.entries(timings)
+				.map(([name, duration]) => `${name};dur=${duration.toFixed(1)}`)
+				.join(', '),
+			'X-Preview-Cache': result.cacheHit ? 'hit' : 'miss',
+			'X-Preview-Request': requestId,
+			'X-Preview-Source-Cache': result.sourceCache
+		}
+	});
 }
 
 export const GET: RequestHandler = async ({ params, url, request }) => {
@@ -70,9 +75,7 @@ export const GET: RequestHandler = async ({ params, url, request }) => {
 
 		if (stage === 'quick' || stage === 'final') {
 			const render = (signal: AbortSignal) => editorPreview(image.tifPath!, image.filepath, pp3String, url.searchParams.get('device'), stage, signal, cacheOnly);
-			const result = stage === 'final' && !cacheOnly
-				? await withRefinement(clientKey, request.signal, render)
-				: await render(request.signal);
+			const result = stage === 'final' && !cacheOnly ? await withRefinement(clientKey, request.signal, render) : await render(request.signal);
 			const timings = { database: databaseMs, ...result?.timings, request: performance.now() - requestStarted };
 			diagnostics.outcome = result ? 'success' : 'cache-miss';
 			if (result) Object.assign(diagnostics, timings, { jpegCache: result.cacheHit, sourceCache: result.sourceCache, bytes: result.jpeg.byteLength });
@@ -85,7 +88,10 @@ export const GET: RequestHandler = async ({ params, url, request }) => {
 		const response = await respondWithFile(output);
 		diagnostics.outcome = 'success';
 		response.headers.set('X-Preview-Request', requestId);
-		response.headers.set('Server-Timing', `database;dur=${databaseMs.toFixed(1)}, render;dur=${(performance.now() - renderStarted).toFixed(1)}, request;dur=${(performance.now() - requestStarted).toFixed(1)}`);
+		response.headers.set(
+			'Server-Timing',
+			`database;dur=${databaseMs.toFixed(1)}, render;dur=${(performance.now() - renderStarted).toFixed(1)}, request;dur=${(performance.now() - requestStarted).toFixed(1)}`
+		);
 		return response;
 	} catch (err) {
 		diagnostics.outcome = request.signal.aborted || (err instanceof Error && err.name === 'AbortError') ? 'cancelled' : 'error';

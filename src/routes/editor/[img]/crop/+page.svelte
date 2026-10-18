@@ -21,10 +21,10 @@
 	import EditorMobileToolbar from '$lib/ui/EditorMobileToolbar.svelte';
 	import EditorHistoryBinding from '$lib/ui/EditorHistoryBinding.svelte';
 	import Slider from '$lib/ui/Slider.svelte';
-	
+
 	let canvasEl = $state<HTMLCanvasElement>();
 	let imgEl = $state<HTMLImageElement>();
-			
+
 	let { data } = $props();
 	let imageDimensions: Dimensions = { width: 0, height: 0 };
 	let displayDimensions: Dimensions = { width: 0, height: 0 };
@@ -74,7 +74,10 @@
 			frame = requestAnimationFrame(draw);
 		});
 		observer.observe(container);
-		return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+		return () => {
+			observer.disconnect();
+			cancelAnimationFrame(frame);
+		};
 	});
 
 	function startCrop() {
@@ -188,7 +191,6 @@
 		drawCropGrid(ctx, scaledPP3, { padding, selected: handle });
 	}
 
-
 	function move(event: PointerEvent) {
 		if (activePointerId !== null && event.pointerId !== activePointerId) return;
 		if (!canvasEl || !ctx) {
@@ -196,12 +198,7 @@
 		}
 
 		const rect = canvasEl.getBoundingClientRect();
-		const cropPoint = screenToCropSpace(
-			event.clientX - rect.left,
-			event.clientY - rect.top,
-			padding,
-			displayScale
-		);
+		const cropPoint = screenToCropSpace(event.clientX - rect.left, event.clientY - rect.top, padding, displayScale);
 		const dx = cropPoint.x - lastX;
 		const dy = cropPoint.y - lastY;
 		lastX = cropPoint.x;
@@ -244,12 +241,7 @@
 		}
 
 		const rect = canvasEl!.getBoundingClientRect();
-		const cropPoint = screenToCropSpace(
-			event.clientX - rect.left,
-			event.clientY - rect.top,
-			padding,
-			displayScale
-		);
+		const cropPoint = screenToCropSpace(event.clientX - rect.left, event.clientY - rect.top, padding, displayScale);
 		lastX = cropPoint.x;
 		lastY = cropPoint.y;
 
@@ -265,9 +257,7 @@
 		}
 
 		const scaledPP3 = getScaledPP3();
-		handle = scaledPP3
-			? checkHandleCollision(scaledPP3, cropPoint.x * displayScale, cropPoint.y * displayScale, event.pointerType === 'touch' ? 24 : 10)
-			: undefined;
+		handle = scaledPP3 ? checkHandleCollision(scaledPP3, cropPoint.x * displayScale, cropPoint.y * displayScale, event.pointerType === 'touch' ? 24 : 10) : undefined;
 		if (handle && canvasEl) {
 			isMoving = true;
 			activePointerId = event.pointerId;
@@ -309,7 +299,7 @@
 		if (!canvasEl || activePointerId !== event.pointerId) {
 			return;
 		}
-		
+
 		activePointerId = null;
 		isMoving = false;
 		handle = undefined;
@@ -325,10 +315,7 @@
 
 		requestAnimationFrame(() => draw());
 	}
-
-
 </script>
-
 
 <img src={imageUrl} alt="" class="hidden" bind:this={imgEl} onload={draw} />
 
@@ -336,18 +323,31 @@
 	<!-- Image Preview Section -->
 	<div class="relative min-h-0 flex-1 overflow-hidden bg-neutral-900 shadow-inner">
 		<div class="flex h-full items-center justify-center p-2 sm:p-2">
-			<canvas bind:this={canvasEl} onpointerdown={startMove} onpointermove={move} onpointerup={endMove} onpointercancel={endMove} onlostpointercapture={endMove} tabindex="0" role="application" aria-label="Crop image" aria-describedby="crop-help" onkeydown={cropKeydown} class:cursor-move={moveCursor} class="m-auto touch-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"></canvas>
-			<p id="crop-help" class="sr-only">Drag the corners to resize the crop, or drag inside it to move. With the keyboard, arrow keys move the crop, Alt plus arrow keys resize it, and Shift makes bigger steps. Press Enter to start a crop.</p>
+			<canvas
+				bind:this={canvasEl}
+				onpointerdown={startMove}
+				onpointermove={move}
+				onpointerup={endMove}
+				onpointercancel={endMove}
+				onlostpointercapture={endMove}
+				tabindex="0"
+				role="application"
+				aria-label="Crop image"
+				aria-describedby="crop-help"
+				onkeydown={cropKeydown}
+				class:cursor-move={moveCursor}
+				class="m-auto touch-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+			></canvas>
+			<p id="crop-help" class="sr-only">
+				Drag the corners to resize the crop, or drag inside it to move. With the keyboard, arrow keys move the crop, Alt plus arrow keys resize it, and Shift makes bigger steps.
+				Press Enter to start a crop.
+			</p>
 			<p class="sr-only" role="status" aria-live="polite">{cropStatus}</p>
 		</div>
-		
-
 	</div>
 
 	<!-- Controls Panel Section -->
-	<aside
-		class="flex max-h-[45dvh] w-full shrink-0 flex-col border-t border-neutral-800 bg-neutral-950 lg:max-h-none lg:h-full lg:w-[380px] lg:border-t-0 lg:border-l"
-	>
+	<aside class="flex max-h-[45dvh] w-full shrink-0 flex-col border-t border-neutral-800 bg-neutral-950 lg:h-full lg:max-h-none lg:w-[380px] lg:border-t-0 lg:border-l">
 		<!-- Panel Header -->
 		{#if edits.currentImageId}
 			<div class="hidden shrink-0 px-6 pt-2 lg:block"><EditorTools img={edits.currentImageId} currentTool="crop" /></div>
@@ -355,41 +355,44 @@
 		<EditorHistoryBinding loading={edits.isLoading} />
 
 		<!-- Scrollable Controls -->
-		<div class="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
+		<div class="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
 			{#if edits.currentImageId}<EditorMobileToolbar img={edits.currentImageId} currentTool="crop" />{/if}
 			<div class="px-4 py-3 lg:px-6 lg:py-4">
-			{#if !hasCrop}
-				<button type="button" onclick={startCrop} class="mb-3 w-full rounded-xl border border-neutral-500 bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-100 hover:bg-neutral-800">Start crop</button>
-			{/if}
-			{#if edits.pp3?.Rotation}
-				<div class="space-y-3 lg:space-y-8">
-					<Slider
-						label="Rotate"
-						min={-45}
-						max={45}
-						step={0.1}
-						centered
-						resetValue={0}
-						bind:value={edits.pp3.Rotation.Degree as number}
-						onchange={(v) => {
-							edits.pp3.Rotation.Degree = v;
-							edits.pushHistory();
-							requestAnimationFrame(() => draw());
-						}}
-					/>
+				{#if !hasCrop}
+					<button
+						type="button"
+						onclick={startCrop}
+						class="mb-3 w-full rounded-xl border border-neutral-500 bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-100 hover:bg-neutral-800">Start crop</button
+					>
+				{/if}
+				{#if edits.pp3?.Rotation}
+					<div class="space-y-3 lg:space-y-8">
+						<Slider
+							label="Rotate"
+							min={-45}
+							max={45}
+							step={0.1}
+							centered
+							resetValue={0}
+							bind:value={edits.pp3.Rotation.Degree as number}
+							onchange={(v) => {
+								edits.pp3.Rotation.Degree = v;
+								edits.pushHistory();
+								requestAnimationFrame(() => draw());
+							}}
+						/>
 
-					{#if imageInfo}
-						<div class="hidden rounded-xl border border-neutral-800 bg-neutral-900/30 p-4 lg:block">
-							<div class="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mb-2">Original Resolution</div>
-							<div class="text-sm font-medium text-neutral-300 tabular-nums">
-								{imageInfo.resolutionX} × {imageInfo.resolutionY}
+						{#if imageInfo}
+							<div class="hidden rounded-xl border border-neutral-800 bg-neutral-900/30 p-4 lg:block">
+								<div class="mb-2 text-[10px] font-bold tracking-[0.2em] text-neutral-500 uppercase">Original Resolution</div>
+								<div class="text-sm font-medium text-neutral-300 tabular-nums">
+									{imageInfo.resolutionX} × {imageInfo.resolutionY}
+								</div>
 							</div>
-						</div>
-					{/if}
-				</div>
-			{/if}
+						{/if}
+					</div>
+				{/if}
 			</div>
 		</div>
-
 	</aside>
 </div>

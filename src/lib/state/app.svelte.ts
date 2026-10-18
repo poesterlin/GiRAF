@@ -1,7 +1,7 @@
 interface Toast {
-    id: string;
-    message: string;
-    type: 'success' | 'error' | 'info';
+	id: string;
+	message: string;
+	type: 'success' | 'error' | 'info';
 	action?: { label: string; run: () => void };
 	duration: number;
 	/** Repeats of the same event fold into one toast instead of stacking. */
@@ -35,21 +35,23 @@ interface ServerNotificationItem {
 class AppState {
 	notificationVersion = 0;
 	notificationMutations = 0;
-    toasts = $state<Toast[]>([]);
+	toasts = $state<Toast[]>([]);
 	private toastTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	notifications = $state<NotificationItem[]>([]);
 	private notificationQueue: Promise<void> = Promise.resolve();
 
 	private enqueueNotificationMutation(operation: () => Promise<void>) {
 		this.notificationMutations += 1;
-		const task = this.notificationQueue.catch(() => {}).then(async () => {
-			try {
-				await operation();
-			} finally {
-				this.notificationMutations -= 1;
-				this.notificationVersion += 1;
-			}
-		});
+		const task = this.notificationQueue
+			.catch(() => {})
+			.then(async () => {
+				try {
+					await operation();
+				} finally {
+					this.notificationMutations -= 1;
+					this.notificationVersion += 1;
+				}
+			});
 		this.notificationQueue = task;
 		return task;
 	}
@@ -63,7 +65,7 @@ class AppState {
 		this.notifications = notifications;
 	}
 
-    addToast(message: string, type: 'success' | 'error' | 'info', action?: Toast['action'], options?: ToastOptions) {
+	addToast(message: string, type: 'success' | 'error' | 'info', action?: Toast['action'], options?: ToastOptions) {
 		// Errors and toasts with an action need longer to be read or acted on
 		const duration = action ? 10000 : type === 'error' ? 6000 : 3500;
 		// A repeat of a toast still on screen folds into it, so rapid actions read as one
@@ -76,23 +78,36 @@ class AppState {
 				count: existing.count + 1,
 				message: options?.countMessage?.(existing.count + 1) ?? message,
 				duration,
-				action: action ? (previous ? { label: action.label, run: () => { previous.run(); action.run(); } } : action) : previous
+				action: action
+					? previous
+						? {
+								label: action.label,
+								run: () => {
+									previous.run();
+									action.run();
+								}
+							}
+						: action
+					: previous
 			};
 			this.toasts = this.toasts.map((toast, position) => (position === index ? merged : toast));
 			this.scheduleRemoval(merged);
 			return merged.id;
 		}
-        const id = this.createId();
+		const id = this.createId();
 		const toast: Toast = { id, message, type, action, duration, key: options?.key, count: 1 };
 		this.toasts = [...this.toasts, toast].slice(-3);
-        this.scheduleRemoval(toast);
+		this.scheduleRemoval(toast);
 		return id;
-    }
+	}
 
 	private scheduleRemoval(toast: Toast) {
 		const timer = this.toastTimers.get(toast.id);
 		if (timer) clearTimeout(timer);
-		this.toastTimers.set(toast.id, setTimeout(() => this.removeToast(toast.id), toast.duration));
+		this.toastTimers.set(
+			toast.id,
+			setTimeout(() => this.removeToast(toast.id), toast.duration)
+		);
 	}
 
 	removeToast(id: string) {

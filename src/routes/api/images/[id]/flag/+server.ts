@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import {  imageToTagTable, tagTable } from '$lib/server/db/schema';
+import { imageToTagTable, tagTable } from '$lib/server/db/schema';
 import type { RequestHandler } from '@sveltejs/kit';
 import { error, json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';

@@ -136,32 +136,35 @@
 {#snippet item({ item }: { item: Session })}
 	{@const state = exportState(item)}
 	{@const busy = state.status === 'running' || state.status === 'cancelling'}
-	<div class="group relative mb-3 overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 sm:mr-2 sm:mb-6 sm:rounded-3xl sm:p-6 transition-all hover:border-neutral-700 hover:bg-neutral-900/60">
+	<div
+		class="group relative mb-3 overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 transition-all hover:border-neutral-700 hover:bg-neutral-900/60 sm:mr-2 sm:mb-6 sm:rounded-3xl sm:p-6"
+	>
 		<div class="flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
 			<div class="flex min-w-0 flex-1 items-start gap-3 sm:gap-6">
 				{#if item.images.length > 0}
-					<a href="/exporter/{item.id}" class="relative h-16 w-16 sm:h-24 sm:w-24 shrink-0 overflow-hidden rounded-xl sm:rounded-2xl ring-offset-black transition-all group-hover:ring-2 group-hover:ring-neutral-700">
-						<img
-							src="/api/images/{item.images[0].id}/preview"
-							alt={`${item.name} thumbnail`}
-							loading="lazy"
-							class="h-full w-full object-cover"
-						/>
+					<a
+						href="/exporter/{item.id}"
+						class="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl ring-offset-black transition-all group-hover:ring-2 group-hover:ring-neutral-700 sm:h-24 sm:w-24 sm:rounded-2xl"
+					>
+						<img src="/api/images/{item.images[0].id}/preview" alt={`${item.name} thumbnail`} loading="lazy" class="h-full w-full object-cover" />
 					</a>
 				{/if}
 				<div class="flex min-w-0 flex-col gap-2">
 					<div class="flex flex-wrap items-center gap-2 sm:gap-3">
-						<h2 class="w-full break-words text-lg sm:w-auto sm:text-xl font-bold tracking-tight text-neutral-100"><a href="/exporter/{item.id}">{item.name}</a></h2>
+						<h2 class="w-full text-lg font-bold tracking-tight break-words text-neutral-100 sm:w-auto sm:text-xl"><a href="/exporter/{item.id}">{item.name}</a></h2>
 
-						<span class="inline-flex items-center gap-1.5 rounded-full bg-neutral-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-neutral-100 border border-neutral-300/20" role="status">
+						<span
+							class="inline-flex items-center gap-1.5 rounded-full border border-neutral-300/20 bg-neutral-500/10 px-3 py-1 text-[10px] font-black tracking-wider text-neutral-100 uppercase"
+							role="status"
+						>
 							<span class="h-1.5 w-1.5 rounded-full bg-neutral-400" class:animate-pulse={busy}></span>
-							{busy ? state.status === 'cancelling' ? 'Cancelling' : 'Exporting' : item.status === 'Updated' ? 'Changes Pending' : 'Exported'}
+							{busy ? (state.status === 'cancelling' ? 'Cancelling' : 'Exporting') : item.status === 'Updated' ? 'Changes Pending' : 'Exported'}
 						</span>
 					</div>
-					<p class="flex flex-wrap gap-x-2 gap-y-1 text-xs sm:text-sm font-medium text-neutral-400">
+					<p class="flex flex-wrap gap-x-2 gap-y-1 text-xs font-medium text-neutral-400 sm:text-sm">
 						<span>{item.images.length} images</span><span aria-hidden="true" class="text-neutral-600">·</span><span>{formatDate(item.startedAt)}</span>
 					</p>
-					
+
 					<div class="mt-2 flex items-center gap-3">
 						{#each integrations as integration}
 							{@const album = item.albums.find((a) => a.integration === integration)}
@@ -172,7 +175,7 @@
 										<a
 											href="/api/integrations/{integration}/albums/{album.id}"
 											target="_blank"
-											class="flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-neutral-800/50 p-2 sm:p-1.5 text-neutral-100 transition-all hover:bg-neutral-800 hover:scale-110"
+											class="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-800/50 p-2 text-neutral-100 transition-all hover:scale-110 hover:bg-neutral-800 sm:h-9 sm:w-9 sm:p-1.5"
 										>
 											{@html img}
 										</a>
@@ -183,18 +186,28 @@
 											e.stopPropagation();
 											albumDeleteId = album.id;
 										}}
-										class="album-unlink absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-white focus-visible:opacity-100"
+										class="album-unlink absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-neutral-700 bg-neutral-800 text-neutral-400 hover:text-white focus-visible:opacity-100"
 										title="Remove Link"
 										aria-label={`Remove ${integration} album link`}
 									>
-										<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="10"
+											height="10"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="3"
+											stroke-linecap="round"
+											stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg
+										>
 									</button>
 								</div>
 							{:else}
 								<Tooltip text="Create Album on {integration}" position="top">
 									<button
 										onclick={() => (albumCreateSession = item.id)}
-										class="flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-neutral-800/30 p-2 sm:p-1.5 text-neutral-500 opacity-50 transition-all hover:bg-neutral-800 hover:text-neutral-100 hover:opacity-100 hover:scale-110"
+										class="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-800/30 p-2 text-neutral-500 opacity-50 transition-all hover:scale-110 hover:bg-neutral-800 hover:text-neutral-100 hover:opacity-100 sm:h-9 sm:w-9 sm:p-1.5"
 									>
 										{@html img}
 									</button>
@@ -205,7 +218,7 @@
 				</div>
 			</div>
 
-			<div class="flex items-center justify-end gap-3 border-t border-neutral-800 pt-3 md:border-0 md:pt-0 shrink-0">
+			<div class="flex shrink-0 items-center justify-end gap-3 border-t border-neutral-800 pt-3 md:border-0 md:pt-0">
 				<!-- <a
 					href="/exporter/{item.id}"
 					class="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/50 px-5 py-3 text-xs font-bold text-neutral-400 transition-all hover:bg-neutral-800 hover:text-neutral-100"
@@ -224,11 +237,10 @@
 				{:else if item.status === 'Updated'}
 					<button
 						onclick={() => exportSession(item.id)}
-						class="group/btn flex items-center gap-3 rounded-2xl bg-neutral-100 px-8 py-3 text-xs font-black uppercase tracking-tight text-neutral-950 transition-all hover:bg-white hover:scale-105"
+						class="group/btn flex items-center gap-3 rounded-2xl bg-neutral-100 px-8 py-3 text-xs font-black tracking-tight text-neutral-950 uppercase transition-all hover:scale-105 hover:bg-white"
 					>
-					<IconFileExport size={14} />
+						<IconFileExport size={14} />
 						Export Now
-
 					</button>
 				{:else}
 					{@const hasAlbums = item.albums.length > 0}
@@ -238,7 +250,20 @@
 						title={hasAlbums ? 'Sync images to albums' : 'Export the session again'}
 					>
 						{#if hasAlbums}
-							<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2.5"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path
+									d="M16 16h5v5"
+								/></svg
+							>
 							Sync
 						{:else}
 							<IconFileExport size={14} />
@@ -255,9 +280,19 @@
 	<div class="flex h-[40vh] items-center justify-center rounded-[2.5rem] border border-neutral-800 bg-neutral-900/20">
 		<div class="text-center">
 			<div class="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-neutral-900 text-neutral-700">
-				<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="40"
+					height="40"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg
+				>
 			</div>
-			<h3 class="text-2xl font-black italic uppercase tracking-tighter text-neutral-100">Nothing to Export</h3>
+			<h3 class="text-2xl font-black tracking-tighter text-neutral-100 uppercase italic">Nothing to Export</h3>
 			<p class="mt-2 font-medium text-neutral-500">Finish some edits in the gallery to see them here.</p>
 		</div>
 	</div>
@@ -290,11 +325,13 @@
 ></Scroller>
 
 {#if albumCreateSession}
-	<Modal onClose={() => (albumCreateSession = undefined)} class="!max-w-md !rounded-[2.5rem] !border-neutral-800 !bg-neutral-950 shadow-3xl">
+	<Modal onClose={() => (albumCreateSession = undefined)} class="shadow-3xl !max-w-md !rounded-[2.5rem] !border-neutral-800 !bg-neutral-950">
 		<div class="p-10">
-			<h1 class="mb-2 text-3xl font-black italic uppercase tracking-tighter text-neutral-100 leading-none">Create <span class="text-neutral-500 not-italic font-light">Album</span></h1>
-			<p class="mb-10 font-medium leading-relaxed text-neutral-400">Sync this session with your connected photo services.</p>
-			
+			<h1 class="mb-2 text-3xl leading-none font-black tracking-tighter text-neutral-100 uppercase italic">
+				Create <span class="font-light text-neutral-500 not-italic">Album</span>
+			</h1>
+			<p class="mb-10 leading-relaxed font-medium text-neutral-400">Sync this session with your connected photo services.</p>
+
 			<form
 				method="POST"
 				action="?/create-album"
@@ -318,26 +355,36 @@
 				<input type="hidden" name="session" value={albumCreateSession} required />
 
 				<div>
-					<label for="integration-select" class="mb-3 block text-xs font-bold uppercase tracking-widest text-neutral-500">Choose Service</label>
+					<label for="integration-select" class="mb-3 block text-xs font-bold tracking-widest text-neutral-500 uppercase">Choose Service</label>
 					<div class="relative">
 						<select
 							id="integration-select"
 							name="integration"
-							class="w-full appearance-none rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 capitalize text-neutral-100 outline-none transition-all focus:border-neutral-100"
+							class="w-full appearance-none rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 text-neutral-100 capitalize transition-all outline-none focus:border-neutral-100"
 							required
 						>
 							{#each integrations as integrationType}
 								<option value={integrationType} class="bg-neutral-900 capitalize">{integrationType}</option>
 							{/each}
 						</select>
-						<div class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500">
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+						<div class="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-neutral-500">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="3"
+								stroke-linecap="round"
+								stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg
+							>
 						</div>
 					</div>
 				</div>
 
 				<div class="flex flex-col gap-3 pt-4">
-					<button class="w-full rounded-2xl bg-neutral-100 py-4 text-sm font-black tracking-tight text-neutral-950 transition-all hover:bg-white hover:scale-[1.02]" type="submit">
+					<button class="w-full rounded-2xl bg-neutral-100 py-4 text-sm font-black tracking-tight text-neutral-950 transition-all hover:scale-[1.02] hover:bg-white" type="submit">
 						CREATE ALBUM
 					</button>
 					<button type="button" onclick={() => (albumCreateSession = undefined)} class="w-full py-2 text-sm font-bold text-neutral-600 transition-colors hover:text-neutral-400">
@@ -350,11 +397,13 @@
 {/if}
 
 {#if albumDeleteId}
-	<Modal onClose={() => (albumDeleteId = undefined)} class="!max-w-md !rounded-[2.5rem] !border-neutral-800 !bg-neutral-950 shadow-3xl">
+	<Modal onClose={() => (albumDeleteId = undefined)} class="shadow-3xl !max-w-md !rounded-[2.5rem] !border-neutral-800 !bg-neutral-950">
 		<div class="p-10">
-			<h1 class="mb-2 text-3xl font-black italic uppercase tracking-tighter text-neutral-100 leading-none">Remove <span class="text-neutral-500 not-italic font-light">Link</span></h1>
-			<p class="mb-10 font-medium leading-relaxed text-neutral-400">This will only remove the link from the database. The album will remain on the external service.</p>
-			
+			<h1 class="mb-2 text-3xl leading-none font-black tracking-tighter text-neutral-100 uppercase italic">
+				Remove <span class="font-light text-neutral-500 not-italic">Link</span>
+			</h1>
+			<p class="mb-10 leading-relaxed font-medium text-neutral-400">This will only remove the link from the database. The album will remain on the external service.</p>
+
 			<form
 				method="POST"
 				action="?/delete-album"
@@ -377,7 +426,7 @@
 			>
 				<input type="hidden" name="id" value={albumDeleteId} required />
 
-				<button class="w-full rounded-2xl bg-neutral-700 py-4 text-sm font-black tracking-tight text-white transition-all hover:bg-neutral-500 hover:scale-[1.02]" type="submit">
+				<button class="w-full rounded-2xl bg-neutral-700 py-4 text-sm font-black tracking-tight text-white transition-all hover:scale-[1.02] hover:bg-neutral-500" type="submit">
 					REMOVE LINK
 				</button>
 				<button type="button" onclick={() => (albumDeleteId = undefined)} class="w-full py-2 text-sm font-bold text-neutral-600 transition-colors hover:text-neutral-400">

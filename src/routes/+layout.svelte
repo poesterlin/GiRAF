@@ -37,9 +37,7 @@
 	let editorActive = $derived(currentRoute?.startsWith('/editor'));
 
 	let triageEnabled = $derived(data.triageEnabled);
-	let session = $derived(
-		(page.data as { session?: { id: number; name: string } | null } | null)?.session ?? null
-	);
+	let session = $derived((page.data as { session?: { id: number; name: string } | null } | null)?.session ?? null);
 	let sessionName = $derived(session?.name ?? null);
 	let sessionId = $derived(session?.id ?? null);
 	let showNotifications = $state(false);
@@ -51,9 +49,7 @@
 	let knownNotificationIds = new Set<string>();
 	let totalRunningTasks = $derived(runningTaskCount + (uploads.isUploading ? 1 : 0));
 	let notificationsAriaLabel = $derived(
-		totalRunningTasks > 0
-			? `Open notifications. ${totalRunningTasks} task${totalRunningTasks === 1 ? '' : 's'} running`
-			: 'Open notifications'
+		totalRunningTasks > 0 ? `Open notifications. ${totalRunningTasks} task${totalRunningTasks === 1 ? '' : 's'} running` : 'Open notifications'
 	);
 
 	function toggleNotifications() {
@@ -70,8 +66,7 @@
 	}
 
 	$effect(() => {
-		const notifications =
-			((data as { notifications?: ServerNotification[] }).notifications as ServerNotification[] | undefined) ?? [];
+		const notifications = ((data as { notifications?: ServerNotification[] }).notifications as ServerNotification[] | undefined) ?? [];
 		const mapped = notifications.map((notification) => ({
 			...notification,
 			createdAt: new Date(notification.createdAt)
@@ -187,15 +182,15 @@
 	<link rel="icon" href={logo} />
 </svelte:head>
 
-<div style:height="var(--app-height, 100dvh)" class="grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-neutral-950 text-neutral-200 font-sans">
+<div style:height="var(--app-height, 100dvh)" class="grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-neutral-950 font-sans text-neutral-200">
 	<header
 		class:editor-header={editorActive && !!page.params.img}
 		class="z-50 flex items-center justify-between border-b border-neutral-800/50 bg-neutral-950/80 px-3 py-3 backdrop-blur-md sm:px-6"
 	>
 		<!-- Brand -->
 		<a href="/" class="flex items-center gap-2 sm:gap-3">
-			<img src={logo} alt="GiRAF Logo" class="h-8 w-8 sm:h-9 sm:w-9 rounded-full" />
-			<span class="hidden text-base font-bold tracking-tight text-neutral-100 sm:text-lg lg:block uppercase">
+			<img src={logo} alt="GiRAF Logo" class="h-8 w-8 rounded-full sm:h-9 sm:w-9" />
+			<span class="hidden text-base font-bold tracking-tight text-neutral-100 uppercase sm:text-lg lg:block">
 				Gi<span class="font-light text-neutral-500">RAF</span>
 			</span>
 		</a>
@@ -228,15 +223,9 @@
 					class="absolute top-11 right-0 z-80 w-80 max-w-[calc(100vw-1rem)] overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900/95 shadow-2xl backdrop-blur-md lg:right-10"
 				>
 					<div class="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
-						<p class="text-xs font-semibold uppercase tracking-wider text-neutral-400">Notifications</p>
+						<p class="text-xs font-semibold tracking-wider text-neutral-400 uppercase">Notifications</p>
 						{#if app.notifications.length > 0}
-							<button
-								type="button"
-								class="text-xs text-neutral-500 transition-colors hover:text-neutral-200"
-								onclick={() => void app.clearNotifications()}
-							>
-								Clear
-							</button>
+							<button type="button" class="text-xs text-neutral-500 transition-colors hover:text-neutral-200" onclick={() => void app.clearNotifications()}> Clear </button>
 						{/if}
 					</div>
 
@@ -255,7 +244,7 @@
 									<div class="flex items-start gap-2">
 										<span class={`mt-1 h-2 w-2 shrink-0 rounded-full ${typeColor}`}></span>
 										<div class="min-w-0 flex-1">
-											<p class="text-xs font-semibold uppercase tracking-wide text-neutral-100">{notification.type}</p>
+											<p class="text-xs font-semibold tracking-wide text-neutral-100 uppercase">{notification.type}</p>
 											<p class="text-sm text-neutral-200">{notification.message}</p>
 											<p class="mt-1 text-[11px] text-neutral-500">
 												{new Date(notification.createdAt).toLocaleTimeString()}
@@ -274,7 +263,7 @@
 				class="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-800 bg-neutral-900 text-neutral-400 transition-colors hover:border-neutral-700 hover:text-neutral-100 sm:h-9 sm:w-9"
 			>
 				<IconUser size={20} />
-		</a>
+			</a>
 		</div>
 	</header>
 	<main class="min-h-0">
@@ -283,15 +272,36 @@
 </div>
 
 <!-- toasts: top of the screen so they never cover bottom action bars -->
-<div bind:this={toastLayer} popover="manual" class="pointer-events-none fixed inset-x-3 top-16 bottom-auto z-80 m-0 flex h-auto w-auto flex-col items-center gap-2 overflow-visible border-0 bg-transparent p-0 sm:inset-x-auto sm:right-4 sm:items-end" role="status" aria-live="polite">
+<div
+	bind:this={toastLayer}
+	popover="manual"
+	class="pointer-events-none fixed inset-x-3 top-16 bottom-auto z-80 m-0 flex h-auto w-auto flex-col items-center gap-2 overflow-visible border-0 bg-transparent p-0 sm:inset-x-auto sm:right-4 sm:items-end"
+	role="status"
+	aria-live="polite"
+>
 	{#each app.toasts as toast (toast.id)}
-		<div in:fly={{ y: -12, duration: 180 }} out:fade={{ duration: 120 }} class="pointer-events-auto relative flex w-full max-w-md items-center gap-3 overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900/95 py-2 pr-2 pl-4 text-sm text-neutral-50 shadow-xl backdrop-blur-md sm:w-auto sm:min-w-72">
-			<span class="h-2 w-2 shrink-0 rounded-full {toast.type === 'error' ? 'bg-red-400' : toast.type === 'success' ? 'bg-emerald-400' : 'bg-neutral-400'}" aria-hidden="true"></span>
+		<div
+			in:fly={{ y: -12, duration: 180 }}
+			out:fade={{ duration: 120 }}
+			class="pointer-events-auto relative flex w-full max-w-md items-center gap-3 overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900/95 py-2 pr-2 pl-4 text-sm text-neutral-50 shadow-xl backdrop-blur-md sm:w-auto sm:min-w-72"
+		>
+			<span class="h-2 w-2 shrink-0 rounded-full {toast.type === 'error' ? 'bg-red-400' : toast.type === 'success' ? 'bg-emerald-400' : 'bg-neutral-400'}" aria-hidden="true"
+			></span>
 			<span class="min-w-0 flex-1 py-1 font-medium">{toast.message}</span>
 			{#if toast.action}
-				<button class="min-h-10 shrink-0 rounded-lg bg-neutral-100 px-3 font-semibold text-neutral-950 hover:bg-white" onclick={() => { toast.action?.run(); app.removeToast(toast.id); }}>{toast.action.label}</button>
+				<button
+					class="min-h-10 shrink-0 rounded-lg bg-neutral-100 px-3 font-semibold text-neutral-950 hover:bg-white"
+					onclick={() => {
+						toast.action?.run();
+						app.removeToast(toast.id);
+					}}>{toast.action.label}</button
+				>
 			{/if}
-			<button class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100" aria-label="Dismiss" onclick={() => app.removeToast(toast.id)}>✕</button>
+			<button
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+				aria-label="Dismiss"
+				onclick={() => app.removeToast(toast.id)}>✕</button
+			>
 			<span class="toast-timer absolute inset-x-0 bottom-0 h-0.5 origin-left bg-neutral-500" style:animation-duration="{toast.duration}ms"></span>
 		</div>
 	{/each}
@@ -302,11 +312,18 @@
 		animation: toast-timer linear forwards;
 	}
 	@keyframes toast-timer {
-		from { transform: scaleX(1); }
-		to { transform: scaleX(0); }
+		from {
+			transform: scaleX(1);
+		}
+		to {
+			transform: scaleX(0);
+		}
 	}
 	@media (max-width: 1023px) {
-		.editor-header > div > button { width: 44px; height: 44px; }
+		.editor-header > div > button {
+			width: 44px;
+			height: 44px;
+		}
 	}
 	@keyframes running-dot-pulse {
 		0%,

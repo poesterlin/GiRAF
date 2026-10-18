@@ -53,5 +53,5 @@ export {
 	IconTrash,
 	IconHistory,
 	IconLayoutGrid,
-	IconFilter,
+	IconFilter
 };

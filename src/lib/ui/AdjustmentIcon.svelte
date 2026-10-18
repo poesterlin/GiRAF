@@ -19,4 +19,15 @@
 	};
 </script>
 
-<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mr-2.5 shrink-0 text-neutral-400" aria-hidden="true"><path d={paths[name] ?? 'M4 7h16M4 12h16M4 17h16'} /></svg>
+<svg
+	width="19"
+	height="19"
+	viewBox="0 0 24 24"
+	fill="none"
+	stroke="currentColor"
+	stroke-width="1.5"
+	stroke-linecap="round"
+	stroke-linejoin="round"
+	class="mr-2.5 shrink-0 text-neutral-400"
+	aria-hidden="true"><path d={paths[name] ?? 'M4 7h16M4 12h16M4 17h16'} /></svg
+>

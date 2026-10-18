@@ -7,7 +7,12 @@ export const ASSIGNMENT_BATCH_SIZE = 50;
  * Capture the target now, then assign files in batches: everything already on the server goes
  * together, and files still transferring join the next batch as they finish.
  */
-export async function assignPendingUploads(uploads: Promise<number | undefined>[], target: UploadSessionTarget, onAssigned: (indices: number[]) => void, onError: (error: unknown) => void) {
+export async function assignPendingUploads(
+	uploads: Promise<number | undefined>[],
+	target: UploadSessionTarget,
+	onAssigned: (indices: number[]) => void,
+	onError: (error: unknown) => void
+) {
 	const assign = createUploadAssignment({ ...target }, () => {});
 	const waiting: { id: number; index: number }[] = [];
 	let draining: Promise<void> | undefined;

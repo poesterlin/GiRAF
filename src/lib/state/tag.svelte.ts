@@ -10,13 +10,9 @@ class TagStore {
 			return [];
 		}
 
-		return this.existingTags.filter(
-			(tag) =>
-				tag.toLowerCase().includes(this.trimmedTagInput.toLowerCase()) && !this.selected.includes(tag)
-		);
+		return this.existingTags.filter((tag) => tag.toLowerCase().includes(this.trimmedTagInput.toLowerCase()) && !this.selected.includes(tag));
 	});
 	public showSuggestions = $derived(this.filteredTags.length > 0 && this.trimmedTagInput !== '');
-
 
 	public handleTagInputKeydown(event: KeyboardEvent) {
 		switch (event.key) {
@@ -39,10 +35,7 @@ class TagStore {
 			case 'ArrowDown':
 				event.preventDefault(); // Prevent cursor move
 				if (this.showSuggestions) {
-					this.activeSuggestionIndex = Math.min(
-						this.activeSuggestionIndex + 1,
-						this.filteredTags.length - 1
-					);
+					this.activeSuggestionIndex = Math.min(this.activeSuggestionIndex + 1, this.filteredTags.length - 1);
 				}
 				break;
 			case 'ArrowUp':

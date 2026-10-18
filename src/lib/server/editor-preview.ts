@@ -84,7 +84,17 @@ export async function editorPreview(path: string, rawPath: string, pp3: string, 
 				const settings = await mapCropFromPreviewToExport(edits, path, input);
 				timings.mapping = performance.now() - mappingStarted;
 				signal.throwIfAborted();
-				settings.Resize = { Enabled: true, AppliesTo: 'Cropped area', Method: 'Lanczos', DataSpecified: 3, Width: size, Height: size, LongEdge: size, ShortEdge: size, AllowUpscaling: false };
+				settings.Resize = {
+					Enabled: true,
+					AppliesTo: 'Cropped area',
+					Method: 'Lanczos',
+					DataSpecified: 3,
+					Width: size,
+					Height: size,
+					LongEdge: size,
+					ShortEdge: size,
+					AllowUpscaling: false
+				};
 				profile = stringifyPP3(settings);
 			}
 			const renderStarted = performance.now();

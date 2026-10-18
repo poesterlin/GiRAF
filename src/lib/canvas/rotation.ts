@@ -18,10 +18,7 @@ export function imgToRotMatrix(angleDeg: number, pivot: { x: number; y: number }
 }
 
 /** Transform a point through a DOMMatrix. */
-export function applyToPoint(
-	m: DOMMatrix,
-	p: { x: number; y: number }
-): { x: number; y: number } {
+export function applyToPoint(m: DOMMatrix, p: { x: number; y: number }): { x: number; y: number } {
 	const pt = new DOMPoint(p.x, p.y).matrixTransform(m);
 	return { x: pt.x, y: pt.y };
 }
@@ -30,11 +27,7 @@ export function applyToPoint(
  * Compute the axis-aligned bounding box of the image after rotation.
  * Returns the AABB origin (minX, minY) and dimensions (width, height).
  */
-export function getRotatedAABB(
-	imgW: number,
-	imgH: number,
-	angleDeg: number
-): { minX: number; minY: number; width: number; height: number } {
+export function getRotatedAABB(imgW: number, imgH: number, angleDeg: number): { minX: number; minY: number; width: number; height: number } {
 	const pivot = { x: imgW / 2, y: imgH / 2 };
 	const m = imgToRotMatrix(angleDeg, pivot);
 
@@ -71,11 +64,7 @@ export function getRotatedAABB(
  *
  * Returns dimensions clamped to ≥ 0 (at extreme angles no rect fits).
  */
-export function getInnerRect(
-	imgW: number,
-	imgH: number,
-	angleDeg: number
-): { width: number; height: number } {
+export function getInnerRect(imgW: number, imgH: number, angleDeg: number): { width: number; height: number } {
 	const rad = (Math.abs(angleDeg) * Math.PI) / 180;
 	const cosA = Math.cos(rad);
 	const sinA = Math.sin(rad);

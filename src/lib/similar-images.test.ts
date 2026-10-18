@@ -2,7 +2,11 @@ import { describe, expect, test } from 'bun:test';
 import { areSimilar, markStackReviewed, nextAfterStack, reviewedStacks, similarCandidates } from './similar-images';
 
 /** A 256-bit hash differing from the all-zero hash in exactly `bits` places. */
-const hash = (bits: number) => 'f'.repeat(Math.floor(bits / 4)).padStart(64, '0').replace(/^0/, bits % 4 ? ((1 << (bits % 4)) - 1).toString(16) : '0');
+const hash = (bits: number) =>
+	'f'
+		.repeat(Math.floor(bits / 4))
+		.padStart(64, '0')
+		.replace(/^0/, bits % 4 ? ((1 << (bits % 4)) - 1).toString(16) : '0');
 const shot = (id: number, bits: number, seconds: number, isArchived = false) => ({ id, isArchived, phash: hash(bits), recordedAt: new Date(1_000_000 + seconds * 1000) });
 
 describe('similarity rule', () => {

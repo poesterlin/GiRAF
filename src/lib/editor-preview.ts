@@ -28,10 +28,13 @@ function waitForSettling(delay: number, signal: AbortSignal): Promise<void> {
 			signal.removeEventListener('abort', abort);
 			reject(signal.reason);
 		};
-		const timer = setTimeout(() => {
-			signal.removeEventListener('abort', abort);
-			resolve();
-		}, Math.max(0, delay));
+		const timer = setTimeout(
+			() => {
+				signal.removeEventListener('abort', abort);
+				resolve();
+			},
+			Math.max(0, delay)
+		);
 		signal.addEventListener('abort', abort, { once: true });
 	});
 }
@@ -50,7 +53,14 @@ function previewFailure(signal: AbortSignal, status: PreviewMetrics[string], pha
 
 export function getPreviewDevice(): PreviewDevice {
 	const hints = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean; effectiveType?: string; type?: string } };
-	return previewDevice({ width: window.innerWidth, memory: hints.deviceMemory, cores: hints.hardwareConcurrency, saveData: hints.connection?.saveData, connection: hints.connection?.effectiveType, connectionType: hints.connection?.type });
+	return previewDevice({
+		width: window.innerWidth,
+		memory: hints.deviceMemory,
+		cores: hints.hardwareConcurrency,
+		saveData: hints.connection?.saveData,
+		connection: hints.connection?.effectiveType,
+		connectionType: hints.connection?.type
+	});
 }
 
 /**
@@ -127,7 +137,12 @@ export async function loadEditorPreview(imageId: string, config: string, device:
 				publish(url);
 				ready = true;
 				trackPreviewPaint(requestId, stage, performance.now(), signal);
-				trackPreview('preview-render', { ...metrics, outcome: 'displayed', stageMs: Math.round(performance.now() - stageStarted), totalMs: Math.round(performance.now() - started) });
+				trackPreview('preview-render', {
+					...metrics,
+					outcome: 'displayed',
+					stageMs: Math.round(performance.now() - stageStarted),
+					totalMs: Math.round(performance.now() - started)
+				});
 			} catch (error) {
 				URL.revokeObjectURL(url);
 				throw error;
@@ -135,7 +150,14 @@ export async function loadEditorPreview(imageId: string, config: string, device:
 		} catch (error) {
 			const failedPhase = phase;
 			nextPhase('finished');
-			trackPreview('preview-render', { ...metrics, ...previewFailure(signal, metrics.httpStatus, failedPhase), phase: failedPhase, retainedPreview: ready, stageMs: Math.round(performance.now() - stageStarted), totalMs: Math.round(performance.now() - started) });
+			trackPreview('preview-render', {
+				...metrics,
+				...previewFailure(signal, metrics.httpStatus, failedPhase),
+				phase: failedPhase,
+				retainedPreview: ready,
+				stageMs: Math.round(performance.now() - stageStarted),
+				totalMs: Math.round(performance.now() - started)
+			});
 			if (signal.aborted) throw error;
 			// A failed quick pass can still recover at final quality. Keep a successful
 			// quick pass if refinement fails rather than replacing it with an error.
@@ -157,7 +179,10 @@ export class EditorPreviewQueue {
 	 * @param publish receives each decoded preview and its image; `latest` is false while a newer edit still waits.
 	 * @param finished runs when the newest request has finished, with the error if it failed.
 	 */
-	constructor(private publish: (url: string, imageId: string, latest: boolean) => void, private finished: (error?: unknown) => void) {}
+	constructor(
+		private publish: (url: string, imageId: string, latest: boolean) => void,
+		private finished: (error?: unknown) => void
+	) {}
 
 	request(imageId: string, config: string, device: PreviewDevice) {
 		const start = () => this.start(imageId, config, device);

@@ -58,13 +58,63 @@
 
 <style>
 	/* Justified rows: every photo keeps its shape at one row height, and rows stretch to fill the width. */
-	.sheet { --row: 132px; display: flex; flex-wrap: wrap; gap: 4px; }
-	.sheet::after { content: ''; flex-grow: 999; }
-	@media (min-width: 768px) { .sheet { --row: 190px; gap: 6px; } }
-	.tile { position: relative; flex: 1 1 auto; height: var(--row); overflow: hidden; border-radius: 6px; background: #171717; }
-	.tile img { display: block; height: 100%; width: auto; min-width: 100%; max-width: none; object-fit: cover; transition: transform 300ms ease-out; }
-	.caption { position: absolute; inset: auto 0 0 0; padding: 16px 8px 6px; background: linear-gradient(transparent, #000c); color: #e5e5e5; font-size: 11px; opacity: 0; transition: opacity 150ms; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.tile:hover .caption, .tile:focus-visible .caption { opacity: 1; }
-	.tile:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-	@media (hover: hover) and (prefers-reduced-motion: no-preference) { .tile:hover img { transform: scale(1.03); } }
+	.sheet {
+		--row: 132px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+	.sheet::after {
+		content: '';
+		flex-grow: 999;
+	}
+	@media (min-width: 768px) {
+		.sheet {
+			--row: 190px;
+			gap: 6px;
+		}
+	}
+	.tile {
+		position: relative;
+		flex: 1 1 auto;
+		height: var(--row);
+		overflow: hidden;
+		border-radius: 6px;
+		background: #171717;
+	}
+	.tile img {
+		display: block;
+		height: 100%;
+		width: auto;
+		min-width: 100%;
+		max-width: none;
+		object-fit: cover;
+		transition: transform 300ms ease-out;
+	}
+	.caption {
+		position: absolute;
+		inset: auto 0 0 0;
+		padding: 16px 8px 6px;
+		background: linear-gradient(transparent, #000c);
+		color: #e5e5e5;
+		font-size: 11px;
+		opacity: 0;
+		transition: opacity 150ms;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.tile:hover .caption,
+	.tile:focus-visible .caption {
+		opacity: 1;
+	}
+	.tile:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: 2px;
+	}
+	@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+		.tile:hover img {
+			transform: scale(1.03);
+		}
+	}
 </style>

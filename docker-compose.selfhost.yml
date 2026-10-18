@@ -9,7 +9,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -25,12 +25,12 @@ services:
       - EXPORT_DIR=/app/export
       - TMP_DIR=/tmp
     volumes:
-      - ./cluts:/app/cluts        # for custom CLUTs, if needed
-      - ./import:/app/import      # import directory 
-      - ./export:/app/export      # export directory  
-      - ./data:/app/data          # optional, persist google photos tokens
+      - ./cluts:/app/cluts # for custom CLUTs, if needed
+      - ./import:/app/import # import directory
+      - ./export:/app/export # export directory
+      - ./data:/app/data # optional, persist google photos tokens
     ports:
-      - "4893:3000"
+      - '4893:3000'
     depends_on:
       db:
         condition: service_healthy

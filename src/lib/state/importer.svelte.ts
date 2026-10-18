@@ -30,11 +30,15 @@ export class ImporterState {
 	private previews = pLimit(2);
 	private transfers = new Map<number, { promise: Promise<number | undefined>; resolve: (id: number | undefined) => void }>();
 
-	constructor(private queued: () => ImageItem[], private onRemoved: (id: number) => void) {}
+	constructor(
+		private queued: () => ImageItem[],
+		private onRemoved: (id: number) => void
+	) {}
 
 	get allItems(): ImageItem[] {
-		return [...this.queued().filter((item) => !this.items.some((local) => local.importId === item.id)), ...this.items]
-			.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || (b.importId ?? b.id) - (a.importId ?? a.id));
+		return [...this.queued().filter((item) => !this.items.some((local) => local.importId === item.id)), ...this.items].sort(
+			(a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || (b.importId ?? b.id) - (a.importId ?? a.id)
+		);
 	}
 
 	unavailable(id: number) {
@@ -60,7 +64,10 @@ export class ImporterState {
 			try {
 				const preview = await getLocalPreview(file);
 				const item = this.items.find((item) => item.id === id);
-				if (!this.alive || !item) { URL.revokeObjectURL(preview.url); return; }
+				if (!this.alive || !item) {
+					URL.revokeObjectURL(preview.url);
+					return;
+				}
 				item.url = preview.url;
 				importTiming('preview.ready', started, { file: file.name });
 				if (preview.capturedAt && item.importId === undefined && item.status !== 'assigned') item.date = preview.capturedAt;
@@ -77,10 +84,15 @@ export class ImporterState {
 		const batch = new Map<File, ImageItem>();
 		for (const file of Array.from(files)) {
 			const existing = this.items.find((item) => item.file?.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified);
-			if (existing) { this.countDuplicate(existing.date); continue; }
+			if (existing) {
+				this.countDuplicate(existing.date);
+				continue;
+			}
 			const id = this.nextId--;
 			let resolve!: (id: number | undefined) => void;
-			const promise = new Promise<number | undefined>((done) => { resolve = done; });
+			const promise = new Promise<number | undefined>((done) => {
+				resolve = done;
+			});
 			this.transfers.set(id, { promise, resolve });
 			const entry: ImageItem = { id, file, date: new Date(file.lastModified), status: 'uploading' };
 			this.items.push(entry);
@@ -103,7 +115,13 @@ export class ImporterState {
 				}
 				this.transfers.get(id)?.resolve(imported ? undefined : importId);
 				this.transfers.delete(id);
-				if (this.alive && !imported && importId !== undefined && (this.queued().some((queued) => queued.id === importId) || this.items.some((local) => local.id !== id && local.importId === importId))) this.remove(id);
+				if (
+					this.alive &&
+					!imported &&
+					importId !== undefined &&
+					(this.queued().some((queued) => queued.id === importId) || this.items.some((local) => local.id !== id && local.importId === importId))
+				)
+					this.remove(id);
 			},
 			onFileFailed: (file) => {
 				const id = batch.get(file)!.id;
@@ -117,18 +135,23 @@ export class ImporterState {
 	async assign(items: ImageItem[], target: UploadSessionTarget) {
 		this.assigningIds = new Set([...this.assigningIds, ...items.map((item) => item.id)]);
 		try {
-			await assignPendingUploads(items.map((item) => this.transfers.get(item.id)?.promise ?? Promise.resolve(item.importId ?? (item.id >= 0 ? item.id : undefined))), target, (indices) => {
-				if (this.alive) {
-					for (const index of indices) {
-						const item = items[index];
-						const local = this.items.find((entry) => entry.id === item.id);
-						if (local) local.status = 'assigned';
-						else this.items.push({ ...item, importId: item.id, status: 'assigned' });
+			await assignPendingUploads(
+				items.map((item) => this.transfers.get(item.id)?.promise ?? Promise.resolve(item.importId ?? (item.id >= 0 ? item.id : undefined))),
+				target,
+				(indices) => {
+					if (this.alive) {
+						for (const index of indices) {
+							const item = items[index];
+							const local = this.items.find((entry) => entry.id === item.id);
+							if (local) local.status = 'assigned';
+							else this.items.push({ ...item, importId: item.id, status: 'assigned' });
+						}
 					}
-				}
-				// One refresh per batch; the page data is large.
-				void invalidateAll();
-			}, (error) => app.addToast(error instanceof Error ? error.message : 'Session assignment failed', 'error'));
+					// One refresh per batch; the page data is large.
+					void invalidateAll();
+				},
+				(error) => app.addToast(error instanceof Error ? error.message : 'Session assignment failed', 'error')
+			);
 		} finally {
 			if (this.alive) this.assigningIds = new Set([...this.assigningIds].filter((id) => !items.some((item) => item.id === id)));
 		}

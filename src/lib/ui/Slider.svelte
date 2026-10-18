@@ -39,7 +39,7 @@
 		inverseMap = (n) => n,
 		displayValue = (n) => n,
 		compact = false,
-		editable = false,
+		editable = false
 	}: Props = $props();
 
 	let wrapperRef: HTMLDivElement;
@@ -297,8 +297,8 @@
 	<div
 		bind:this={wrapperRef}
 		class="
-      relative w-full cursor-grab touch-pan-y rounded-md
-      select-none active:cursor-grabbing no-touch-callout
+      no-touch-callout relative w-full cursor-grab touch-pan-y
+      rounded-md select-none active:cursor-grabbing
     "
 		class:h-12={compact}
 		class:h-14={!compact}
@@ -315,7 +315,9 @@
 
 		<!-- Track background + ring -->
 		<div
-			class="absolute overflow-hidden transition-colors {compact ? 'inset-x-0 bottom-1 h-1.5 rounded-full bg-neutral-800' : 'inset-0 rounded-md bg-neutral-900/90 ring-neutral-700'}"
+			class="absolute overflow-hidden transition-colors {compact
+				? 'inset-x-0 bottom-1 h-1.5 rounded-full bg-neutral-800'
+				: 'inset-0 rounded-md bg-neutral-900/90 ring-neutral-700'}"
 			class:ring-1={!ignored && !compact}
 		></div>
 
@@ -365,18 +367,37 @@
 
 		<!-- In-track text (white + difference => invert over fill) -->
 		<div
-			class="pointer-events-none absolute flex items-center justify-between text-xs {compact ? 'inset-x-0 top-1 text-neutral-300' : 'inset-0 px-4 text-white mix-blend-difference sm:text-sm'}"
+			class="pointer-events-none absolute flex items-center justify-between text-xs {compact
+				? 'inset-x-0 top-1 text-neutral-300'
+				: 'inset-0 px-4 text-white mix-blend-difference sm:text-sm'}"
 		>
 			<span class="font-medium">{label}</span>
 			{#if editable}
 				<span class="pointer-events-auto flex items-center gap-1 tabular-nums">
-					<input type="number" aria-label={`${label} value`} {min} {max} {step} value={linearValue} onchange={(event) => { if (event.currentTarget.value !== '' && Number.isFinite(event.currentTarget.valueAsNumber)) handleInput(event); else event.currentTarget.value = String(linearValue); }} ondblclick={(event) => event.stopPropagation()} class="w-12 rounded bg-transparent text-right text-neutral-100 focus:bg-neutral-800 focus:outline-1 focus:outline-white" />{unit}
+					<input
+						type="number"
+						aria-label={`${label} value`}
+						{min}
+						{max}
+						{step}
+						value={linearValue}
+						onchange={(event) => {
+							if (event.currentTarget.value !== '' && Number.isFinite(event.currentTarget.valueAsNumber)) handleInput(event);
+							else event.currentTarget.value = String(linearValue);
+						}}
+						ondblclick={(event) => event.stopPropagation()}
+						class="w-12 rounded bg-transparent text-right text-neutral-100 focus:bg-neutral-800 focus:outline-1 focus:outline-white"
+					/>{unit}
 				</span>
 			{:else}<span class="tabular-nums">{formatNumber(displayValue(value))}{unit}</span>{/if}
 		</div>
 
 		{#if compact}
-			<span class="pointer-events-none absolute bottom-px h-3 w-3 -translate-x-1/2 rounded-full bg-neutral-100 ring-2 ring-neutral-900" style:left={`clamp(6px, ${pct}%, calc(100% - 6px))`} aria-hidden="true"></span>
+			<span
+				class="pointer-events-none absolute bottom-px h-3 w-3 -translate-x-1/2 rounded-full bg-neutral-100 ring-2 ring-neutral-900"
+				style:left={`clamp(6px, ${pct}%, calc(100% - 6px))`}
+				aria-hidden="true"
+			></span>
 		{/if}
 
 		<input
@@ -393,16 +414,27 @@
 			onchange={() => onchange(value)}
 			onfocusin={handleFocusIn}
 			onfocusout={handleFocusOut}
-			class="pointer-events-none absolute inset-0 opacity-0 no-touch-callout"
+			class="no-touch-callout pointer-events-none absolute inset-0 opacity-0"
 			oncontextmenu={(e) => e.preventDefault()}
 		/>
 	</div>
 </div>
 
 <style>
-	.compact-center { top: auto; bottom: 0; height: 14px; transform: translateX(-50%); }
-	input[type='number'] { appearance: textfield; }
-	input[type='number']::-webkit-inner-spin-button, input[type='number']::-webkit-outer-spin-button { appearance: none; margin: 0; }
+	.compact-center {
+		top: auto;
+		bottom: 0;
+		height: 14px;
+		transform: translateX(-50%);
+	}
+	input[type='number'] {
+		appearance: textfield;
+	}
+	input[type='number']::-webkit-inner-spin-button,
+	input[type='number']::-webkit-outer-spin-button {
+		appearance: none;
+		margin: 0;
+	}
 	.saturate-0 {
 		filter: saturate(0);
 	}

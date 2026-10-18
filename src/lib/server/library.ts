@@ -12,7 +12,9 @@ export type LibraryPhoto = {
 	editedAt: string | null;
 };
 
-const latestSnapshotId = sql<number | null>`(select ${snapshotTable.id} from ${snapshotTable} where ${snapshotTable.imageId} = ${imageTable.id} order by ${snapshotTable.createdAt} desc, ${snapshotTable.id} desc limit 1)`;
+const latestSnapshotId = sql<
+	number | null
+>`(select ${snapshotTable.id} from ${snapshotTable} where ${snapshotTable.imageId} = ${imageTable.id} order by ${snapshotTable.createdAt} desc, ${snapshotTable.id} desc limit 1)`;
 const visible = and(eq(imageTable.isArchived, false), eq(sessionTable.isArchived, false));
 
 /** The library's most recently edited photos, newest edit first. */

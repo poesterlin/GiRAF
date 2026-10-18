@@ -3,7 +3,7 @@ services:
     build: .
     ports: !reset []
     expose:
-      - "3000"
+      - '3000'
     restart: unless-stopped
     init: true
     environment:
@@ -25,7 +25,7 @@ services:
       - traefik.http.middlewares.raw-editor-compress.compress=true
       - traefik.http.middlewares.raw-editor-compress.compress.excludedcontenttypes=image/jpeg,image/png,image/webp,image/avif,image/tiff,application/zip,application/octet-stream,text/event-stream
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/']
       interval: 30s
       timeout: 10s
       retries: 3

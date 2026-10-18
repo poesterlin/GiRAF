@@ -1,8 +1,4 @@
-import {
-	clearNotifications,
-	getNotifications,
-	markAllNotificationsRead
-} from '$lib/server/notifications';
+import { clearNotifications, getNotifications, markAllNotificationsRead } from '$lib/server/notifications';
 import { json, type RequestHandler } from '@sveltejs/kit';
 
 export const GET: RequestHandler = async () => {

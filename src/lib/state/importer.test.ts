@@ -17,8 +17,21 @@ let callbacks: UploadOptions;
 let uploaded: File[] = [];
 let preview: Promise<{ url: string; capturedAt?: Date }> = Promise.resolve({ url: 'blob:test' });
 let previewRequests: File[] = [];
-mock.module('./uploads.svelte', () => ({ uploads: { upload: async (files: File[], _target: unknown, options: UploadOptions) => { uploaded = files; callbacks = options; } } }));
-mock.module('$lib/local-preview-client', () => ({ getLocalPreview: (file: File) => { previewRequests.push(file); return preview; }, releaseLocalPreviewWorker: () => {} }));
+mock.module('./uploads.svelte', () => ({
+	uploads: {
+		upload: async (files: File[], _target: unknown, options: UploadOptions) => {
+			uploaded = files;
+			callbacks = options;
+		}
+	}
+}));
+mock.module('$lib/local-preview-client', () => ({
+	getLocalPreview: (file: File) => {
+		previewRequests.push(file);
+		return preview;
+	},
+	releaseLocalPreviewWorker: () => {}
+}));
 mock.module('$lib/import-timing', () => ({ importTiming: () => {} }));
 mock.module('$app/navigation', () => ({ invalidateAll: async () => {} }));
 mock.module('./app.svelte', () => ({ app: { addToast: () => {} } }));
@@ -35,7 +48,10 @@ afterEach(() => {
 test('staging deduplicates files and reconciles uploaded IDs with the server queue', () => {
 	const queued: { id: number; date: Date }[] = [];
 	const removed: number[] = [];
-	const state = new ImporterState(() => queued, (id) => removed.push(id));
+	const state = new ImporterState(
+		() => queued,
+		(id) => removed.push(id)
+	);
 	const file = new File(['raw'], 'image.raw', { lastModified: 1000 });
 	state.stage([file, file]);
 	expect(uploaded).toHaveLength(1);
@@ -50,7 +66,10 @@ test('staging deduplicates files and reconciles uploaded IDs with the server que
 });
 
 test('assignment waits for upload completion and captures the selected session', async () => {
-	const state = new ImporterState(() => [], () => {});
+	const state = new ImporterState(
+		() => [],
+		() => {}
+	);
 	const file = new File(['raw'], 'pending.raw');
 	state.stage([file]);
 	const requests: unknown[] = [];
@@ -73,10 +92,17 @@ test('assignment waits for upload completion and captures the selected session',
 
 test('a preview completing after disposal is revoked instead of published', async () => {
 	let finish!: (value: { url: string }) => void;
-	preview = new Promise((resolve) => { finish = resolve; });
+	preview = new Promise((resolve) => {
+		finish = resolve;
+	});
 	const revoked: string[] = [];
-	URL.revokeObjectURL = (url) => { revoked.push(url); };
-	const state = new ImporterState(() => [], () => {});
+	URL.revokeObjectURL = (url) => {
+		revoked.push(url);
+	};
+	const state = new ImporterState(
+		() => [],
+		() => {}
+	);
 	const file = new File(['raw'], 'late.raw');
 	state.stage([file]);
 	for (let i = 0; i < 10; i++) await Promise.resolve();
@@ -88,7 +114,10 @@ test('a preview completing after disposal is revoked instead of published', asyn
 });
 
 test('all thumbnails progress while upload completion is blocked', async () => {
-	const state = new ImporterState(() => [], () => {});
+	const state = new ImporterState(
+		() => [],
+		() => {}
+	);
 	const files = Array.from({ length: 5 }, (_, i) => new File(['raw'], `${i}.raw`));
 	state.stage(files);
 	// The upload mock never reports completion; thumbnail scheduling is independent.
@@ -100,11 +129,17 @@ test('all thumbnails progress while upload completion is blocked', async () => {
 });
 
 test('failed uploads unblock pending assignment without submitting a local ID', async () => {
-	const state = new ImporterState(() => [], () => {});
+	const state = new ImporterState(
+		() => [],
+		() => {}
+	);
 	const file = new File(['raw'], 'failed.raw');
 	state.stage([file]);
 	let requests = 0;
-	globalThis.fetch = (async () => { requests++; return Response.json({ sessionId: 7 }); }) as unknown as typeof fetch;
+	globalThis.fetch = (async () => {
+		requests++;
+		return Response.json({ sessionId: 7 });
+	}) as unknown as typeof fetch;
 	const assignment = state.assign([...state.allItems], { sessionId: 7 });
 	callbacks.onFileFailed!(file, new Error('Upload failed'));
 	await assignment;

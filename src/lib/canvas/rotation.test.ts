@@ -46,7 +46,10 @@ class DOMMatrixPolyfill {
 }
 
 class DOMPointPolyfill {
-	constructor(public x: number, public y: number) {}
+	constructor(
+		public x: number,
+		public y: number
+	) {}
 
 	matrixTransform(m: DOMMatrixPolyfill) {
 		return new DOMPointPolyfill(m.a * this.x + m.c * this.y + m.e, m.b * this.x + m.d * this.y + m.f);
@@ -55,11 +58,9 @@ class DOMPointPolyfill {
 
 beforeAll(() => {
 	// Minimal 2D DOMMatrix/DOMPoint polyfill for Bun's test environment.
-	// @ts-expect-error 
-	(globalThis as typeof globalThis & { DOMMatrix?: typeof DOMMatrixPolyfill }).DOMMatrix =
-		DOMMatrixPolyfill as unknown as typeof DOMMatrix;
-	(globalThis as typeof globalThis & { DOMPoint?: typeof DOMPointPolyfill }).DOMPoint =
-		DOMPointPolyfill as unknown as typeof DOMPoint;
+	// @ts-expect-error
+	(globalThis as typeof globalThis & { DOMMatrix?: typeof DOMMatrixPolyfill }).DOMMatrix = DOMMatrixPolyfill as unknown as typeof DOMMatrix;
+	(globalThis as typeof globalThis & { DOMPoint?: typeof DOMPointPolyfill }).DOMPoint = DOMPointPolyfill as unknown as typeof DOMPoint;
 });
 
 describe('rotation geometry', () => {

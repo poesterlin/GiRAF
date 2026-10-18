@@ -18,6 +18,6 @@ test('grading hue and amount survive RGB storage without shifting the neutral su
 test('neutral primary controls produce identity channel mixer columns', () => {
 	for (let primary = 0; primary < 3; primary++) {
 		const column = gradeToRgb(primary * 120, 1000).map((value) => Math.round(value + 1000 / 3));
-		expect(column).toEqual([0, 1, 2].map((index) => index === primary ? 1000 : 0));
+		expect(column).toEqual([0, 1, 2].map((index) => (index === primary ? 1000 : 0)));
 	}
 });

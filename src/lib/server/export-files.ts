@@ -25,7 +25,10 @@ export function exportImageId(filename: string): number | undefined {
 
 export async function findExportPath(image: Pick<Image, 'id' | 'recordedAt'>, session: Session): Promise<string> {
 	const path = makeOutputPath(image, session);
-	try { await stat(path); return path; } catch (error) {
+	try {
+		await stat(path);
+		return path;
+	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 	}
 	try {

@@ -67,12 +67,14 @@
 		for (const key of Object.keys(duplicateCounts)) {
 			if (duplicateCounts[key] && !groups.has(key)) groups.set(key, []);
 		}
-		return Array.from(groups.entries()).sort(([a], [b]) => Number(b) - Number(a)).map(([key, images]) => ({
-			key,
-			date: new Date(Number(key)).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }),
-			images,
-			duplicates: duplicateCounts[key] ?? 0
-		}));
+		return Array.from(groups.entries())
+			.sort(([a], [b]) => Number(b) - Number(a))
+			.map(([key, images]) => ({
+				key,
+				date: new Date(Number(key)).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }),
+				images,
+				duplicates: duplicateCounts[key] ?? 0
+			}));
 	});
 
 	// --- Event Handlers ---
@@ -356,7 +358,7 @@
 			<div class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
 				<div class="rounded-3xl border-2 border-dashed border-neutral-700 bg-neutral-900/80 p-16 shadow-2xl transition-all">
 					<p class="text-3xl font-black tracking-tighter text-neutral-100 italic">
-						DROP <span class="text-neutral-500 not-italic font-light uppercase tracking-normal text-xl">to import</span>
+						DROP <span class="text-xl font-light tracking-normal text-neutral-500 uppercase not-italic">to import</span>
 					</p>
 				</div>
 			</div>
@@ -365,15 +367,15 @@
 		<div class="mx-auto max-w-7xl">
 			<div class="mb-12 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
 				<div>
-					<p class="text-neutral-400 font-medium max-w-md">
-						Scanning <code class="text-neutral-100 bg-neutral-900 px-1.5 py-0.5 rounded text-sm">IMPORT_DIR</code> (and IMPORT_EXTRA_DIRS) for new RAW files.
+					<p class="max-w-md font-medium text-neutral-400">
+						Scanning <code class="rounded bg-neutral-900 px-1.5 py-0.5 text-sm text-neutral-100">IMPORT_DIR</code> (and IMPORT_EXTRA_DIRS) for new RAW files.
 					</p>
 				</div>
 
 				<div class="flex items-center gap-3">
 					<button
 						onclick={handleRefresh}
-						class="group flex items-center gap-3 rounded-2xl bg-neutral-100 px-8 py-3 text-sm font-bold text-neutral-950 transition-all hover:bg-white hover:scale-105 disabled:opacity-50"
+						class="group flex items-center gap-3 rounded-2xl bg-neutral-100 px-8 py-3 text-sm font-bold text-neutral-950 transition-all hover:scale-105 hover:bg-white disabled:opacity-50"
 						disabled={isRefreshing}
 					>
 						{#if isRefreshing}
@@ -395,7 +397,7 @@
 						{/if}
 					</button>
 
-					<div class="h-10 w-[1px] bg-neutral-800 mx-1"></div>
+					<div class="mx-1 h-10 w-[1px] bg-neutral-800"></div>
 
 					<input type="file" multiple bind:this={fileInput} onchange={handleFileSelect} class="hidden" accept=".jpg,.jpeg,.png,.tif,.tiff,.arw,.nef,.cr2,.raf" />
 					<button
@@ -452,17 +454,19 @@
 					{#each groupedByDate as group (group.key)}
 						{@const groupSelectable = group.images.filter((item) => !unavailable(item.id))}
 						{@const groupSelected = groupSelectable.length > 0 && groupSelectable.every((item) => selectedIds.has(item.id))}
-						<div class="mb-8 mt-12 flex items-center justify-between">
+						<div class="mt-12 mb-8 flex items-center justify-between">
 							<div class="flex flex-wrap items-center gap-3">
 								<h2 class="text-2xl font-bold tracking-tight text-neutral-100">{group.date}</h2>
 								{#if group.duplicates > 0}
-									<span class="rounded-full bg-neutral-800 px-3 py-1 text-sm font-semibold text-neutral-300" role="status">{group.duplicates} duplicate{group.duplicates === 1 ? '' : 's'}</span>
+									<span class="rounded-full bg-neutral-800 px-3 py-1 text-sm font-semibold text-neutral-300" role="status"
+										>{group.duplicates} duplicate{group.duplicates === 1 ? '' : 's'}</span
+									>
 								{/if}
 							</div>
 							{#if groupSelectable.length}
 								<button
 									onclick={() => toggleDateSelection(group.images)}
-									class="text-sm font-bold text-neutral-500 hover:text-neutral-100 transition-colors"
+									class="text-sm font-bold text-neutral-500 transition-colors hover:text-neutral-100"
 									aria-pressed={groupSelected}
 								>
 									{groupSelected ? 'Deselect All' : 'Select All'}
@@ -476,7 +480,7 @@
 									data-id={item.id}
 									data-index={itemIndex}
 									disabled={unavailable(item.id)}
-									class="photo-card group relative aspect-[3/2] select-none overflow-hidden rounded-2xl bg-neutral-900 ring-offset-black transition-all"
+									class="photo-card group relative aspect-[3/2] overflow-hidden rounded-2xl bg-neutral-900 ring-offset-black transition-all select-none"
 									draggable={false}
 									ondragstart={(e) => e.preventDefault()}
 									onmousedown={(e) => {
@@ -526,7 +530,12 @@
 									{/if}
 
 									{#if item.status === 'assigned'}
-										<span class="absolute top-3 left-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white" title="Assigned to a session" aria-label="Assigned to a session" role="img">
+										<span
+											class="absolute top-3 left-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white"
+											title="Assigned to a session"
+											aria-label="Assigned to a session"
+											role="img"
+										>
 											<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>
 										</span>
 									{:else if item.file && item.importId === undefined}
@@ -583,7 +592,7 @@
 			<div class="flex items-center gap-2">
 				<button onclick={clearSelection} class="rounded-2xl px-6 py-3 text-sm font-bold text-neutral-500 transition-colors hover:text-neutral-100"> Cancel </button>
 				<button
-					class="flex items-center gap-3 rounded-2xl bg-neutral-100 px-10 py-3 text-sm font-black tracking-tight text-neutral-950 transition-all hover:bg-white hover:scale-105"
+					class="flex items-center gap-3 rounded-2xl bg-neutral-100 px-10 py-3 text-sm font-black tracking-tight text-neutral-950 transition-all hover:scale-105 hover:bg-white"
 					onclick={() => (showModal = true)}
 				>
 					IMPORT {selectedIds.size}
@@ -604,12 +613,12 @@
 		</div>
 
 		{#if showModal}
-			<Modal onClose={() => (showModal = false)} class="!max-w-md !rounded-[2rem] !border-neutral-800 !bg-neutral-950 shadow-3xl">
+			<Modal onClose={() => (showModal = false)} class="shadow-3xl !max-w-md !rounded-[2rem] !border-neutral-800 !bg-neutral-950">
 				<div class="p-10">
-					<h1 class="mb-2 text-3xl font-black tracking-tighter text-neutral-100 italic uppercase leading-none">
-						Initialize <span class="text-neutral-500 not-italic font-light">Session</span>
+					<h1 class="mb-2 text-3xl leading-none font-black tracking-tighter text-neutral-100 uppercase italic">
+						Initialize <span class="font-light text-neutral-500 not-italic">Session</span>
 					</h1>
-					<p class="mb-10 text-neutral-400 font-medium leading-relaxed">Organize your {selectedIds.size} selected images into a workspace.</p>
+					<p class="mb-10 leading-relaxed font-medium text-neutral-400">Organize your {selectedIds.size} selected images into a workspace.</p>
 
 					<form onsubmit={importImages} class="flex flex-col gap-8">
 						{#if data.sessions.length > 0}
@@ -624,26 +633,26 @@
 
 						{#if importMode === 'new' || data.sessions.length === 0}
 							<div transition:slide|local>
-								<label for="session-name" class="mb-3 block text-xs font-bold uppercase tracking-widest text-neutral-500">Name your Session</label>
+								<label for="session-name" class="mb-3 block text-xs font-bold tracking-widest text-neutral-500 uppercase">Name your Session</label>
 								<input
 									id="session-name"
 									type="text"
 									bind:value={sessionName}
 									placeholder="e.g. Iceland Expedition 2026"
-									class="w-full rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 text-neutral-100 outline-none transition-all focus:border-neutral-100 placeholder:text-neutral-700"
+									class="w-full rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 text-neutral-100 transition-all outline-none placeholder:text-neutral-700 focus:border-neutral-100"
 									required
 								/>
 							</div>
 						{:else}
 							<div transition:slide|local>
-								<label for="session-select" class="mb-3 block text-xs font-bold uppercase tracking-widest text-neutral-500">Choose Session</label>
+								<label for="session-select" class="mb-3 block text-xs font-bold tracking-widest text-neutral-500 uppercase">Choose Session</label>
 								<SessionPicker sessions={data.sessions} bind:value={selectedSessionId} />
 							</div>
 						{/if}
 
 						<div class="flex flex-col gap-3 pt-4">
 							<button
-								class="w-full rounded-2xl bg-neutral-100 py-4 text-sm font-black tracking-tight text-neutral-950 transition-all hover:bg-white hover:scale-[1.02] disabled:opacity-50"
+								class="w-full rounded-2xl bg-neutral-100 py-4 text-sm font-black tracking-tight text-neutral-950 transition-all hover:scale-[1.02] hover:bg-white disabled:opacity-50"
 								type="submit"
 								disabled={isCreating}
 							>

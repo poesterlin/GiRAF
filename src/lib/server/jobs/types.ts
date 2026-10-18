@@ -35,5 +35,3 @@ export interface JobState {
 	message?: string;
 	updatedAt: string;
 }
-
-

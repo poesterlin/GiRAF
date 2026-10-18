@@ -16,7 +16,10 @@ export const GET: RequestHandler = async ({ params, request }) => {
 	archive.on('error', (error) => output.destroy(error));
 	archive.on('warning', (error) => output.destroy(error));
 	archive.pipe(output);
-	const abort = () => { archive.abort(); output.destroy(); };
+	const abort = () => {
+		archive.abort();
+		output.destroy();
+	};
 	request.signal.addEventListener('abort', abort, { once: true });
 	output.on('close', () => {
 		request.signal.removeEventListener('abort', abort);

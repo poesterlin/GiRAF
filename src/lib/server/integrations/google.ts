@@ -255,7 +255,7 @@ class AddToAlbumBatcher {
 }
 
 export class GooglePhotosProvider implements PhotoIntegration {
-	type = 'google';	
+	type = 'google';
 	private writeSemaphore = new Semaphore(DEFAULT_MAX_CONCURRENT_WRITES);
 	private createBatcher: CreateBatcher;
 	private addBatcher: AddToAlbumBatcher;

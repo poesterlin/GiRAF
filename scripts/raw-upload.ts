@@ -78,7 +78,13 @@ async function main() {
 				const headers = new Headers(init.headers);
 				if (process.env.GIRAF_COOKIE) headers.set('cookie', process.env.GIRAF_COOKIE);
 				if (process.env.GIRAF_TOKEN) headers.set('authorization', `Bearer ${process.env.GIRAF_TOKEN}`);
-				const response = await fetch(new URL(path, base), { ...init, headers, redirect: 'error', timeout: false, signal: AbortSignal.any([stop.signal, AbortSignal.timeout(540_000)]) });
+				const response = await fetch(new URL(path, base), {
+					...init,
+					headers,
+					redirect: 'error',
+					timeout: false,
+					signal: AbortSignal.any([stop.signal, AbortSignal.timeout(540_000)])
+				});
 				if (!response.ok) {
 					if (![408, 425, 429].includes(response.status) && response.status < 500)
 						throw Object.assign(new Error(`HTTP ${response.status}: ${(await response.text()).slice(0, 200)}`), { permanent: true });

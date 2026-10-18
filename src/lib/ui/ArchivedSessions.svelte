@@ -92,22 +92,97 @@
 {/if}
 
 <style>
-	.card { overflow: hidden; border-radius: 12px; background: #141414; outline: 1px solid #262626; }
-	.mosaic { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; aspect-ratio: 3 / 2; background: #0a0a0a; }
-	.mosaic.single { grid-template-columns: 1fr; }
-	.mosaic img { width: 100%; height: 100%; min-height: 0; object-fit: cover; opacity: .75; transition: opacity 150ms; }
+	.card {
+		overflow: hidden;
+		border-radius: 12px;
+		background: #141414;
+		outline: 1px solid #262626;
+	}
+	.mosaic {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 2px;
+		aspect-ratio: 3 / 2;
+		background: #0a0a0a;
+	}
+	.mosaic.single {
+		grid-template-columns: 1fr;
+	}
+	.mosaic img {
+		width: 100%;
+		height: 100%;
+		min-height: 0;
+		object-fit: cover;
+		opacity: 0.75;
+		transition: opacity 150ms;
+	}
 	/* Three photos: the first spans the top row so the mosaic has no gap. */
-	.mosaic img:first-child:nth-last-child(3) { grid-column: span 2; }
-	.mosaic:hover img { opacity: 1; }
-	.mosaic:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
-	.empty { display: flex; grid-column: 1 / -1; align-items: center; justify-content: center; color: #525252; }
-	.actions { display: flex; flex-shrink: 0; gap: 6px; }
-	.restore { flex-shrink: 0; min-height: 44px; padding: 0 16px; border-radius: 10px; background: #262626; color: #f5f5f5; font-size: 13px; font-weight: 600; transition: background-color 120ms; }
-	.restore:hover:not(:disabled) { background: #f5f5f5; color: #0a0a0a; }
-	.restore:disabled { opacity: .5; }
-	.restore:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-	.delete { display: flex; flex-shrink: 0; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; border-radius: 10px; color: #a3a3a3; transition: background-color 120ms, color 120ms; }
-	.delete:hover:not(:disabled) { background: #7f1d1d; color: #fecaca; }
-	.delete:disabled { opacity: .5; }
-	.delete:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+	.mosaic img:first-child:nth-last-child(3) {
+		grid-column: span 2;
+	}
+	.mosaic:hover img {
+		opacity: 1;
+	}
+	.mosaic:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: -2px;
+	}
+	.empty {
+		display: flex;
+		grid-column: 1 / -1;
+		align-items: center;
+		justify-content: center;
+		color: #525252;
+	}
+	.actions {
+		display: flex;
+		flex-shrink: 0;
+		gap: 6px;
+	}
+	.restore {
+		flex-shrink: 0;
+		min-height: 44px;
+		padding: 0 16px;
+		border-radius: 10px;
+		background: #262626;
+		color: #f5f5f5;
+		font-size: 13px;
+		font-weight: 600;
+		transition: background-color 120ms;
+	}
+	.restore:hover:not(:disabled) {
+		background: #f5f5f5;
+		color: #0a0a0a;
+	}
+	.restore:disabled {
+		opacity: 0.5;
+	}
+	.restore:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: 2px;
+	}
+	.delete {
+		display: flex;
+		flex-shrink: 0;
+		min-height: 44px;
+		min-width: 44px;
+		align-items: center;
+		justify-content: center;
+		border-radius: 10px;
+		color: #a3a3a3;
+		transition:
+			background-color 120ms,
+			color 120ms;
+	}
+	.delete:hover:not(:disabled) {
+		background: #7f1d1d;
+		color: #fecaca;
+	}
+	.delete:disabled {
+		opacity: 0.5;
+	}
+	.delete:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: 2px;
+	}
 </style>

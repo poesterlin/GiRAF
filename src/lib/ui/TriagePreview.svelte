@@ -8,7 +8,9 @@
 	const displayed = $derived(editedThumbnail ?? (ready?.id === imageId ? ready.url : thumbnail));
 	onMount(() => {
 		const media = window.matchMedia('(min-width: 1024px)');
-		const update = () => { desktop = media.matches; };
+		const update = () => {
+			desktop = media.matches;
+		};
 		update();
 		media.addEventListener('change', update);
 		return () => media.removeEventListener('change', update);
@@ -34,7 +36,10 @@
 				}
 			}
 		})();
-		return () => { active = false; if (pending) pending.removeAttribute('src'); };
+		return () => {
+			active = false;
+			if (pending) pending.removeAttribute('src');
+		};
 	});
 </script>
 

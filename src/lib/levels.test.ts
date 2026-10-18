@@ -4,7 +4,11 @@ import { defaultLevels, levelsFromCurve, levelsToCurve, midpoint, moveLevel } fr
 test('levels survive PP3 save/reload at both gamma extremes and tight endpoints', () => {
 	expect(levelsFromCurve(levelsToCurve(defaultLevels))).toEqual(defaultLevels);
 	for (const gamma of [0.2, 0.7, 1, 1.8, 5]) {
-		for (const [black, white] of [[0, 255], [20, 220], [120, 122]]) {
+		for (const [black, white] of [
+			[0, 255],
+			[20, 220],
+			[120, 122]
+		]) {
 			const levels = { black, white, gamma };
 			expect(levelsFromCurve(levelsToCurve(levels))).toEqual(levels);
 			const values = levelsToCurve(levels).split(';').filter(Boolean).map(Number);

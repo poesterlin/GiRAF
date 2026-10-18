@@ -48,9 +48,13 @@
 		const interval = setInterval(async () => {
 			if (data.downloadReady || refreshing || document.visibilityState === 'hidden') return;
 			refreshing = true;
-			try { await invalidate('exporter:session'); } catch (error) {
+			try {
+				await invalidate('exporter:session');
+			} catch (error) {
 				console.error('Failed to refresh export status', error);
-			} finally { refreshing = false; }
+			} finally {
+				refreshing = false;
+			}
 		}, 2000);
 		return () => {
 			clearInterval(interval);
@@ -107,7 +111,7 @@
 </svelte:head>
 
 <div
-	class="relative flex h-full w-full select-none items-center justify-center bg-black overflow-hidden"
+	class="relative flex h-full w-full items-center justify-center overflow-hidden bg-black select-none"
 	onmousedown={handleMouseDown}
 	onmouseup={handleMouseUp}
 	onmouseleave={() => (isDragging = false)}
@@ -116,41 +120,60 @@
 	role="presentation"
 >
 	<!-- Top Bar -->
-	<div class="absolute top-0 left-0 right-0 z-30 flex min-w-0 flex-col gap-3 p-3 bg-linear-to-b from-black/90 to-transparent sm:flex-row sm:items-center sm:justify-between sm:p-6">
+	<div class="absolute top-0 right-0 left-0 z-30 flex min-w-0 flex-col gap-3 bg-linear-to-b from-black/90 to-transparent p-3 sm:flex-row sm:items-center sm:justify-between sm:p-6">
 		<div class="flex min-w-0 items-center gap-3 sm:flex-1 sm:gap-4">
 			<a
 				href="/exporter"
-				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-900/50 text-neutral-200 backdrop-blur-xl border border-neutral-800 transition-all hover:bg-neutral-800 hover:text-neutral-100"
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900/50 text-neutral-200 backdrop-blur-xl transition-all hover:bg-neutral-800 hover:text-neutral-100"
 				aria-label="Back to Exporter"
 			>
 				<IconChevronLeft size={24} />
 			</a>
 			<div class="min-w-0">
-				<h1 class="truncate text-base font-black italic uppercase tracking-tighter text-neutral-100 sm:text-lg" title={data.session.name}>{data.session.name}</h1>
+				<h1 class="truncate text-base font-black tracking-tighter text-neutral-100 uppercase italic sm:text-lg" title={data.session.name}>{data.session.name}</h1>
 			</div>
 		</div>
-		
+
 		<div class="flex shrink-0 items-center gap-2 sm:gap-3">
 			{#if currentImageId}
-				<a href="/editor/{currentImageId}" aria-label="Edit current image" title="Edit image" class="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-neutral-600 bg-neutral-900/90 px-3 py-3 text-sm font-bold text-neutral-100 hover:bg-neutral-800 sm:flex-none">
+				<a
+					href="/editor/{currentImageId}"
+					aria-label="Edit current image"
+					title="Edit image"
+					class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-neutral-600 bg-neutral-900/90 px-3 py-3 text-sm font-bold whitespace-nowrap text-neutral-100 hover:bg-neutral-800 sm:flex-none"
+				>
 					<IconAdjustmentsHorizontal size={20} /><span>Edit image</span>
 				</a>
 			{/if}
 			{#if data.downloadReady}
-				<a href="/api/sessions/{data.session.id}/download-export" download class="flex-1 whitespace-nowrap rounded-xl border border-neutral-300 bg-neutral-100 px-4 py-3 text-center text-sm font-bold text-neutral-950 hover:bg-white sm:flex-none">Download ZIP</a>
+				<a
+					href="/api/sessions/{data.session.id}/download-export"
+					download
+					class="flex-1 rounded-xl border border-neutral-300 bg-neutral-100 px-4 py-3 text-center text-sm font-bold whitespace-nowrap text-neutral-950 hover:bg-white sm:flex-none"
+					>Download ZIP</a
+				>
 			{:else}
-				<button disabled class="flex-1 whitespace-nowrap rounded-xl border border-neutral-600 bg-neutral-900 px-4 py-3 text-sm font-bold text-neutral-300 sm:flex-none" title="Available once all images are exported and processing has finished">Download ZIP</button>
+				<button
+					disabled
+					class="flex-1 rounded-xl border border-neutral-600 bg-neutral-900 px-4 py-3 text-sm font-bold whitespace-nowrap text-neutral-300 sm:flex-none"
+					title="Available once all images are exported and processing has finished">Download ZIP</button
+				>
 			{/if}
-			<a href="/exporter" aria-label="Close preview" class="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-neutral-900/50 text-neutral-100 backdrop-blur-xl border border-neutral-800 hover:bg-neutral-800 sm:flex"><IconX size={24} /></a>
+			<a
+				href="/exporter"
+				aria-label="Close preview"
+				class="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-neutral-800 bg-neutral-900/50 text-neutral-100 backdrop-blur-xl hover:bg-neutral-800 sm:flex"
+				><IconX size={24} /></a
+			>
 		</div>
 	</div>
 
 	{#if data.images.length > 0}
-		<div class="relative flex h-full w-full min-h-0 items-center justify-center px-2 pt-32 pb-20 sm:p-12">
+		<div class="relative flex h-full min-h-0 w-full items-center justify-center px-2 pt-32 pb-20 sm:p-12">
 			<img
 				src={exportUrl(currentFilename!)}
 				alt={`Exported image ${currentIndex + 1} for session ${data.session.name}`}
-				class="h-full w-full max-w-full max-h-full object-contain"
+				class="h-full max-h-full w-full max-w-full object-contain"
 			/>
 		</div>
 
@@ -159,26 +182,26 @@
 			<button
 				onclick={prevImage}
 				aria-label="Previous exported image"
-				class="flex h-14 w-14 items-center justify-center rounded-2xl bg-neutral-900/20 text-neutral-400 backdrop-blur-md border border-neutral-800/50 hover:bg-neutral-900 hover:text-neutral-100"
+				class="flex h-14 w-14 items-center justify-center rounded-2xl border border-neutral-800/50 bg-neutral-900/20 text-neutral-400 backdrop-blur-md hover:bg-neutral-900 hover:text-neutral-100"
 			>
 				<IconChevronLeft size={32} />
 			</button>
 		</div>
 
-		<div class="absolute bottom-4 right-4 z-20 flex items-center sm:top-0 sm:bottom-0 sm:right-0 sm:p-6">
+		<div class="absolute right-4 bottom-4 z-20 flex items-center sm:top-0 sm:right-0 sm:bottom-0 sm:p-6">
 			<button
 				onclick={nextImage}
 				aria-label="Next exported image"
-				class="flex h-14 w-14 items-center justify-center rounded-2xl bg-neutral-900/20 text-neutral-400 backdrop-blur-md border border-neutral-800/50 hover:bg-neutral-900 hover:text-neutral-100"
+				class="flex h-14 w-14 items-center justify-center rounded-2xl border border-neutral-800/50 bg-neutral-900/20 text-neutral-400 backdrop-blur-md hover:bg-neutral-900 hover:text-neutral-100"
 			>
 				<IconChevronRight size={32} />
 			</button>
 		</div>
 
 		<!-- Counter -->
-		<div class="absolute bottom-7 left-1/2 z-30 -translate-x-1/2 flex items-center gap-3 sm:bottom-8">
-			<div class="flex items-center gap-2 rounded-full bg-neutral-900/50 px-6 py-2 text-xs font-black tracking-widest text-neutral-100 backdrop-blur-xl border border-neutral-800">
-				<span class="text-neutral-200">{currentIndex % data.images.length + 1}</span>
+		<div class="absolute bottom-7 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 sm:bottom-8">
+			<div class="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/50 px-6 py-2 text-xs font-black tracking-widest text-neutral-100 backdrop-blur-xl">
+				<span class="text-neutral-200">{(currentIndex % data.images.length) + 1}</span>
 				<span class="text-neutral-700">/</span>
 				<span>{data.images.length}</span>
 			</div>
@@ -186,15 +209,22 @@
 	{:else}
 		<div class="text-center">
 			<div class="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-neutral-900 text-neutral-700">
-				<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="40"
+					height="40"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg
+				>
 			</div>
-			<h3 class="text-2xl font-black italic uppercase tracking-tighter text-neutral-100">No exports found</h3>
-			<p class="mt-2 font-medium text-neutral-500 max-w-xs">It seems this session has a folder but no JPG files inside it.</p>
-			
-			<a
-				href="/exporter"
-				class="mt-8 inline-flex items-center gap-2 rounded-2xl bg-neutral-100 px-8 py-3 text-sm font-black tracking-tight text-neutral-950 hover:bg-white"
-			>
+			<h3 class="text-2xl font-black tracking-tighter text-neutral-100 uppercase italic">No exports found</h3>
+			<p class="mt-2 max-w-xs font-medium text-neutral-500">It seems this session has a folder but no JPG files inside it.</p>
+
+			<a href="/exporter" class="mt-8 inline-flex items-center gap-2 rounded-2xl bg-neutral-100 px-8 py-3 text-sm font-black tracking-tight text-neutral-950 hover:bg-white">
 				Return to Exporter
 			</a>
 		</div>

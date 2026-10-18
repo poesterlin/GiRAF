@@ -22,35 +22,21 @@ export function getAutoFillScale(imgW: number, imgH: number, angleDeg: number): 
 	return Math.max(cosA + (imgH / imgW) * sinA, cosA + (imgW / imgH) * sinA);
 }
 
-export function getDisplayScale(
-	imgW: number,
-	imgH: number,
-	maxW: number,
-	maxH: number
-): number {
+export function getDisplayScale(imgW: number, imgH: number, maxW: number, maxH: number): number {
 	if (imgW <= 0 || imgH <= 0) {
 		return 0;
 	}
 	return Math.min(1, maxW / imgW, maxH / imgH);
 }
 
-export function getDisplayDimensions(
-	imgW: number,
-	imgH: number,
-	scale: number
-): { width: number; height: number } {
+export function getDisplayDimensions(imgW: number, imgH: number, scale: number): { width: number; height: number } {
 	return {
 		width: Math.round(imgW * scale),
 		height: Math.round(imgH * scale)
 	};
 }
 
-export function screenToCropSpace(
-	screenX: number,
-	screenY: number,
-	padding: number,
-	displayScale: number
-): { x: number; y: number } {
+export function screenToCropSpace(screenX: number, screenY: number, padding: number, displayScale: number): { x: number; y: number } {
 	return {
 		x: (screenX - padding) / displayScale,
 		y: (screenY - padding) / displayScale
@@ -75,11 +61,7 @@ export function scaleCropPP3(pp3: PP3, displayScale: number): PP3<number> | null
 	} as PP3<number>;
 }
 
-export function getPreviewDimensions(
-	width: number,
-	height: number,
-	resize?: CropResize
-): { width: number; height: number } {
+export function getPreviewDimensions(width: number, height: number, resize?: CropResize): { width: number; height: number } {
 	if (!resize?.Enabled) {
 		return { width, height };
 	}
@@ -107,11 +89,7 @@ export function normalizeCropSize(crop: Record<string, number>): void {
 	}
 }
 
-export function sanitizeCrop(
-	crop: CropRect,
-	imageDimensions: Dimensions,
-	innerRect: Dimensions
-): void {
+export function sanitizeCrop(crop: CropRect, imageDimensions: Dimensions, innerRect: Dimensions): void {
 	crop.X = safeNumber(crop.X);
 	crop.Y = safeNumber(crop.Y);
 	crop.W = safeNumber(crop.W);
@@ -152,4 +130,3 @@ export function createInitialCrop(
 		Ratio: '1:1'
 	};
 }
-

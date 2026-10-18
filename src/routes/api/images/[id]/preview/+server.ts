@@ -1,101 +1,94 @@
-import { db } from "$lib/server/db";
-import { imageTable } from "$lib/server/db/schema";
-import { eq } from "drizzle-orm";
-import type { RequestHandler } from "./$types";
-import { error, redirect } from "@sveltejs/kit";
-import { exiftool } from "exiftool-vendored";
-import { createTempDir } from "$lib/server/command-runner";
-import { join } from "path";
-import sharp, { type FitEnum } from "sharp";
-import { cp } from "fs/promises";
+import { db } from '$lib/server/db';
+import { imageTable } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
+import type { RequestHandler } from './$types';
+import { error, redirect } from '@sveltejs/kit';
+import { exiftool } from 'exiftool-vendored';
+import { createTempDir } from '$lib/server/command-runner';
+import { join } from 'path';
+import sharp, { type FitEnum } from 'sharp';
+import { cp } from 'fs/promises';
 
 const rotations: Record<number, number> = {
-    1: 0,
-    3: 180,
-    6: 90,
-    8: 270
+	1: 0,
+	3: 180,
+	6: 90,
+	8: 270
 };
 
 function webpResponse(buffer: Buffer) {
-    return new Response(buffer as any, {
-        headers: {
-            'Content-Type': 'image/webp',
-            'Content-Length': String(buffer.length),
-            'Cache-Control': `public, max-age=${31536000}`
-        },
-    });
+	return new Response(buffer as any, {
+		headers: {
+			'Content-Type': 'image/webp',
+			'Content-Length': String(buffer.length),
+			'Cache-Control': `public, max-age=${31536000}`
+		}
+	});
 }
 
 export const GET: RequestHandler = async ({ params, url }) => {
-    const id = Number(params.id);
-    const requestedSize = Number(url.searchParams.get("size") || 400);
-    const size = Number.isFinite(requestedSize) ? Math.max(1, Math.min(Math.round(requestedSize), 4096)) : 400;
-    const requestedQuality = Number(url.searchParams.get('quality') || 80);
-    const quality = Number.isFinite(requestedQuality) ? Math.max(1, Math.min(Math.round(requestedQuality), 95)) : 80;
-    const mode: keyof FitEnum = url.searchParams.get("mode") || "contain" as any;
+	const id = Number(params.id);
+	const requestedSize = Number(url.searchParams.get('size') || 400);
+	const size = Number.isFinite(requestedSize) ? Math.max(1, Math.min(Math.round(requestedSize), 4096)) : 400;
+	const requestedQuality = Number(url.searchParams.get('quality') || 80);
+	const quality = Number.isFinite(requestedQuality) ? Math.max(1, Math.min(Math.round(requestedQuality), 95)) : 80;
+	const mode: keyof FitEnum = url.searchParams.get('mode') || ('contain' as any);
 
-    const image = await db.query.imageTable.findFirst({
-        where: eq(imageTable.id, id)
-    });
+	const image = await db.query.imageTable.findFirst({
+		where: eq(imageTable.id, id)
+	});
 
-    if (!image) {
-        error(404, "Import file not found");
-    }
+	if (!image) {
+		error(404, 'Import file not found');
+	}
 
-    if (image.previewPath && await Bun.file(image.previewPath).exists()) {
-        const buffer = await sharp(image.previewPath)
-            .rotate()
-            .resize({ width: size, height: size, fit: mode, withoutEnlargement: true })
-            .webp({ quality })
-            .toBuffer();
+	if (image.previewPath && (await Bun.file(image.previewPath).exists())) {
+		const buffer = await sharp(image.previewPath).rotate().resize({ width: size, height: size, fit: mode, withoutEnlargement: true }).webp({ quality }).toBuffer();
 
-        return webpResponse(buffer);
-    }
+		return webpResponse(buffer);
+	}
 
-    if (!await Bun.file(image.filepath).exists()) {
-        redirect(302, "/error-thumbnail.jpg");
-    }
+	if (!(await Bun.file(image.filepath).exists())) {
+		redirect(302, '/error-thumbnail.jpg');
+	}
 
-    const path = await createTempDir("thumbnails");
-    const tempFile = join(path, image.id + "_preview.jpg");
-    const compressedFile = join(path, image.id + "_preview_rotated.jpg");
+	const path = await createTempDir('thumbnails');
+	const tempFile = join(path, image.id + '_preview.jpg');
+	const compressedFile = join(path, image.id + '_preview_rotated.jpg');
 
-    const startTime = performance.now();
-    let rotation = 1;
-    try {
-        const tags = await exiftool.read(image.filepath);
-        rotation = tags.Orientation ?? 1;
+	const startTime = performance.now();
+	let rotation = 1;
+	try {
+		const tags = await exiftool.read(image.filepath);
+		rotation = tags.Orientation ?? 1;
 
-        await exiftool.extractPreview(image.filepath, tempFile, { ignoreMinorErrors: true, forceWrite: true });
-    } catch (err) {
-        console.error("Error extracting thumbnail with exiftool:", err);
-        // Fallback to using the original image if thumbnail extraction fails
-        await cp(image.filepath, tempFile);
-    }
+		await exiftool.extractPreview(image.filepath, tempFile, { ignoreMinorErrors: true, forceWrite: true });
+	} catch (err) {
+		console.error('Error extracting thumbnail with exiftool:', err);
+		// Fallback to using the original image if thumbnail extraction fails
+		await cp(image.filepath, tempFile);
+	}
 
-    try {
-        await sharp(tempFile)
-            .resize({ width: 4096, height: 4096, fit: 'inside', withoutEnlargement: true })
-            .rotate(rotations[rotation])
-            .jpeg({ quality: 95 })
-            .toFile(compressedFile);
+	try {
+		await sharp(tempFile).resize({ width: 4096, height: 4096, fit: 'inside', withoutEnlargement: true }).rotate(rotations[rotation]).jpeg({ quality: 95 }).toFile(compressedFile);
 
-        Bun.file(tempFile).delete().catch(() => { /* ignore */ });
+		Bun.file(tempFile)
+			.delete()
+			.catch(() => {
+				/* ignore */
+			});
 
-        await db.update(imageTable).set({ previewPath: compressedFile }).where(eq(imageTable.id, image.id));
+		await db.update(imageTable).set({ previewPath: compressedFile }).where(eq(imageTable.id, image.id));
 
-        const endTime = performance.now();
-        console.log(`Thumbnail extracted and compressed in ${endTime - startTime}ms`);
+		const endTime = performance.now();
+		console.log(`Thumbnail extracted and compressed in ${endTime - startTime}ms`);
 
-        const buffer = await sharp(compressedFile)
-            .resize({ width: size, height: size, fit: mode, withoutEnlargement: true })
-            .webp({ quality })
-            .toBuffer();
+		const buffer = await sharp(compressedFile).resize({ width: size, height: size, fit: mode, withoutEnlargement: true }).webp({ quality }).toBuffer();
 
-        return webpResponse(buffer);
-    } catch (err) {
-        console.error("Error extracting thumbnail:", err);
-    }
+		return webpResponse(buffer);
+	} catch (err) {
+		console.error('Error extracting thumbnail:', err);
+	}
 
-    redirect(302, "/error-thumbnail.jpg");
+	redirect(302, '/error-thumbnail.jpg');
 };

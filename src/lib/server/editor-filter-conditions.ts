@@ -9,12 +9,17 @@ export async function editorFilterConditions(sessionId: number, filters: EditorF
 	if (filters.newlyImported) {
 		const latestExport = await db.query.imageTable.findFirst({
 			where: and(eq(imageTable.sessionId, sessionId), isNotNull(imageTable.lastExportedAt)),
-			columns: { lastExportedAt: true }, orderBy: desc(imageTable.lastExportedAt)
+			columns: { lastExportedAt: true },
+			orderBy: desc(imageTable.lastExportedAt)
 		});
 		if (latestExport?.lastExportedAt) conditions.push(gt(imageTable.createdAt, latestExport.lastExportedAt));
 	}
 	if (filters.archived !== 'any') conditions.push(eq(imageTable.isArchived, filters.archived === 'only'));
-	const snapshotsOf = (condition?: SQL) => db.select().from(snapshotTable).where(and(eq(snapshotTable.imageId, imageTable.id), condition));
+	const snapshotsOf = (condition?: SQL) =>
+		db
+			.select()
+			.from(snapshotTable)
+			.where(and(eq(snapshotTable.imageId, imageTable.id), condition));
 	if (filters.show === 'todo') {
 		// Unedited when the pass started, so photos finished since then stay reachable.
 		conditions.push(notExists(snapshotsOf(filters.since ? lt(snapshotTable.createdAt, new Date(filters.since)) : undefined)));

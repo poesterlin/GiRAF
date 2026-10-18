@@ -37,7 +37,12 @@
 
 		<div class="mt-6 flex flex-wrap justify-end gap-3">
 			<button type="button" class="min-h-11 rounded-lg border border-neutral-400 px-4 py-2" disabled={busy} onclick={onCancel}>Cancel</button>
-			<button type="button" class="min-h-11 rounded-lg bg-red-600 px-4 py-2 font-semibold text-white disabled:opacity-50" disabled={busy} onclick={() => onConfirm({ imports, exports })}>
+			<button
+				type="button"
+				class="min-h-11 rounded-lg bg-red-600 px-4 py-2 font-semibold text-white disabled:opacity-50"
+				disabled={busy}
+				onclick={() => onConfirm({ imports, exports })}
+			>
 				{busy ? 'Deleting…' : 'Delete session'}
 			</button>
 		</div>

@@ -10,7 +10,16 @@
 		onchange?: (value: boolean) => void;
 	}
 
-	let { checked = $bindable(false), disabled = false, label = 'Toggle', ariaLabel, id = `toggle-${Math.random().toString(36).slice(2, 9)}`, name, small, onchange }: Props = $props();
+	let {
+		checked = $bindable(false),
+		disabled = false,
+		label = 'Toggle',
+		ariaLabel,
+		id = `toggle-${Math.random().toString(36).slice(2, 9)}`,
+		name,
+		small,
+		onchange
+	}: Props = $props();
 
 	function handleChange(e: Event) {
 		const next = (e.target as HTMLInputElement).checked;
@@ -28,7 +37,7 @@
 
 	<!-- Switch wrapper -->
 	<label
-		class="relative z-10 h-5 w-12 cursor-pointer rounded-full pointer-events-auto
+		class="pointer-events-auto relative z-10 h-5 w-12 cursor-pointer rounded-full
 		transition-colors outline-none select-none focus-visible:ring-2
 		focus-visible:ring-neutral-100/60
 		{checked ? 'bg-neutral-200 ring-neutral-300' : 'bg-neutral-950 ring-neutral-500'}"
@@ -62,7 +71,7 @@
 			{name}
 			aria-label={ariaLabel}
 			type="checkbox"
-			class="absolute inset-0 opacity-0 pointer-events-auto"
+			class="pointer-events-auto absolute inset-0 opacity-0"
 			{disabled}
 			bind:checked
 			onchange={handleChange}

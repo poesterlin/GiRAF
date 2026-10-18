@@ -32,16 +32,17 @@ GiRAF uses [RawTherapee](https://rawtherapee.com/) to process your photos.
 
 ## How it works
 
-| | Step | What you do |
-|:-:|---|---|
-| 📥 | **Import** | Add photos from a folder, your device or an SD card. |
-| 🗂️ | **Sort** | Pick your best shots. Hide the rest. |
-| 🎨 | **Edit** | Adjust light and color, add film looks, crop. |
-| 🚀 | **Share** | Send photos to Immich or Google Photos, or download them. |
+|     | Step       | What you do                                               |
+| :-: | ---------- | --------------------------------------------------------- |
+| 📥  | **Import** | Add photos from a folder, your device or an SD card.      |
+| 🗂️  | **Sort**   | Pick your best shots. Hide the rest.                      |
+| 🎨  | **Edit**   | Adjust light and color, add film looks, crop.             |
+| 🚀  | **Share**  | Send photos to Immich or Google Photos, or download them. |
 
 ## Features
 
 **Editing**
+
 - Light, color and tone controls
 - Film looks, previewed on your own photo
 - Crop, masks and spot removal
@@ -50,11 +51,13 @@ GiRAF uses [RawTherapee](https://rawtherapee.com/) to process your photos.
 - Your original files are never changed
 
 **Organizing**
+
 - Photos are grouped into sessions
 - Similar shots are stacked together
 - Imports and exports run in the background
 
 **Works anywhere**
+
 - Edit on a phone, tablet or computer
 - Quick previews on slow connections
 - One Docker Compose file to install
@@ -128,7 +131,7 @@ GiRAF can send finished photos to your photo library.
 
 1. Create a project in the [Google Cloud Console](https://console.cloud.google.com/).
 2. Enable the **Photos Library API**.
-3. Create an **OAuth 2.0 Client ID** of type *Web application*.
+3. Create an **OAuth 2.0 Client ID** of type _Web application_.
 4. Add your GiRAF URL followed by `/api/auth/google/callback` as a **redirect URI**, for example `https://photos.example.com/api/auth/google/callback`.
 5. Add the credentials to your `.env`:
    ```bash

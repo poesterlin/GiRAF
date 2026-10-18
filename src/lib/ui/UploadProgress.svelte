@@ -16,8 +16,12 @@
 		animation: preparing 2.4s ease-in-out infinite alternate;
 	}
 	@keyframes preparing {
-		from { opacity: 0.45; }
-		to { opacity: 1; }
+		from {
+			opacity: 0.45;
+		}
+		to {
+			opacity: 1;
+		}
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.preparing {

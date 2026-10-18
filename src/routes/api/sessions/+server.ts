@@ -52,19 +52,21 @@ export const GET: RequestHandler = async ({ url }) => {
 			startedAt: sessionTable.startedAt,
 			endedAt: sessionTable.endedAt,
 			imageCount: count(imageTable.id).as('imageCount'),
-			images: buildJSONColumn({
-				id: imageTable.id,
-				version: imageTable.version,
-				isArchived: imageTable.isArchived,
-				hasSnapshot: exists(db.select().from(snapshotTable).where(eq(snapshotTable.imageId, imageTable.id))) as SQL<boolean>,
-				snapshotId: sql<number | null>`(select ${snapshotTable.id} from ${snapshotTable} where ${snapshotTable.imageId} = ${imageTable.id} order by ${snapshotTable.createdAt} desc, ${snapshotTable.id} desc limit 1)`,
-			}, [imageTable.recordedAt])
+			images: buildJSONColumn(
+				{
+					id: imageTable.id,
+					version: imageTable.version,
+					isArchived: imageTable.isArchived,
+					hasSnapshot: exists(db.select().from(snapshotTable).where(eq(snapshotTable.imageId, imageTable.id))) as SQL<boolean>,
+					snapshotId: sql<
+						number | null
+					>`(select ${snapshotTable.id} from ${snapshotTable} where ${snapshotTable.imageId} = ${imageTable.id} order by ${snapshotTable.createdAt} desc, ${snapshotTable.id} desc limit 1)`
+				},
+				[imageTable.recordedAt]
+			)
 		})
 		.from(sessionTable)
-		.leftJoin(
-			imageTable,
-			eq(imageTable.sessionId, sessionTable.id),
-		)
+		.leftJoin(imageTable, eq(imageTable.sessionId, sessionTable.id))
 		.where(singleSession ? eq(sessionTable.id, sessionId) : eq(sessionTable.isArchived, false))
 		.groupBy(sessionTable.id)
 		.orderBy(...orderBy)

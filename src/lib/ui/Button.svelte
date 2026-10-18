@@ -19,8 +19,8 @@
 	{onclick}
 	{type}
 	aria-label={ariaLabel}
-	disabled={disabled}
-	class="flex flex-row items-center justify-between gap-2 rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-200 transition-all hover:border-neutral-700 hover:bg-neutral-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus:ring-2 focus:ring-neutral-700/50 outline-hidden {className}"
+	{disabled}
+	class="flex flex-row items-center justify-between gap-2 rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-200 outline-hidden transition-all hover:border-neutral-700 hover:bg-neutral-800 focus:ring-2 focus:ring-neutral-700/50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 {className}"
 	class:key-flash={flash}
 	{title}
 >

@@ -16,7 +16,14 @@
 	// A fresh group starts with nothing kept; revisiting a sorted group starts from what is currently kept
 	let selected = $state(new Set<number>(untrack(() => (images.some((image) => image.isArchived) ? images.filter((image) => !image.isArchived).map((image) => image.id) : []))));
 	// The picker opens on the photo triage was showing
-	let focus = $state(untrack(() => Math.max(0, images.findIndex((image) => image.id === currentId))));
+	let focus = $state(
+		untrack(() =>
+			Math.max(
+				0,
+				images.findIndex((image) => image.id === currentId)
+			)
+		)
+	);
 	let swipeStart: number | null = null;
 	let strip: HTMLDivElement | undefined;
 
@@ -99,33 +106,68 @@
 		onpointercancel={() => (swipeStart = null)}
 	>
 		<img src={stageUrl(focused)} alt={`Shot ${focus + 1} of ${images.length}`} class="absolute inset-0 h-full w-full object-contain" draggable="false" />
-		{#if focused.isArchived}<span class="pointer-events-none absolute top-2 right-2 rounded-full bg-neutral-100 px-3 py-1 text-sm font-semibold text-neutral-950">Archived</span>{/if}
-		<span class="pointer-events-none absolute top-2 left-2 rounded-full bg-neutral-950/70 px-3 py-1 text-sm text-neutral-200 tabular-nums backdrop-blur">{focus + 1}/{images.length}{caption(focused) ? ` · ${caption(focused)}` : ''}</span>
+		{#if focused.isArchived}<span class="pointer-events-none absolute top-2 right-2 rounded-full bg-neutral-100 px-3 py-1 text-sm font-semibold text-neutral-950">Archived</span
+			>{/if}
+		<span class="pointer-events-none absolute top-2 left-2 rounded-full bg-neutral-950/70 px-3 py-1 text-sm text-neutral-200 tabular-nums backdrop-blur"
+			>{focus + 1}/{images.length}{caption(focused) ? ` · ${caption(focused)}` : ''}</span
+		>
 		<button
 			type="button"
 			aria-pressed={keeping}
-			class="absolute bottom-4 left-1/2 min-h-14 -translate-x-1/2 rounded-full px-8 text-base font-bold shadow-xl backdrop-blur {keeping ? 'bg-neutral-100 text-neutral-950' : 'border border-neutral-300 bg-neutral-950/70 text-neutral-100'}"
+			class="absolute bottom-4 left-1/2 min-h-14 -translate-x-1/2 rounded-full px-8 text-base font-bold shadow-xl backdrop-blur {keeping
+				? 'bg-neutral-100 text-neutral-950'
+				: 'border border-neutral-300 bg-neutral-950/70 text-neutral-100'}"
 			onpointerdown={(event) => event.stopPropagation()}
-			onclick={() => toggle(focused.id)}
-		>{keeping ? '✓ Keeping' : 'Keep this one'}</button>
+			onclick={() => toggle(focused.id)}>{keeping ? '✓ Keeping' : 'Keep this one'}</button
+		>
 		{#if images.length > 1}
-			<button type="button" aria-label="Previous shot" class="absolute top-1/2 left-1 hidden h-12 w-12 -translate-y-1/2 rounded-full bg-neutral-950/60 text-2xl text-neutral-100 hover:bg-neutral-100 hover:text-neutral-950 md:block" onclick={() => move(-1)}>‹</button>
-			<button type="button" aria-label="Next shot" class="absolute top-1/2 right-1 hidden h-12 w-12 -translate-y-1/2 rounded-full bg-neutral-950/60 text-2xl text-neutral-100 hover:bg-neutral-100 hover:text-neutral-950 md:block" onclick={() => move(1)}>›</button>
+			<button
+				type="button"
+				aria-label="Previous shot"
+				class="absolute top-1/2 left-1 hidden h-12 w-12 -translate-y-1/2 rounded-full bg-neutral-950/60 text-2xl text-neutral-100 hover:bg-neutral-100 hover:text-neutral-950 md:block"
+				onclick={() => move(-1)}>‹</button
+			>
+			<button
+				type="button"
+				aria-label="Next shot"
+				class="absolute top-1/2 right-1 hidden h-12 w-12 -translate-y-1/2 rounded-full bg-neutral-950/60 text-2xl text-neutral-100 hover:bg-neutral-100 hover:text-neutral-950 md:block"
+				onclick={() => move(1)}>›</button
+			>
 		{/if}
 	</div>
 
 	<div bind:this={strip} class="flex shrink-0 gap-2 overflow-x-auto px-3 py-2">
 		{#each images as image, index (image.id)}
-			<button type="button" aria-label={`Shot ${index + 1}${selected.has(image.id) ? ', keeping' : ''}`} class="relative aspect-[3/2] h-16 shrink-0 overflow-hidden rounded-lg border-2 sm:h-20 {index === focus ? 'border-neutral-100' : 'border-transparent'}" onclick={() => (focus = index)}>
-				<img src={`/api/images/${image.id}/preview?size=256&quality=60&mode=inside&version=${image.version}`} alt="" loading="lazy" class="h-full w-full object-cover" draggable="false" />
+			<button
+				type="button"
+				aria-label={`Shot ${index + 1}${selected.has(image.id) ? ', keeping' : ''}`}
+				class="relative aspect-[3/2] h-16 shrink-0 overflow-hidden rounded-lg border-2 sm:h-20 {index === focus ? 'border-neutral-100' : 'border-transparent'}"
+				onclick={() => (focus = index)}
+			>
+				<img
+					src={`/api/images/${image.id}/preview?size=256&quality=60&mode=inside&version=${image.version}`}
+					alt=""
+					loading="lazy"
+					class="h-full w-full object-cover"
+					draggable="false"
+				/>
 				{#if image.isArchived}<span class="absolute bottom-0.5 left-0.5 rounded bg-neutral-950/80 px-1 text-[10px] font-semibold text-neutral-200">Archived</span>{/if}
-				{#if selected.has(image.id)}<span class="absolute top-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-neutral-100 text-xs font-bold text-neutral-950">✓</span>{/if}
+				{#if selected.has(image.id)}<span class="absolute top-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-neutral-100 text-xs font-bold text-neutral-950"
+						>✓</span
+					>{/if}
 			</button>
 		{/each}
 	</div>
 
 	<footer class="shrink-0 border-t border-neutral-800 p-3">
-		<button type="button" class="min-h-14 w-full rounded-xl text-base font-bold disabled:opacity-40 {selected.size ? 'bg-neutral-100 text-neutral-950 hover:bg-white' : 'border border-neutral-500 text-neutral-200 hover:bg-neutral-800'}" disabled={busy} onclick={() => confirm(true)}>
+		<button
+			type="button"
+			class="min-h-14 w-full rounded-xl text-base font-bold disabled:opacity-40 {selected.size
+				? 'bg-neutral-100 text-neutral-950 hover:bg-white'
+				: 'border border-neutral-500 text-neutral-200 hover:bg-neutral-800'}"
+			disabled={busy}
+			onclick={() => confirm(true)}
+		>
 			{selected.size ? 'Done' : 'Archive all'}
 		</button>
 	</footer>

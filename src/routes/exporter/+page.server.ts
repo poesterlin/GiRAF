@@ -23,10 +23,10 @@ export const actions: Actions = {
 
 		const integration = integrations.find((i) => i.type === integrationType);
 
-		if (!integration ){
+		if (!integration) {
 			return fail(400, { error: 'Integration not found' });
 		}
-		
+
 		if (!integration.isConfigured()) {
 			if (integration.canBeConfigured()) {
 				return integration.configure();
@@ -42,7 +42,7 @@ export const actions: Actions = {
 			.select()
 			.from(sessionTable)
 			.where(eq(sessionTable.id, Number(sessionId)))
-			.limit(1)
+			.limit(1);
 
 		const year = new Date(session.startedAt).getFullYear();
 		const title = `${session.name} - ${year}`;
@@ -56,7 +56,6 @@ export const actions: Actions = {
 				sessionId: session.id,
 				integration: integrationType
 			});
-
 		} catch (error) {
 			console.error('Failed to create album', error);
 			return fail(500, { error: 'Failed to create album' });

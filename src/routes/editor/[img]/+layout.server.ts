@@ -24,22 +24,44 @@ export const load: LayoutServerLoad = async ({ params, url }) => {
 	});
 	if (!image) error(404, { message: 'Image or session not found' });
 	const filters = await editorFilterConditions(image.sessionId, selectedFilters);
-	const beforeCurrent = or(
-		lt(imageTable.recordedAt, image.recordedAt), and(eq(imageTable.recordedAt, image.recordedAt), lt(imageTable.id, image.id))
-	);
+	const beforeCurrent = or(lt(imageTable.recordedAt, image.recordedAt), and(eq(imageTable.recordedAt, image.recordedAt), lt(imageTable.id, image.id)));
 	const [totals, preceding, [currentMatch], [nextImage], [previousImage], navigationImages, finished] = await Promise.all([
-		db.select({ total: count() }).from(imageTable).where(and(...filters)),
-		db.select({ total: count() }).from(imageTable).where(and(...filters, beforeCurrent)),
+		db
+			.select({ total: count() })
+			.from(imageTable)
+			.where(and(...filters)),
+		db
+			.select({ total: count() })
+			.from(imageTable)
+			.where(and(...filters, beforeCurrent)),
 		// Plain selects: the filters' snapshot subqueries refer to the unaliased image table.
-		db.select({ id: imageTable.id }).from(imageTable).where(and(...filters, eq(imageTable.id, image.id))).limit(1),
-		db.select({ id: imageTable.id }).from(imageTable).where(and(...filters, or(
-			gt(imageTable.recordedAt, image.recordedAt), and(eq(imageTable.recordedAt, image.recordedAt), gt(imageTable.id, image.id))
-		))).orderBy(asc(imageTable.recordedAt), asc(imageTable.id)).limit(1),
-		db.select({ id: imageTable.id }).from(imageTable).where(and(...filters, beforeCurrent)).orderBy(desc(imageTable.recordedAt), desc(imageTable.id)).limit(1),
-		db.select({ id: imageTable.id, name: imageTable.name, version: imageTable.version, isArchived: imageTable.isArchived }).from(imageTable)
-			.where(and(...filters)).orderBy(asc(imageTable.recordedAt), asc(imageTable.id)),
+		db
+			.select({ id: imageTable.id })
+			.from(imageTable)
+			.where(and(...filters, eq(imageTable.id, image.id)))
+			.limit(1),
+		db
+			.select({ id: imageTable.id })
+			.from(imageTable)
+			.where(and(...filters, or(gt(imageTable.recordedAt, image.recordedAt), and(eq(imageTable.recordedAt, image.recordedAt), gt(imageTable.id, image.id)))))
+			.orderBy(asc(imageTable.recordedAt), asc(imageTable.id))
+			.limit(1),
+		db
+			.select({ id: imageTable.id })
+			.from(imageTable)
+			.where(and(...filters, beforeCurrent))
+			.orderBy(desc(imageTable.recordedAt), desc(imageTable.id))
+			.limit(1),
+		db
+			.select({ id: imageTable.id, name: imageTable.name, version: imageTable.version, isArchived: imageTable.isArchived })
+			.from(imageTable)
+			.where(and(...filters))
+			.orderBy(asc(imageTable.recordedAt), asc(imageTable.id)),
 		selectedFilters.show === 'todo'
-			? db.select({ id: imageTable.id }).from(imageTable).where(and(...filters, finishedInPass()))
+			? db
+					.select({ id: imageTable.id })
+					.from(imageTable)
+					.where(and(...filters, finishedInPass()))
 			: Promise.resolve([])
 	]);
 	return {

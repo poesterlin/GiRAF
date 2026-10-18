@@ -26,14 +26,19 @@
 		edits.pushHistory();
 	}
 	function curveValue(key: string, index: number) {
-		const values = String(edits.pp3.HSV_Equalizer[key] ?? '0;').split(';').map(Number);
+		const values = String(edits.pp3.HSV_Equalizer[key] ?? '0;')
+			.split(';')
+			.map(Number);
 		for (let i = 1; i + 3 < values.length; i += 4) {
 			if (Math.abs(values[i] - hues[index]) < 0.002) return Math.round((values[i + 1] - 0.5) * 200);
 		}
 		return 0;
 	}
 	function setCurve(key: string, value: number, recordHistory = true) {
-		const existing = String(edits.pp3.HSV_Equalizer[key] ?? '0;').split(';').filter(Boolean).map(Number);
+		const existing = String(edits.pp3.HSV_Equalizer[key] ?? '0;')
+			.split(';')
+			.filter(Boolean)
+			.map(Number);
 		const points: number[][] = [];
 		if (existing[0] === 1) {
 			for (let i = 1; i + 3 < existing.length; i += 4) points.push(existing.slice(i, i + 4));
@@ -54,35 +59,59 @@
 </script>
 
 {#if mode === 'mixer'}
-<div class="space-y-3">
-	<div class="grid grid-cols-4 gap-2" role="group" aria-label="Color range">
-		{#each colors as name, index}
-			{@const adjusted = ['HCurve', 'SCurve', 'VCurve'].some((key) => curveValue(key, index) !== 0)}
-			<button type="button" class="relative flex min-h-11 items-center justify-center rounded-xl border border-neutral-700 bg-neutral-900 transition-colors hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" class:border-neutral-100={color === index} class:bg-neutral-800={color === index} aria-label={name} aria-pressed={color === index} title={name} onclick={() => (color = index)}>
-				<span class="h-5 w-5 rounded-full ring-1 ring-white/20" style:background-color={swatches[index]}></span>
-				{#if adjusted}<span class="absolute right-1.5 top-1.5 h-1 w-1 rounded-full bg-neutral-200" aria-hidden="true"></span>{/if}
-			</button>
-		{/each}
+	<div class="space-y-3">
+		<div class="grid grid-cols-4 gap-2" role="group" aria-label="Color range">
+			{#each colors as name, index}
+				{@const adjusted = ['HCurve', 'SCurve', 'VCurve'].some((key) => curveValue(key, index) !== 0)}
+				<button
+					type="button"
+					class="relative flex min-h-11 items-center justify-center rounded-xl border border-neutral-700 bg-neutral-900 transition-colors hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+					class:border-neutral-100={color === index}
+					class:bg-neutral-800={color === index}
+					aria-label={name}
+					aria-pressed={color === index}
+					title={name}
+					onclick={() => (color = index)}
+				>
+					<span class="h-5 w-5 rounded-full ring-1 ring-white/20" style:background-color={swatches[index]}></span>
+					{#if adjusted}<span class="absolute top-1.5 right-1.5 h-1 w-1 rounded-full bg-neutral-200" aria-hidden="true"></span>{/if}
+				</button>
+			{/each}
+		</div>
+		<div class="flex min-h-11 items-center justify-between gap-3">
+			<span class="text-xs font-semibold tracking-wider text-neutral-300 uppercase">{colors[color]}</span>
+			<button
+				type="button"
+				class="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-800 hover:text-white"
+				aria-label={`Reset ${colors[color]} adjustments`}
+				title={`Reset ${colors[color]}`}
+				onclick={resetColor}><IconRestore size={18} /></button
+			>
+		</div>
+		<Slider label="Hue" value={curveValue('HCurve', color)} min={-100} max={100} centered resetValue={0} onchange={(value) => setCurve('HCurve', value)} />
+		<Slider label="Saturation" value={curveValue('SCurve', color)} min={-100} max={100} centered resetValue={0} onchange={(value) => setCurve('SCurve', value)} />
+		<Slider label="Brightness" value={curveValue('VCurve', color)} min={-100} max={100} centered resetValue={0} onchange={(value) => setCurve('VCurve', value)} />
 	</div>
-	<div class="flex min-h-11 items-center justify-between gap-3">
-		<span class="text-xs font-semibold uppercase tracking-wider text-neutral-300">{colors[color]}</span>
-		<button type="button" class="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-800 hover:text-white" aria-label={`Reset ${colors[color]} adjustments`} title={`Reset ${colors[color]}`} onclick={resetColor}><IconRestore size={18} /></button>
-	</div>
-	<Slider label="Hue" value={curveValue('HCurve', color)} min={-100} max={100} centered resetValue={0} onchange={(value) => setCurve('HCurve', value)} />
-	<Slider label="Saturation" value={curveValue('SCurve', color)} min={-100} max={100} centered resetValue={0} onchange={(value) => setCurve('SCurve', value)} />
-	<Slider label="Brightness" value={curveValue('VCurve', color)} min={-100} max={100} centered resetValue={0} onchange={(value) => setCurve('VCurve', value)} />
-</div>
-
 {:else}
-<div class="space-y-3">
-	<div class="grid grid-cols-3 gap-2" role="group" aria-label="Primary color">
-		{#each primaryDefaults as primary, index}
-			<button type="button" class="min-h-12 rounded-xl border px-2 text-sm font-semibold" class:bg-neutral-100={primaryIndex === index} class:text-neutral-950={primaryIndex === index} class:border-neutral-100={primaryIndex === index} class:border-neutral-600={primaryIndex !== index} aria-pressed={primaryIndex === index} onclick={() => (primaryIndex = index)}>{primary.name}</button>
-		{/each}
+	<div class="space-y-3">
+		<div class="grid grid-cols-3 gap-2" role="group" aria-label="Primary color">
+			{#each primaryDefaults as primary, index}
+				<button
+					type="button"
+					class="min-h-12 rounded-xl border px-2 text-sm font-semibold"
+					class:bg-neutral-100={primaryIndex === index}
+					class:text-neutral-950={primaryIndex === index}
+					class:border-neutral-100={primaryIndex === index}
+					class:border-neutral-600={primaryIndex !== index}
+					aria-pressed={primaryIndex === index}
+					onclick={() => (primaryIndex = index)}>{primary.name}</button
+				>
+			{/each}
+		</div>
+		<Slider label="Hue" value={primaryValues.hue} min={-100} max={100} centered resetValue={0} onchange={(value) => setPrimary(value, primaryValues.saturation)} />
+		<Slider label="Saturation" value={primaryValues.saturation} min={-100} max={100} centered resetValue={0} onchange={(value) => setPrimary(primaryValues.hue, value)} />
+		<button type="button" class="min-h-12 rounded-xl border border-neutral-600 px-4 text-sm font-semibold hover:bg-neutral-800" onclick={() => setPrimary(0, 0)}
+			>Reset {primaryDefaults[primaryIndex].name}</button
+		>
 	</div>
-	<Slider label="Hue" value={primaryValues.hue} min={-100} max={100} centered resetValue={0} onchange={(value) => setPrimary(value, primaryValues.saturation)} />
-	<Slider label="Saturation" value={primaryValues.saturation} min={-100} max={100} centered resetValue={0} onchange={(value) => setPrimary(primaryValues.hue, value)} />
-	<button type="button" class="min-h-12 rounded-xl border border-neutral-600 px-4 text-sm font-semibold hover:bg-neutral-800" onclick={() => setPrimary(0, 0)}>Reset {primaryDefaults[primaryIndex].name}</button>
-</div>
-
 {/if}

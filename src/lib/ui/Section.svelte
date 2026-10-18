@@ -54,12 +54,14 @@
 		const top = scroller.scrollTop + details.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
 		scroller.scrollTo({ top: Math.max(0, top), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
 	}
-
 </script>
 
 <div class="relative mb-1">
 	<details class="" data-adjustment-group={groupId} ontoggle={handleToggle}>
-		<summary onclick={handleSummaryClick} class="mb-1 flex cursor-pointer items-center rounded-lg bg-neutral-800 px-4 py-2 pr-14 select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-300">
+		<summary
+			onclick={handleSummaryClick}
+			class="mb-1 flex cursor-pointer items-center rounded-lg bg-neutral-800 px-4 py-2 pr-14 select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-300"
+		>
 			<AdjustmentIcon name={title} />
 			<span class="font-medium text-zinc-300 select-none">{title}</span>
 		</summary>
@@ -81,15 +83,27 @@
 		list-style: none;
 		transition: background-color 150ms;
 	}
-	summary:hover { background-color: #303030; }
+	summary:hover {
+		background-color: #303030;
+	}
 	details summary::-webkit-details-marker {
 		display: none;
 	}
 	details[open] > summary {
 		background-color: #f5f5f5;
 	}
-	details[open] > summary:hover { background-color: #e5e5e5; }
-	details[open] > summary :global(svg) { color: #262626; }
-	details[open] > summary > span { color: #171717; }
-	@media (prefers-reduced-motion: reduce) { summary { transition: none; } }
+	details[open] > summary:hover {
+		background-color: #e5e5e5;
+	}
+	details[open] > summary :global(svg) {
+		color: #262626;
+	}
+	details[open] > summary > span {
+		color: #171717;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		summary {
+			transition: none;
+		}
+	}
 </style>

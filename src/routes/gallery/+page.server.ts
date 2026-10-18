@@ -1,6 +1,6 @@
-import type { SessionSort, SessionsResponse } from "../api/sessions/+server";
+import type { SessionSort, SessionsResponse } from '../api/sessions/+server';
 import { archivedSessionCount, archivedSessions, libraryTags, recentlyEdited, taggedPhotos, type ArchivedSession, type LibraryPhoto } from '$lib/server/library';
-import type { PageServerLoad } from "./$types";
+import type { PageServerLoad } from './$types';
 
 /** How many edits the sessions view previews, and how many the full contact sheet shows. */
 const RECENT_STRIP = 24;
@@ -23,9 +23,15 @@ export const load: PageServerLoad = async ({ fetch, url, cookies }) => {
 		libraryTags(),
 		archivedSessionCount(),
 		view.kind === 'archived' ? archivedSessions() : Promise.resolve([] as ArchivedSession[]),
-		view.kind === 'tag' ? taggedPhotos(view.tag) : view.kind === 'archived' || (view.kind === 'sessions' && sessionId) ? Promise.resolve([]) : recentlyEdited(view.kind === 'recent' ? RECENT_SHEET : RECENT_STRIP),
+		view.kind === 'tag'
+			? taggedPhotos(view.tag)
+			: view.kind === 'archived' || (view.kind === 'sessions' && sessionId)
+				? Promise.resolve([])
+				: recentlyEdited(view.kind === 'recent' ? RECENT_SHEET : RECENT_STRIP),
 		// Only the sessions view lists sessions; the contact sheets skip that payload.
-		view.kind === 'sessions' ? fetch(`/api/sessions${sessionQuery}`).then((response) => response.json() as Promise<SessionsResponse>) : Promise.resolve({ sessions: [], next: null } as SessionsResponse)
+		view.kind === 'sessions'
+			? fetch(`/api/sessions${sessionQuery}`).then((response) => response.json() as Promise<SessionsResponse>)
+			: Promise.resolve({ sessions: [], next: null } as SessionsResponse)
 	]);
 	return {
 		...sessions,

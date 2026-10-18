@@ -50,10 +50,15 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 			}
 
 			try {
-				const usable = async (path: string | null) => path ? stat(path).then((file) => file.isFile() && file.size > 0).catch((cause) => {
-					if (['ENOENT', 'ENOTDIR'].includes((cause as NodeJS.ErrnoException).code ?? '')) return false;
-					throw cause;
-				}) : false;
+				const usable = async (path: string | null) =>
+					path
+						? stat(path)
+								.then((file) => file.isFile() && file.size > 0)
+								.catch((cause) => {
+									if (['ENOENT', 'ENOTDIR'].includes((cause as NodeJS.ErrnoException).code ?? '')) return false;
+									throw cause;
+								})
+						: false;
 				if (!(await usable(image.filepath))) throw new Error('Original RAW file is missing or empty');
 				const needsTiff = !(await usable(image.tifPath)) || image.whiteBalance === null || image.tint === null;
 				const needsPreview = !(await usable(image.previewPath));
@@ -64,14 +69,17 @@ export async function runImport(payload: ImportPayload, signal?: AbortSignal): P
 					const { pp3, tif } = await generateImportTif(image.filepath, { signal, background: true });
 					if (!(await usable(tif))) throw new Error('Generated editor TIFF is missing or empty');
 					// Save the repaired TIFF even if preview extraction subsequently fails.
-					await db.update(imageTable).set({
-						tifPath: tif,
-						importBaseline: await calculateImportBaseline(tif, signal),
-						whiteBalance: pp3.White_Balance?.Temperature as number,
-						tint: pp3.White_Balance?.Green as number,
-						// Bumping the version refreshes thumbnails browsers cached for the old development.
-						...(needsRedevelop ? { version: image.version + 1 } : {})
-					}).where(eq(imageTable.id, image.id));
+					await db
+						.update(imageTable)
+						.set({
+							tifPath: tif,
+							importBaseline: await calculateImportBaseline(tif, signal),
+							whiteBalance: pp3.White_Balance?.Temperature as number,
+							tint: pp3.White_Balance?.Green as number,
+							// Bumping the version refreshes thumbnails browsers cached for the old development.
+							...(needsRedevelop ? { version: image.version + 1 } : {})
+						})
+						.where(eq(imageTable.id, image.id));
 					if (needsRedevelop) {
 						// The old folder also holds edited thumbnails for the old development.
 						if (withinDirectory(env.TMP_DIR, image.tifPath)) await rm(dirname(image.tifPath), { recursive: true, force: true });
@@ -238,8 +246,16 @@ async function removeArchivedAlbumImage(album: Album, image: Image) {
 	if (!media.length) return;
 
 	// Clear membership records only after Immich confirms removal, so failures retry on sync.
-	await integration.removeFromAlbum(album, media.map((item) => item.externalId));
-	await db.delete(mediaTable).where(inArray(mediaTable.id, media.map((item) => item.id)));
+	await integration.removeFromAlbum(
+		album,
+		media.map((item) => item.externalId)
+	);
+	await db.delete(mediaTable).where(
+		inArray(
+			mediaTable.id,
+			media.map((item) => item.id)
+		)
+	);
 }
 
 export async function ensureDir(path: string) {

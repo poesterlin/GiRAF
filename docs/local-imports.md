@@ -11,7 +11,7 @@ entries are retained in memory as `window.__importTimings` (including filenames,
 but no photo contents). Copy them from the browser console with:
 
 ```js
-copy(JSON.stringify(window.__importTimings, null, 2))
+copy(JSON.stringify(window.__importTimings, null, 2));
 ```
 
 Server logs prefixed `[import-timing:server]` separate duplicate-indexing time

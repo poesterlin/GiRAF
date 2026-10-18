@@ -127,9 +127,14 @@ test('a large selection goes in batches rather than one request per photo', asyn
 	}) as unknown as typeof fetch;
 	const ids = Array.from({ length: ASSIGNMENT_BATCH_SIZE * 2 + 3 }, (_, index) => index + 1);
 	const batches: number[][] = [];
-	await assignPendingUploads(ids.map((id) => Promise.resolve(id)), { name: 'Big shoot' }, (indices) => batches.push(indices), (error) => {
-		throw error;
-	});
+	await assignPendingUploads(
+		ids.map((id) => Promise.resolve(id)),
+		{ name: 'Big shoot' },
+		(indices) => batches.push(indices),
+		(error) => {
+			throw error;
+		}
+	);
 	expect(requests.map((request) => request.importIds.length)).toEqual([ASSIGNMENT_BATCH_SIZE, ASSIGNMENT_BATCH_SIZE, 3]);
 	expect(batches.flat()).toEqual(ids.map((_, index) => index));
 });
@@ -144,7 +149,12 @@ test('one missing photo does not stop the rest of its batch, and repeated errors
 	}) as unknown as typeof fetch;
 	const assigned: number[] = [];
 	const errors: string[] = [];
-	await assignPendingUploads([1, 2, 3, 4].map((id) => Promise.resolve(id)), { sessionId: 9 }, (indices) => assigned.push(...indices), (error) => errors.push((error as Error).message));
+	await assignPendingUploads(
+		[1, 2, 3, 4].map((id) => Promise.resolve(id)),
+		{ sessionId: 9 },
+		(indices) => assigned.push(...indices),
+		(error) => errors.push((error as Error).message)
+	);
 	expect(requests[0].importIds).toEqual([1, 2, 3, 4]);
 	expect(assigned).toEqual([0, 3]);
 	expect(errors).toEqual(['One or more imports no longer exist']);

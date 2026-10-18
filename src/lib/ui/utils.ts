@@ -1,4 +1,3 @@
-
 export function preventDefault(fn: (event: Event, ...args: Array<unknown>) => void) {
 	return function (event: Event, ...args: []) {
 		event.preventDefault();

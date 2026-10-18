@@ -19,9 +19,12 @@
 	$effect(() => {
 		items.length;
 		if (!scroller || !sentinel) return;
-		const observer = new IntersectionObserver((entries) => {
-			if (entries.some((entry) => entry.isIntersecting)) onMore();
-		}, { root: scroller, rootMargin: '0px 0px 800px 0px' });
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting)) onMore();
+			},
+			{ root: scroller, rootMargin: '0px 0px 800px 0px' }
+		);
 		observer.observe(sentinel);
 		return () => observer.disconnect();
 	});
@@ -44,5 +47,9 @@
 
 <style>
 	/* Off-screen items skip rendering; the browser remembers each one's size once it has been seen. */
-	.scroller-item { display: flow-root; content-visibility: auto; contain-intrinsic-size: auto 600px; }
+	.scroller-item {
+		display: flow-root;
+		content-visibility: auto;
+		contain-intrinsic-size: auto 600px;
+	}
 </style>

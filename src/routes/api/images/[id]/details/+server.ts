@@ -15,11 +15,7 @@ export const PUT: RequestHandler = async ({ request, params }) => {
 	const imageId = Number(params.id);
 	const { rating, isArchived } = await request.json();
 
-	const [updatedImage] = await db
-		.update(imageTable)
-		.set({ rating, isArchived })
-		.where(eq(imageTable.id, imageId))
-		.returning();
+	const [updatedImage] = await db.update(imageTable).set({ rating, isArchived }).where(eq(imageTable.id, imageId)).returning();
 
 	return json(updatedImage);
 };

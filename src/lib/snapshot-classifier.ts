@@ -15,17 +15,7 @@ export const SNAPSHOT_INTERVAL_MS = 10 * 60 * 1000;
 export const SNAPSHOT_DISTANCE = 2.5;
 
 /** Chapters whose chapters describe geometry, looks or localised work. */
-const structuralChapters = [
-	'Crop',
-	'Rotation',
-	'Coarse_Transformation',
-	'Perspective',
-	'Resizing',
-	'Film_Simulation',
-	'Black_&_White',
-	'Spot_removal',
-	'Locallab'
-] as const;
+const structuralChapters = ['Crop', 'Rotation', 'Coarse_Transformation', 'Perspective', 'Resizing', 'Film_Simulation', 'Black_&_White', 'Spot_removal', 'Locallab'] as const;
 
 /**
  * Natural ranges of fields whose stored magnitudes say nothing about how much
@@ -65,7 +55,13 @@ function changedPP3Fields(base: PP3, target: PP3): ChangedField[] {
 /** Chapters from the structural list that the two documents disagree on. */
 export function changedStructuralChapters(base: PP3, target: PP3): string[] {
 	const structural = new Set<string>(structuralChapters);
-	return [...new Set(changedPP3Fields(base, target).map((field) => field.chapter).filter((chapter) => structural.has(chapter)))];
+	return [
+		...new Set(
+			changedPP3Fields(base, target)
+				.map((field) => field.chapter)
+				.filter((chapter) => structural.has(chapter))
+		)
+	];
 }
 
 function fieldDistance(field: ChangedField): number {

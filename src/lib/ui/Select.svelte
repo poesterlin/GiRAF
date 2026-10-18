@@ -153,7 +153,15 @@
 	</button>
 
 	{#if open}
-		<ul bind:this={listEl} class="list z-20" role="listbox" aria-label={ariaLabel} tabindex="0" aria-activedescendant={activeIndex >= 0 ? `${id}-item-${activeIndex}` : undefined} onkeydown={onKeydown}>
+		<ul
+			bind:this={listEl}
+			class="list z-20"
+			role="listbox"
+			aria-label={ariaLabel}
+			tabindex="0"
+			aria-activedescendant={activeIndex >= 0 ? `${id}-item-${activeIndex}` : undefined}
+			onkeydown={onKeydown}
+		>
 			{#each entries as entry, i}
 				<li
 					id={entry.id}
@@ -190,7 +198,7 @@
 		background: #181818;
 		color: #dddddd;
 		cursor: pointer;
-	}   
+	}
 
 	.trigger:focus {
 		outline: 2px solid #d4d4d4;

@@ -22,18 +22,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function validateMetadata(value: unknown): asserts value is PP3UiMetadata {
-	if (!isRecord(value) || !Array.isArray(value.disabledGroups) ||
+	if (
+		!isRecord(value) ||
+		!Array.isArray(value.disabledGroups) ||
 		value.disabledGroups.some((group) => typeof group !== 'string' || !group.trim()) ||
-		new Set(value.disabledGroups).size !== value.disabledGroups.length || !isRecord(value.savedValues)) {
+		new Set(value.disabledGroups).size !== value.disabledGroups.length ||
+		!isRecord(value.savedValues)
+	) {
 		throw new Error('Invalid GiRAF UI metadata');
 	}
 	if (value.editStrength !== undefined && (typeof value.editStrength !== 'number' || !Number.isFinite(value.editStrength) || value.editStrength < 0 || value.editStrength > 100)) {
 		throw new Error('Invalid GiRAF edit strength');
 	}
 	for (const section of Object.values(value.savedValues)) {
-		if (!isRecord(section) || Object.values(section).some((setting) =>
-			!(typeof setting === 'string' || typeof setting === 'boolean' ||
-				(typeof setting === 'number' && Number.isFinite(setting))))) {
+		if (
+			!isRecord(section) ||
+			Object.values(section).some((setting) => !(typeof setting === 'string' || typeof setting === 'boolean' || (typeof setting === 'number' && Number.isFinite(setting))))
+		) {
 			throw new Error('Invalid GiRAF saved settings');
 		}
 	}
@@ -59,7 +64,11 @@ export function parsePP3Document(source: string): PP3Document {
 	if (version === undefined || payload === undefined) throw new Error('Incomplete GiRAF UI metadata');
 	if (version !== '1') throw new Error(`Unsupported GiRAF UI version: ${version}`);
 	let ui: unknown;
-	try { ui = JSON.parse(payload); } catch { throw new Error('Invalid GiRAF UI JSON'); }
+	try {
+		ui = JSON.parse(payload);
+	} catch {
+		throw new Error('Invalid GiRAF UI JSON');
+	}
 	validateMetadata(ui);
 	document.ui = ui;
 	return document;
@@ -69,8 +78,7 @@ export function stringifyPP3Document(document: PP3Document): string {
 	const header: string[] = [];
 	for (const comment of document.comments) {
 		const trimmed = comment.trim();
-		if (!trimmed.startsWith('#') || /[\r\n]/.test(trimmed) ||
-			trimmed.startsWith(VERSION_PREFIX) || trimmed.startsWith(METADATA_PREFIX)) {
+		if (!trimmed.startsWith('#') || /[\r\n]/.test(trimmed) || trimmed.startsWith(VERSION_PREFIX) || trimmed.startsWith(METADATA_PREFIX)) {
 			throw new Error('Invalid ordinary PP3 comment');
 		}
 		header.push(trimmed);

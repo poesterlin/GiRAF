@@ -2,8 +2,14 @@
 	import { edits } from '$lib/state/editing.svelte';
 	import { getContext } from 'svelte';
 	import { editorHistoryKey, type EditorHistoryActions } from '$lib/editor-history';
-	let { onundo = () => edits.undo(), onredo = () => edits.redo(), loading = false }: {
-		onundo?: () => void; onredo?: () => void; loading?: boolean;
+	let {
+		onundo = () => edits.undo(),
+		onredo = () => edits.redo(),
+		loading = false
+	}: {
+		onundo?: () => void;
+		onredo?: () => void;
+		loading?: boolean;
 	} = $props();
 	const historyActions = getContext<EditorHistoryActions | undefined>(editorHistoryKey);
 	$effect(() => {

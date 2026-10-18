@@ -12,12 +12,7 @@
 		onTagsChange?: (tags: string[]) => void;
 	}
 
-	let {
-		name = 'tags',
-		placeholder = 'Add tags...',
-		label = 'Tags',
-		onTagsChange
-	}: Props = $props();
+	let { name = 'tags', placeholder = 'Add tags...', label = 'Tags', onTagsChange }: Props = $props();
 
 	// Call onTagsChange when tagStore.selected changes
 	$effect(() => {
@@ -35,18 +30,10 @@
 	</label>
 	<!-- svelte-ignore a11y_no_abstract_role -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div
-		role="input"
-		id="input-wrapper"
-		class="input mt-1 flex w-full flex-wrap items-center gap-1 p-1"
-		onclick={focusInput}
-	>
+	<div role="input" id="input-wrapper" class="input mt-1 flex w-full flex-wrap items-center gap-1 p-1" onclick={focusInput}>
 		{#each tagStore.selected as tag (tag)}
 			{#if tag}
-				<span
-					transition:fly={{ x: -20 }}
-					class="flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-800"
-				>
+				<span transition:fly={{ x: -20 }} class="flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-800">
 					{tag}
 					<button
 						type="button"

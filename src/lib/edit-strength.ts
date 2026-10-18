@@ -18,7 +18,8 @@ export function scaleEditSettings(settings: PP3, percent: number, whiteBalance: 
 	const strength = normalizeEditStrength(percent) / 100;
 	if (strength === 1) return result;
 	for (const [key, value] of Object.entries(result.Locallab ?? {})) {
-		if (/^(Expcomp|Lightness|Contrast|Chroma)_\d+$/.test(key) && typeof value === 'number') result.Locallab[key] = key.startsWith('Expcomp_') ? value * strength : Math.round(value * strength);
+		if (/^(Expcomp|Lightness|Contrast|Chroma)_\d+$/.test(key) && typeof value === 'number')
+			result.Locallab[key] = key.startsWith('Expcomp_') ? value * strength : Math.round(value * strength);
 	}
 	const amounts: Record<string, string[]> = {
 		Exposure: ['Compensation', 'Brightness', 'Contrast', 'Saturation', 'Black', 'HighlightCompr', 'ShadowCompr'],
@@ -80,10 +81,12 @@ export function scaleEditSettings(settings: PP3, percent: number, whiteBalance: 
 		if (values.length !== 3 || !values.every(Number.isFinite)) continue;
 		// The editor's modern PP3 calibration matrix uses 1000 on the diagonal.
 		const identity = Number(result.Version?.Version ?? 338) < 338 ? 100 : 1000;
-		result.Channel_Mixer[field] = `${values.map((value, column) => {
-			const neutral = row === column ? identity : 0;
-			return Math.round(neutral + strength * (value - neutral));
-		}).join(';')};`;
+		result.Channel_Mixer[field] = `${values
+			.map((value, column) => {
+				const neutral = row === column ? identity : 0;
+				return Math.round(neutral + strength * (value - neutral));
+			})
+			.join(';')};`;
 	}
 	const wb = result.White_Balance;
 	if (wb?.Setting === 'Custom' && wb.Enabled !== false) {
@@ -104,7 +107,20 @@ export function scaleEditSettings(settings: PP3, percent: number, whiteBalance: 
 		if (result.Gradient) result.Gradient.Enabled = false;
 		if (result.Exposure) result.Exposure.Auto = false;
 		if (wb) wb.Setting = 'Camera';
-		for (const chapter of ['Shadows_&_Highlights', 'Vibrance', 'Local_Contrast', 'Dehaze', 'PCVignette', 'Film_Simulation', 'Sharpening', 'Directional_Pyramid_Denoising', 'HSV_Equalizer', 'Channel_Mixer', 'ColorToning', 'Black_&_White']) {
+		for (const chapter of [
+			'Shadows_&_Highlights',
+			'Vibrance',
+			'Local_Contrast',
+			'Dehaze',
+			'PCVignette',
+			'Film_Simulation',
+			'Sharpening',
+			'Directional_Pyramid_Denoising',
+			'HSV_Equalizer',
+			'Channel_Mixer',
+			'ColorToning',
+			'Black_&_White'
+		]) {
 			if (result[chapter]) result[chapter].Enabled = false;
 		}
 	}

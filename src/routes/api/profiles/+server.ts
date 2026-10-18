@@ -1,4 +1,3 @@
-
 import { db } from '$lib/server/db';
 import { profileTable } from '$lib/server/db/schema';
 import { json } from '@sveltejs/kit';

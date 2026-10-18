@@ -10,6 +10,9 @@ export const GET: RequestHandler = async ({ params, url }) => {
 	const filters = readEditorFilters(url.searchParams);
 	if (filters.show === 'todo' && !filters.since) filters.since = new Date().toISOString();
 	const conditions = await editorFilterConditions(Number(params.id), filters);
-	const [{ total }] = await db.select({ total: count() }).from(imageTable).where(and(...conditions));
+	const [{ total }] = await db
+		.select({ total: count() })
+		.from(imageTable)
+		.where(and(...conditions));
 	return json({ count: total });
 };

@@ -3,32 +3,88 @@
 	import EditorToolIcon from './EditorToolIcon.svelte';
 	let { img, currentTool, query }: { img: string; currentTool: EditorTool; query: string } = $props();
 	const pages: { tool: EditorTool; label: string }[] = [
-		{ tool: 'adjustments', label: 'Adjustments' }, { tool: 'crop', label: 'Crop' },
-		{ tool: 'masks', label: 'Masks' }, { tool: 'retouch', label: 'Retouch' }
+		{ tool: 'adjustments', label: 'Adjustments' },
+		{ tool: 'crop', label: 'Crop' },
+		{ tool: 'masks', label: 'Masks' },
+		{ tool: 'retouch', label: 'Retouch' }
 	];
 </script>
 
 <nav aria-label="Editor pages">
 	{#each pages as { tool, label }}
-		<a href={editorToolUrl(img, tool, query)} aria-label={label} title={label} aria-current={tool === currentTool ? 'page' : undefined}><EditorToolIcon {tool} /><span>{label}</span></a>
+		<a href={editorToolUrl(img, tool, query)} aria-label={label} title={label} aria-current={tool === currentTool ? 'page' : undefined}
+			><EditorToolIcon {tool} /><span>{label}</span></a
+		>
 	{/each}
 </nav>
 
 <style>
-	nav { display: flex; border-bottom: 1px solid #404040; color: #d4d4d4; }
-	a { text-decoration: none; min-height: 44px; display: flex; align-items: center; flex: 1; flex-direction: column; justify-content: center; gap: 6px; padding: 10px 2px; font-size: 12px; border-bottom: 2px solid transparent; }
-	a:hover { color: #fff; background: #ffffff0a; }
-	a:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-	a[aria-current] { color: #fff; border-bottom-color: #f5f5f5; }
+	nav {
+		display: flex;
+		border-bottom: 1px solid #404040;
+		color: #d4d4d4;
+	}
+	a {
+		text-decoration: none;
+		min-height: 44px;
+		display: flex;
+		align-items: center;
+		flex: 1;
+		flex-direction: column;
+		justify-content: center;
+		gap: 6px;
+		padding: 10px 2px;
+		font-size: 12px;
+		border-bottom: 2px solid transparent;
+	}
+	a:hover {
+		color: #fff;
+		background: #ffffff0a;
+	}
+	a:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: 3px;
+	}
+	a[aria-current] {
+		color: #fff;
+		border-bottom-color: #f5f5f5;
+	}
 	@media (min-width: 1024px) {
-		a :global(svg) { display: none; }
+		a :global(svg) {
+			display: none;
+		}
 	}
 	@media (max-width: 1023px) {
-		nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: min(100%, 288px); border-bottom: 0; }
-		a { min-width: 0; min-height: 48px; gap: 3px; padding: 4px; font-size: 10px; line-height: 12px; font-weight: 600; }
-		a span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-		a :global(svg) { width: 16px; height: 16px; }
-		a[aria-current] { background: #262626; }
-		a:focus-visible { outline-offset: -2px; }
+		nav {
+			display: grid;
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+			width: min(100%, 288px);
+			border-bottom: 0;
+		}
+		a {
+			min-width: 0;
+			min-height: 48px;
+			gap: 3px;
+			padding: 4px;
+			font-size: 10px;
+			line-height: 12px;
+			font-weight: 600;
+		}
+		a span {
+			max-width: 100%;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		a :global(svg) {
+			width: 16px;
+			height: 16px;
+		}
+		a[aria-current] {
+			background: #262626;
+		}
+		a:focus-visible {
+			outline-offset: -2px;
+		}
 	}
 </style>

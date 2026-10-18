@@ -3,8 +3,16 @@
 	import { edits } from '$lib/state/editing.svelte';
 	import EditorTools from './EditorTools.svelte';
 	import { IconArrowBackUp, IconArrowForwardUp } from './icons';
-	let { img, currentTool = 'adjustments', onundo = () => edits.undo(), onredo = () => edits.redo() }: {
-		img: string; currentTool?: EditorTool; onundo?: () => void; onredo?: () => void;
+	let {
+		img,
+		currentTool = 'adjustments',
+		onundo = () => edits.undo(),
+		onredo = () => edits.redo()
+	}: {
+		img: string;
+		currentTool?: EditorTool;
+		onundo?: () => void;
+		onredo?: () => void;
 	} = $props();
 </script>
 
@@ -17,10 +25,30 @@
 </div>
 
 <style>
-	.history-controls { border-left: 1px solid #737373; background: #303030; }
-	button { display: flex; height: 48px; width: 48px; align-items: center; justify-content: center; color: #f5f5f5; background: transparent; }
-	button + button { border-left: 1px solid #404040; }
-	button:hover:not(:disabled) { background: #404040; }
-	button:disabled { color: #737373; }
-	button:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+	.history-controls {
+		border-left: 1px solid #737373;
+		background: #303030;
+	}
+	button {
+		display: flex;
+		height: 48px;
+		width: 48px;
+		align-items: center;
+		justify-content: center;
+		color: #f5f5f5;
+		background: transparent;
+	}
+	button + button {
+		border-left: 1px solid #404040;
+	}
+	button:hover:not(:disabled) {
+		background: #404040;
+	}
+	button:disabled {
+		color: #737373;
+	}
+	button:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: -2px;
+	}
 </style>

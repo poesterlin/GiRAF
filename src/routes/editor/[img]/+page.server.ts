@@ -25,22 +25,21 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		})
 	]);
 
-
 	// load luts
 	const cwd = env.CLUT_DIR;
 	let luts: ReturnType<typeof formatLut>[] = [];
-	
+
 	if (cwd) {
 		const glob = new Glob('**/*.png');
 		const files = await Array.fromAsync(glob.scan({ cwd }));
 		luts = files.map((f) => formatLut(f, cwd));
 	}
 
-
 	return {
-		editorError: !image.tifPath || !(await Bun.file(image.tifPath).exists())
-			? 'This photo has not finished processing. Its editor TIFF is missing. Reprocess the session in Gallery to prepare it for editing.'
-			: null,
+		editorError:
+			!image.tifPath || !(await Bun.file(image.tifPath).exists())
+				? 'This photo has not finished processing. Its editor TIFF is missing. Reprocess the session in Gallery to prepare it for editing.'
+				: null,
 		luts,
 		image,
 		imageTags: imageTags.map((it) => it.tag) as { id: number; name: string }[],

@@ -58,7 +58,8 @@ export const GET: RequestHandler = async ({ url }) => {
 			}
 		},
 		orderBy: (sessions) => {
-			const lastEdit = db.select({ date: max(snapshotTable.createdAt) })
+			const lastEdit = db
+				.select({ date: max(snapshotTable.createdAt) })
 				.from(snapshotTable)
 				.innerJoin(imageTable, eq(imageTable.id, snapshotTable.imageId))
 				.where(and(eq(imageTable.sessionId, sessions.id), eq(imageTable.isArchived, false)));
@@ -75,25 +76,31 @@ export const GET: RequestHandler = async ({ url }) => {
 		nextCursor = cursor + limit;
 	}
 
-	const sessionsWithStatus = await Promise.all(sessions.map(async (s) => {
-		const imagesWithStatus = await Promise.all(s.images.map(async (img) => {
-			const path = await findExportPath(img, s);
-			const exists = await stat(path).then((file) => file.isFile()).catch(() => false);
-			const needsExport = !img.lastExportedAt || img.updatedAt > img.lastExportedAt || !exists;
-			return { ...img, needsExport };
-		}));
+	const sessionsWithStatus = await Promise.all(
+		sessions.map(async (s) => {
+			const imagesWithStatus = await Promise.all(
+				s.images.map(async (img) => {
+					const path = await findExportPath(img, s);
+					const exists = await stat(path)
+						.then((file) => file.isFile())
+						.catch(() => false);
+					const needsExport = !img.lastExportedAt || img.updatedAt > img.lastExportedAt || !exists;
+					return { ...img, needsExport };
+				})
+			);
 
-		const hasImagesToExport = imagesWithStatus.some((img) => img.needsExport);
-		const sessionStatus = hasImagesToExport ? 'Updated' : 'Exported';
+			const hasImagesToExport = imagesWithStatus.some((img) => img.needsExport);
+			const sessionStatus = hasImagesToExport ? 'Updated' : 'Exported';
 
-		return {
-			...s,
-			images: imagesWithStatus.map((img) => ({ id: img.id, filepath: img.filepath, needsExport: img.needsExport })),
-			albums: s.albums,
-			status: sessionStatus,
-			exportJob: jobManager.getJobState(s.id, JobType.EXPORT)
-		};
-	}));
+			return {
+				...s,
+				images: imagesWithStatus.map((img) => ({ id: img.id, filepath: img.filepath, needsExport: img.needsExport })),
+				albums: s.albums,
+				status: sessionStatus,
+				exportJob: jobManager.getJobState(s.id, JobType.EXPORT)
+			};
+		})
+	);
 
 	const response = {
 		sessions: sessionsWithStatus,

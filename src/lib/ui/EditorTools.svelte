@@ -7,4 +7,4 @@
 	const query = $derived(editorFilterQuery(readEditorFilters(page.url.searchParams)));
 </script>
 
-<div class="min-w-0 w-full"><EditorPageTabs {img} {currentTool} {query} /></div>
+<div class="w-full min-w-0"><EditorPageTabs {img} {currentTool} {query} /></div>

@@ -32,16 +32,18 @@ async function hashMissing(missing: Pick<Image, 'id' | 'phash' | 'previewPath'>[
 		while (next < missing.length) {
 			const image = missing[next++];
 			// Another page load may already be hashing this photo
-			const pending = inFlight.get(image.id) ?? (async () => {
-				try {
-					const hash = await hashPreview(image.previewPath!);
-					await db.update(imageTable).set({ phash: hash }).where(eq(imageTable.id, image.id));
-					return hash;
-				} catch (error) {
-					console.error(`[phash] Could not hash image ${image.id}`, error);
-					return null;
-				}
-			})();
+			const pending =
+				inFlight.get(image.id) ??
+				(async () => {
+					try {
+						const hash = await hashPreview(image.previewPath!);
+						await db.update(imageTable).set({ phash: hash }).where(eq(imageTable.id, image.id));
+						return hash;
+					} catch (error) {
+						console.error(`[phash] Could not hash image ${image.id}`, error);
+						return null;
+					}
+				})();
 			inFlight.set(image.id, pending);
 			try {
 				// Every waiting load gets the hash on its own row, not only the one that started it

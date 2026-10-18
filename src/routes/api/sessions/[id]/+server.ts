@@ -22,11 +22,17 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 	let moved = false;
 	if (oldPath !== newPath) {
 		let exists = false;
-		try { await stat(oldPath); exists = true; } catch (cause) {
+		try {
+			await stat(oldPath);
+			exists = true;
+		} catch (cause) {
 			if ((cause as NodeJS.ErrnoException).code !== 'ENOENT') throw cause;
 		}
 		if (exists) {
-			try { await stat(newPath); error(409, 'An export folder with that name already exists.'); } catch (cause) {
+			try {
+				await stat(newPath);
+				error(409, 'An export folder with that name already exists.');
+			} catch (cause) {
 				if ((cause as NodeJS.ErrnoException).code !== 'ENOENT') throw cause;
 			}
 			await rename(oldPath, newPath);

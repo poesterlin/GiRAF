@@ -12,10 +12,7 @@
 			onclick={() => (value = option.value)}
 		>
 			{#if value === option.value}
-				<div
-					class="absolute inset-0 rounded-md bg-neutral-200"
-					style="z-index: -1"
-				></div>
+				<div class="absolute inset-0 rounded-md bg-neutral-200" style="z-index: -1"></div>
 			{/if}
 			{option.label}
 		</button>

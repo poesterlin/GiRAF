@@ -30,7 +30,18 @@
 		message?: string;
 	};
 
-	let { sessions, next, onLoaded, basePath = 'editor', triageEnabled = true, activeSessionId, sort = 'upload', allowRename = false, editedThumbnails = false, header }: Props = $props();
+	let {
+		sessions,
+		next,
+		onLoaded,
+		basePath = 'editor',
+		triageEnabled = true,
+		activeSessionId,
+		sort = 'upload',
+		allowRename = false,
+		editedThumbnails = false,
+		header
+	}: Props = $props();
 	let renaming = $state<Session | null>(null);
 	let renameValue = $state('');
 	let savingName = $state(false);
@@ -60,9 +71,12 @@
 	$effect(() => {
 		sessions.length;
 		if (activeSessionId || !scroller || !sentinel) return;
-		const observer = new IntersectionObserver((entries) => {
-			if (entries.some((entry) => entry.isIntersecting)) void loadMore();
-		}, { root: scroller, rootMargin: '0px 0px 800px 0px' });
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+			},
+			{ root: scroller, rootMargin: '0px 0px 800px 0px' }
+		);
 		observer.observe(sentinel);
 		return () => observer.disconnect();
 	});
@@ -87,34 +101,48 @@
 			if (checking) return;
 			checking = true;
 			try {
-				await Promise.all(exporting.map(async (id) => {
-					const response = await fetch(`/api/sessions/${id}/export`);
-					if (!response.ok) return;
-					const state = await response.json();
-					if (active && state.status !== 'running') sessions = sessions.map((session) => session.id === id ? { ...session, isExporting: false } : session);
-				}));
-			} catch (cause) { console.error('Failed to check export status', cause); }
-			finally { checking = false; }
+				await Promise.all(
+					exporting.map(async (id) => {
+						const response = await fetch(`/api/sessions/${id}/export`);
+						if (!response.ok) return;
+						const state = await response.json();
+						if (active && state.status !== 'running') sessions = sessions.map((session) => (session.id === id ? { ...session, isExporting: false } : session));
+					})
+				);
+			} catch (cause) {
+				console.error('Failed to check export status', cause);
+			} finally {
+				checking = false;
+			}
 		}, 2000);
-		return () => { active = false; clearInterval(interval); };
+		return () => {
+			active = false;
+			clearInterval(interval);
+		};
 	});
 	async function saveName(event: SubmitEvent) {
 		event.preventDefault();
 		if (!renaming || savingName || !renameValue.trim() || sessions.some((session) => session.id === renaming?.id && session.isExporting)) return;
 		savingName = true;
 		try {
-			const response = await fetch(`/api/sessions/${renaming.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: renameValue.trim() }) });
+			const response = await fetch(`/api/sessions/${renaming.id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ name: renameValue.trim() })
+			});
 			if (!response.ok) {
 				const result = await response.json();
 				throw new Error(result.message ?? 'Failed to rename session.');
 			}
 			const result = await response.json();
-			sessions = sessions.map((session) => session.id === result.id ? { ...session, name: result.name } : session);
+			sessions = sessions.map((session) => (session.id === result.id ? { ...session, name: result.name } : session));
 			renaming = null;
 			await invalidateAll();
 		} catch (cause) {
 			app.addToast(cause instanceof Error ? cause.message : 'Failed to rename session.', 'error');
-		} finally { savingName = false; }
+		} finally {
+			savingName = false;
+		}
 	}
 
 	let initialImports = $derived(sessions.filter((s) => s.isImporting).map((s) => s.id));
@@ -292,12 +320,12 @@
 				</button>
 			</Tooltip>
 		{/if}
-		
+
 		<Tooltip text="Archive Session" position="top">
-			<button 
+			<button
 				type="button"
-				onclick={() => (archiveTarget = item.id)} 
-				aria-label="Archive Session" 
+				onclick={() => (archiveTarget = item.id)}
+				aria-label="Archive Session"
 				class="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-100"
 			>
 				<IconArchive size={18}></IconArchive>
@@ -306,9 +334,9 @@
 
 		{#if triageEnabled && basePath !== 'triage' && item.images.length > 0}
 			<Tooltip text="Triage Session" position="top">
-				<a 
-					href={`/triage/${item.images[0].id}`} 
-					aria-label="Triage Session" 
+				<a
+					href={`/triage/${item.images[0].id}`}
+					aria-label="Triage Session"
 					class="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-neutral-100"
 				>
 					<IconLayoutGrid size={18} />
@@ -346,44 +374,50 @@
 						<div class="flex min-w-0 items-center gap-2">
 							<h2 class="truncate text-2xl font-bold tracking-tight text-neutral-100">{item.name}</h2>
 							{#if allowRename}
-								<button type="button" disabled={item.isExporting} title={item.isExporting ? 'Wait for the export to finish' : 'Rename session'} class="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed" aria-label={`Rename ${item.name}`} onclick={() => { renaming = item; renameValue = item.name; }}>
-									<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m16 3 5 5-12 12H4v-5Z" /><path d="m14 5 5 5" /></svg>
+								<button
+									type="button"
+									disabled={item.isExporting}
+									title={item.isExporting ? 'Wait for the export to finish' : 'Rename session'}
+									class="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+									aria-label={`Rename ${item.name}`}
+									onclick={() => {
+										renaming = item;
+										renameValue = item.name;
+									}}
+								>
+									<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+										><path d="m16 3 5 5-12 12H4v-5Z" /><path d="m14 5 5 5" /></svg
+									>
 								</button>
 							{/if}
 						</div>
-						<p class="text-xs font-medium tracking-widest uppercase text-neutral-500">{formatDate(item.startedAt)} • {item.imageCount} images</p>
+						<p class="text-xs font-medium tracking-widest text-neutral-500 uppercase">{formatDate(item.startedAt)} • {item.imageCount} images</p>
 					</div>
 				</div>
-				
+
 				{@render sessionActions(item)}
 			</div>
 		</div>
 
-		<div class="grid grid-cols-2 px-3 gap-4 sm:gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+		<div class="grid grid-cols-2 gap-4 px-3 sm:grid-cols-3 sm:gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
 			{#each item.images.filter((img) => !img.isArchived) as preview (preview.id)}
 				<a
 					href={`/${basePath}/${preview.id}`}
 					class="group relative block aspect-[3/2] overflow-hidden rounded-xl bg-neutral-900 shadow-lg ring-1 ring-neutral-800 transition-all hover:shadow-2xl hover:ring-neutral-600"
 				>
-					<img
-						src={previewSrc(preview)}
-						alt=""
-						loading="lazy"
-						decoding="async"
-						class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-					/>
-					
+					<img src={previewSrc(preview)} alt="" loading="lazy" decoding="async" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+
 					<div class="absolute inset-0 bg-linear-to-t from-neutral-950/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
 
 					{#if preview.hasSnapshot}
-						<div class="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-full bg-neutral-950/60 text-neutral-100 backdrop-blur-md border border-white/10">
+						<div class="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-neutral-950/60 text-neutral-100 backdrop-blur-md">
 							<IconAdjustmentsFilled size={14} />
 						</div>
 					{/if}
 				</a>
 			{:else}
 				<div class="flex aspect-[3/2] items-center justify-center rounded-xl border-2 border-dashed border-neutral-800 bg-neutral-900/30 text-neutral-600">
-					<span class="text-xs font-bold uppercase tracking-widest">No Images</span>
+					<span class="text-xs font-bold tracking-widest uppercase">No Images</span>
 				</div>
 			{/each}
 		</div>
@@ -438,7 +472,9 @@
 										renameValue = item.name;
 									}}
 								>
-									<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m16 3 5 5-12 12H4v-5Z" /><path d="m14 5 5 5" /></svg>
+									<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
+										><path d="m16 3 5 5-12 12H4v-5Z" /><path d="m14 5 5 5" /></svg
+									>
 									Rename session
 								</button>
 							{/if}
@@ -487,15 +523,24 @@
 {/snippet}
 
 {#if renaming}
-	<Modal onClose={() => { if (!savingName) renaming = null; }}>
+	<Modal
+		onClose={() => {
+			if (!savingName) renaming = null;
+		}}
+	>
 		<form onsubmit={saveName} class="space-y-5 p-6 sm:p-8">
 			<h2 class="pr-8 text-xl font-semibold text-neutral-100">Rename session</h2>
-			<label class="flex flex-col gap-2 text-sm text-neutral-300">Session name
+			<label class="flex flex-col gap-2 text-sm text-neutral-300"
+				>Session name
 				<input required bind:value={renameValue} disabled={savingName} class="min-h-12 rounded-xl border border-neutral-600 bg-neutral-900 px-3 text-neutral-100" />
 			</label>
 			<div class="flex justify-end gap-3">
 				<button type="button" disabled={savingName} class="min-h-12 rounded-xl border border-neutral-600 px-5" onclick={() => (renaming = null)}>Cancel</button>
-				<button type="submit" disabled={savingName || !renameValue.trim() || sessions.some((session) => session.id === renaming?.id && session.isExporting)} class="min-h-12 rounded-xl bg-neutral-100 px-5 font-semibold text-neutral-950 disabled:opacity-40">{savingName ? 'Saving…' : 'Save'}</button>
+				<button
+					type="submit"
+					disabled={savingName || !renameValue.trim() || sessions.some((session) => session.id === renaming?.id && session.isExporting)}
+					class="min-h-12 rounded-xl bg-neutral-100 px-5 font-semibold text-neutral-950 disabled:opacity-40">{savingName ? 'Saving…' : 'Save'}</button
+				>
 			</div>
 		</form>
 	</Modal>
@@ -507,7 +552,7 @@
 			<IconLayoutGrid size={48} />
 		</div>
 		<h2 class="mb-2 text-2xl font-bold tracking-tight text-neutral-100">Your Gallery is Empty</h2>
-		<p class="max-w-md text-sm text-neutral-500 leading-relaxed">It looks like you haven't created any sessions yet. Start a new editing session to see your photos here.</p>
+		<p class="max-w-md text-sm leading-relaxed text-neutral-500">It looks like you haven't created any sessions yet. Start a new editing session to see your photos here.</p>
 	</div>
 {/snippet}
 
@@ -542,12 +587,7 @@
 				{#if showSortMenu}
 					<div id="session-sort-menu" class="sort-popover" role="group" aria-label="Sort sessions by">
 						{#each sortOptions as option (option.value)}
-							<a
-								href={option.href}
-								aria-current={sort === option.value ? 'true' : undefined}
-								data-sveltekit-noscroll
-								onclick={() => (showSortMenu = false)}
-							>
+							<a href={option.href} aria-current={sort === option.value ? 'true' : undefined} data-sveltekit-noscroll onclick={() => (showSortMenu = false)}>
 								<span>{option.label}</span>
 								{#if sort === option.value}
 									<IconCheck size={15} />
@@ -585,27 +625,155 @@
 {/if}
 
 <style>
-	.card { position: relative; border-radius: 12px; background: #141414; outline: 1px solid #262626; }
-	.mosaic { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; aspect-ratio: 3 / 2; overflow: hidden; border-radius: 12px 12px 0 0; background: #0a0a0a; }
-	.mosaic.single { grid-template-columns: 1fr; }
-	.mosaic img { width: 100%; height: 100%; min-height: 0; object-fit: cover; opacity: .85; transition: opacity 150ms; }
+	.card {
+		position: relative;
+		border-radius: 12px;
+		background: #141414;
+		outline: 1px solid #262626;
+	}
+	.mosaic {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 2px;
+		aspect-ratio: 3 / 2;
+		overflow: hidden;
+		border-radius: 12px 12px 0 0;
+		background: #0a0a0a;
+	}
+	.mosaic.single {
+		grid-template-columns: 1fr;
+	}
+	.mosaic img {
+		width: 100%;
+		height: 100%;
+		min-height: 0;
+		object-fit: cover;
+		opacity: 0.85;
+		transition: opacity 150ms;
+	}
 	/* Three photos: the first spans the top row so the mosaic has no gap. */
-	.mosaic img:first-child:nth-last-child(3) { grid-column: span 2; }
-	.mosaic:hover img { opacity: 1; }
-	.mosaic:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
-	.empty-cover { display: flex; grid-column: 1 / -1; align-items: center; justify-content: center; color: #525252; }
-	.menu-trigger { display: flex; min-height: 40px; min-width: 40px; align-items: center; justify-content: center; border-radius: 8px; color: #a3a3a3; transition: background-color 120ms, color 120ms; }
-	.menu-trigger:hover { background: #262626; color: #f5f5f5; }
-	.menu-trigger[aria-expanded='true'] { background: #f5f5f5; color: #0a0a0a; }
-	.menu-trigger:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-	.menu-popover { position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 30; width: 196px; padding: 4px; border-radius: 10px; border: 1px solid #404040; background: #171717; box-shadow: 0 12px 32px #000c; }
-	.menu-popover button, .menu-popover a { display: flex; width: 100%; min-height: 40px; align-items: center; gap: 10px; padding: 0 12px; border-radius: 6px; color: #e5e5e5; font-size: 13px; font-weight: 500; text-align: left; white-space: nowrap; transition: background-color 100ms; }
-	.menu-popover button:hover:not(:disabled), .menu-popover a:hover { background: #2a2a2a; color: #fff; }
-	.menu-popover button:disabled { opacity: .4; cursor: not-allowed; }
-	.menu-popover button:focus-visible, .menu-popover a:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
-	.sort-popover { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: 168px; padding: 4px; border-radius: 10px; border: 1px solid #404040; background: #171717; box-shadow: 0 12px 32px #000c; }
-	.sort-popover a { display: flex; width: 100%; min-height: 38px; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px; border-radius: 6px; color: #a3a3a3; font-size: 13px; font-weight: 500; white-space: nowrap; transition: background-color 100ms, color 100ms; }
-	.sort-popover a:hover { background: #2a2a2a; color: #fff; }
-	.sort-popover a[aria-current='true'] { color: #f5f5f5; font-weight: 600; }
-	.sort-popover a:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+	.mosaic img:first-child:nth-last-child(3) {
+		grid-column: span 2;
+	}
+	.mosaic:hover img {
+		opacity: 1;
+	}
+	.mosaic:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: -2px;
+	}
+	.empty-cover {
+		display: flex;
+		grid-column: 1 / -1;
+		align-items: center;
+		justify-content: center;
+		color: #525252;
+	}
+	.menu-trigger {
+		display: flex;
+		min-height: 40px;
+		min-width: 40px;
+		align-items: center;
+		justify-content: center;
+		border-radius: 8px;
+		color: #a3a3a3;
+		transition:
+			background-color 120ms,
+			color 120ms;
+	}
+	.menu-trigger:hover {
+		background: #262626;
+		color: #f5f5f5;
+	}
+	.menu-trigger[aria-expanded='true'] {
+		background: #f5f5f5;
+		color: #0a0a0a;
+	}
+	.menu-trigger:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: 2px;
+	}
+	.menu-popover {
+		position: absolute;
+		right: 0;
+		bottom: calc(100% + 6px);
+		z-index: 30;
+		width: 196px;
+		padding: 4px;
+		border-radius: 10px;
+		border: 1px solid #404040;
+		background: #171717;
+		box-shadow: 0 12px 32px #000c;
+	}
+	.menu-popover button,
+	.menu-popover a {
+		display: flex;
+		width: 100%;
+		min-height: 40px;
+		align-items: center;
+		gap: 10px;
+		padding: 0 12px;
+		border-radius: 6px;
+		color: #e5e5e5;
+		font-size: 13px;
+		font-weight: 500;
+		text-align: left;
+		white-space: nowrap;
+		transition: background-color 100ms;
+	}
+	.menu-popover button:hover:not(:disabled),
+	.menu-popover a:hover {
+		background: #2a2a2a;
+		color: #fff;
+	}
+	.menu-popover button:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+	.menu-popover button:focus-visible,
+	.menu-popover a:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: -2px;
+	}
+	.sort-popover {
+		position: absolute;
+		right: 0;
+		top: calc(100% + 6px);
+		z-index: 30;
+		width: 168px;
+		padding: 4px;
+		border-radius: 10px;
+		border: 1px solid #404040;
+		background: #171717;
+		box-shadow: 0 12px 32px #000c;
+	}
+	.sort-popover a {
+		display: flex;
+		width: 100%;
+		min-height: 38px;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		padding: 0 12px;
+		border-radius: 6px;
+		color: #a3a3a3;
+		font-size: 13px;
+		font-weight: 500;
+		white-space: nowrap;
+		transition:
+			background-color 100ms,
+			color 100ms;
+	}
+	.sort-popover a:hover {
+		background: #2a2a2a;
+		color: #fff;
+	}
+	.sort-popover a[aria-current='true'] {
+		color: #f5f5f5;
+		font-weight: 600;
+	}
+	.sort-popover a:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: -2px;
+	}
 </style>

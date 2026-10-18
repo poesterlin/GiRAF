@@ -15,5 +15,5 @@ export const adjustmentCategories = [
 ];
 
 export function hiddenAdjustmentCategories(value: string): string[] {
-	return value.split(',').filter(id => adjustmentCategories.some(category => category.id === id));
+	return value.split(',').filter((id) => adjustmentCategories.some((category) => category.id === id));
 }

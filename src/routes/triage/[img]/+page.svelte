@@ -17,14 +17,21 @@
 		const image = data.image;
 		const exposure = image.exposure?.trim();
 		const seconds = exposure ? Number(exposure) : NaN;
-		const shutter = Number.isFinite(seconds) && seconds > 0
-			? seconds < 1 ? `1/${Math.round(1 / seconds)} s` : `${seconds} s`
-			: exposure ? /\bs\b|sec/i.test(exposure) ? exposure : `${exposure} s` : null;
+		const shutter =
+			Number.isFinite(seconds) && seconds > 0
+				? seconds < 1
+					? `1/${Math.round(1 / seconds)} s`
+					: `${seconds} s`
+				: exposure
+					? /\bs\b|sec/i.test(exposure)
+						? exposure
+						: `${exposure} s`
+					: null;
 		return [
 			{ label: 'ISO', value: image.iso ? String(image.iso) : null },
 			{ label: 'Aperture', value: image.aperture ? `f/${image.aperture}` : null },
 			{ label: 'Shutter', value: shutter },
-			{ label: 'Focal length', value: image.focalLength ? /mm/i.test(image.focalLength) ? image.focalLength : `${image.focalLength} mm` : null }
+			{ label: 'Focal length', value: image.focalLength ? (/mm/i.test(image.focalLength) ? image.focalLength : `${image.focalLength} mm`) : null }
 		].filter((item) => item.value);
 	});
 
@@ -57,13 +64,22 @@
 	}
 
 	async function setArchived(ids: number[], archive: boolean) {
-		const results = await Promise.all(ids.map((id) => fetch(`/api/images/${id}/archive`, { method: archive ? 'POST' : 'DELETE' }).then((res) => (res.ok ? id : null)).catch(() => null)));
+		const results = await Promise.all(
+			ids.map((id) =>
+				fetch(`/api/images/${id}/archive`, { method: archive ? 'POST' : 'DELETE' })
+					.then((res) => (res.ok ? id : null))
+					.catch(() => null)
+			)
+		);
 		return results.filter((id): id is number => id !== null);
 	}
 
 	async function keepAllSimilar() {
 		const { base, next } = finishSimilar();
-		const restored = await setArchived(similarAll.filter((image) => image.isArchived).map((image) => image.id), false);
+		const restored = await setArchived(
+			similarAll.filter((image) => image.isArchived).map((image) => image.id),
+			false
+		);
 		if (base !== null) markStackReviewed(localStorage, base);
 		if (restored.length) app.addToast('Restored.', 'info', { label: 'Undo', run: () => void undoSimilar([], restored, base) });
 		if (next) await goto(`/triage/${next}`, { invalidateAll: true, noScroll: true });
@@ -79,7 +95,16 @@
 		const before = firstIndex > 0 ? data.sessionImages[firstIndex - 1].id : undefined;
 		resolvingSimilar = true;
 		try {
-			const [archived, restored] = await Promise.all([setArchived(discard.map((image) => image.id), true), setArchived(restore.map((image) => image.id), false)]);
+			const [archived, restored] = await Promise.all([
+				setArchived(
+					discard.map((image) => image.id),
+					true
+				),
+				setArchived(
+					restore.map((image) => image.id),
+					false
+				)
+			]);
 			if (archived.length < discard.length || restored.length < restore.length) app.addToast('Some photos could not be updated.', 'error');
 			if (base !== null && archived.length === discard.length) markStackReviewed(localStorage, base);
 			if (archived.length || restored.length) {
@@ -105,7 +130,9 @@
 	let justRestored = $state(false);
 	let isRestoring = $state(false);
 	let navigationVersion = 0;
-	beforeNavigate(() => { navigationVersion += 1; });
+	beforeNavigate(() => {
+		navigationVersion += 1;
+	});
 
 	async function archiveImage() {
 		if (isArchiving || isRestoring || data.image.isArchived) return;
@@ -118,7 +145,12 @@
 				method: 'POST'
 			});
 			if (res.ok) {
-				app.addToast('Image archived.', 'info', { label: 'Undo', run: () => void undoArchive(imageId) }, { key: 'triage-archive', countMessage: (count) => `${count} images archived.` });
+				app.addToast(
+					'Image archived.',
+					'info',
+					{ label: 'Undo', run: () => void undoArchive(imageId) },
+					{ key: 'triage-archive', countMessage: (count) => `${count} images archived.` }
+				);
 				if (nextImage && navigationVersion === version && data.image.id === imageId) {
 					await goto(`/triage/${nextImage}`, { invalidateAll: true, noScroll: true });
 				} else {
@@ -213,8 +245,8 @@
 
 <div class="flex h-full flex-col overflow-hidden bg-neutral-950 font-sans lg:flex-row">
 	<!-- Image Strip (Left on Desktop, Bottom on Mobile) -->
-	<aside class="order-2 {showSimilar ? 'max-lg:hidden' : ''} border-neutral-800 bg-neutral-950 lg:order-1 lg:w-[240px] lg:border-r border-t lg:border-t-0 flex-shrink-0">
-		<div class="h-full overflow-y-auto custom-scrollbar">
+	<aside class="order-2 {showSimilar ? 'max-lg:hidden' : ''} flex-shrink-0 border-t border-neutral-800 bg-neutral-950 lg:order-1 lg:w-[240px] lg:border-t-0 lg:border-r">
+		<div class="custom-scrollbar h-full overflow-y-auto">
 			<ImageStrip images={data.sessionImages} currentImageId={data.image.id} />
 		</div>
 	</aside>
@@ -226,19 +258,22 @@
 		</div>
 
 		{#if photoInfo.length || data.image.camera || data.image.lens}
-			<section aria-label="Photo information" class="z-10 mx-4 mb-3 shrink-0 rounded-2xl border border-neutral-600 bg-neutral-950/90 px-4 py-3 shadow-lg backdrop-blur-md lg:absolute lg:right-4 lg:bottom-4 lg:m-0 lg:w-36 lg:px-3">
+			<section
+				aria-label="Photo information"
+				class="z-10 mx-4 mb-3 shrink-0 rounded-2xl border border-neutral-600 bg-neutral-950/90 px-4 py-3 shadow-lg backdrop-blur-md lg:absolute lg:right-4 lg:bottom-4 lg:m-0 lg:w-36 lg:px-3"
+			>
 				{#if photoInfo.length}
 					<dl class="flex flex-wrap gap-x-5 gap-y-2 lg:flex-col lg:gap-y-3">
 						{#each photoInfo as item (item.label)}
 							<div>
-								<dt class="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">{item.label}</dt>
+								<dt class="text-[10px] font-semibold tracking-wider text-neutral-400 uppercase">{item.label}</dt>
 								<dd class="mt-0.5 text-sm font-semibold text-neutral-100 tabular-nums">{item.value}</dd>
 							</div>
 						{/each}
 					</dl>
 				{/if}
 				{#if data.image.camera || data.image.lens}
-					<div class="mt-2 border-t border-neutral-700 pt-2 text-xs leading-relaxed text-neutral-300 break-words">
+					<div class="mt-2 border-t border-neutral-700 pt-2 text-xs leading-relaxed break-words text-neutral-300">
 						{#if data.image.camera}<p>{data.image.camera}</p>{/if}
 						{#if data.image.lens}<p class="text-neutral-400">{data.image.lens}</p>{/if}
 					</div>
@@ -247,14 +282,14 @@
 		{/if}
 
 		<!-- Left Side Controls -->
-		<div class="absolute inset-y-0 left-4 flex flex-col justify-center gap-8 pointer-events-none sm:left-8">
+		<div class="pointer-events-none absolute inset-y-0 left-4 flex flex-col justify-center gap-8 sm:left-8">
 			<div class="pointer-events-auto flex flex-col gap-4">
 				<Tooltip text="Restore Image" position="right">
 					<button
 						onclick={restoreImage}
 						aria-label="Restore Image"
 						disabled={!data.image.isArchived || isArchiving || isRestoring}
-						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-400 backdrop-blur-md transition-all active:scale-90 disabled:opacity-50 sm:h-16 sm:w-14 shadow-2xl"
+						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-400 shadow-2xl backdrop-blur-md transition-all active:scale-90 disabled:opacity-50 sm:h-16 sm:w-14"
 						class:text-neutral-100={data.image.isArchived}
 						class:bg-neutral-800={data.image.isArchived}
 						class:hover:bg-neutral-100={data.image.isArchived}
@@ -268,7 +303,7 @@
 					<Tooltip text="Previous Image (Left Arrow)" position="right">
 						<a
 							href={`/triage/${data.previousImage}`}
-							class="flex h-24 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-400 backdrop-blur-md transition-all hover:bg-neutral-100 hover:text-neutral-950 active:scale-90 sm:w-14 shadow-2xl"
+							class="flex h-24 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-400 shadow-2xl backdrop-blur-md transition-all hover:bg-neutral-100 hover:text-neutral-950 active:scale-90 sm:w-14"
 						>
 							<IconChevronLeft size={32} />
 						</a>
@@ -278,7 +313,7 @@
 				<Tooltip text="Edit Image" position="right">
 					<a
 						href={`/editor/${data.image.id}`}
-						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-100 text-neutral-950 transition-all hover:bg-neutral-200 active:scale-90 sm:h-16 sm:w-14 shadow-2xl"
+						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-100 text-neutral-950 shadow-2xl transition-all hover:bg-neutral-200 active:scale-90 sm:h-16 sm:w-14"
 					>
 						<IconAdjustmentsFilled size={28} />
 					</a>
@@ -287,14 +322,14 @@
 		</div>
 
 		<!-- Right Side Controls -->
-		<div class="absolute inset-y-0 right-4 flex flex-col justify-center gap-8 pointer-events-none sm:right-8">
+		<div class="pointer-events-none absolute inset-y-0 right-4 flex flex-col justify-center gap-8 sm:right-8">
 			<div class="pointer-events-auto flex flex-col gap-4">
 				<Tooltip text="Archive Image" position="left">
 					<button
 						onclick={archiveImage}
 						aria-label="Archive Image"
 						disabled={data.image.isArchived || isArchiving || isRestoring}
-						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-100 backdrop-blur-md transition-all active:scale-90 disabled:opacity-10 sm:h-16 sm:w-14 shadow-2xl"
+						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-100 shadow-2xl backdrop-blur-md transition-all active:scale-90 disabled:opacity-10 sm:h-16 sm:w-14"
 						class:hover:bg-neutral-500={!data.image.isArchived}
 						class:hover:text-white={!data.image.isArchived}
 					>
@@ -307,7 +342,7 @@
 						<a
 							href={`/triage/${data.nextImage}`}
 							data-sveltekit-preload-data="hover"
-							class="flex h-24 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-400 backdrop-blur-md transition-all hover:bg-neutral-100 hover:text-neutral-950 active:scale-90 sm:w-14 shadow-2xl"
+							class="flex h-24 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-400 shadow-2xl backdrop-blur-md transition-all hover:bg-neutral-100 hover:text-neutral-950 active:scale-90 sm:w-14"
 						>
 							<IconChevronRight size={32} />
 						</a>
@@ -317,7 +352,7 @@
 				<Tooltip text="Tag Image (T)" position="left">
 					<button
 						onclick={() => (showTagModal = true)}
-						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-400 backdrop-blur-md transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90 sm:h-16 sm:w-14 shadow-2xl"
+						class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-neutral-950/40 text-neutral-400 shadow-2xl backdrop-blur-md transition-all hover:bg-neutral-800 hover:text-neutral-100 active:scale-90 sm:h-16 sm:w-14"
 					>
 						<IconFlag size={28} />
 					</button>
@@ -327,17 +362,21 @@
 
 		{#if similarAll.length > 1}
 			<div class="absolute top-3 left-1/2 z-10 -translate-x-1/2">
-			<Tooltip text="Compare similar photos (C)" position="bottom">
-				<button type="button" onclick={() => (showSimilar = true)} class="min-h-11 rounded-full border border-white/10 bg-neutral-950/70 px-4 text-sm font-semibold text-neutral-100 backdrop-blur-md hover:bg-neutral-100 hover:text-neutral-950">
-					{similarAll.length} similar · Compare
-				</button>
-			</Tooltip>
+				<Tooltip text="Compare similar photos (C)" position="bottom">
+					<button
+						type="button"
+						onclick={() => (showSimilar = true)}
+						class="min-h-11 rounded-full border border-white/10 bg-neutral-950/70 px-4 text-sm font-semibold text-neutral-100 backdrop-blur-md hover:bg-neutral-100 hover:text-neutral-950"
+					>
+						{similarAll.length} similar · Compare
+					</button>
+				</Tooltip>
 			</div>
 		{/if}
 
 		{#if showSimilar && similarAll.length > 1}
 			{#key similarBase}
-			<SimilarPicker images={similarAll} currentId={data.image.id} busy={resolvingSimilar} onKeep={keepBestSimilar} onKeepAll={keepAllSimilar} onLater={postponeSimilar} />
+				<SimilarPicker images={similarAll} currentId={data.image.id} busy={resolvingSimilar} onKeep={keepBestSimilar} onKeepAll={keepAllSimilar} onLater={postponeSimilar} />
 			{/key}
 		{/if}
 	</main>

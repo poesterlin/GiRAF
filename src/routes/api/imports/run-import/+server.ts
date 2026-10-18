@@ -1,4 +1,3 @@
-
 import * as path from 'path';
 import * as fs from 'fs';
 import { json } from '@sveltejs/kit';
@@ -64,7 +63,7 @@ async function importFile(filePath: string) {
 
 		await db.insert(importTable).values({
 			filePath,
-			date: toDate(recordingDate),
+			date: toDate(recordingDate)
 		});
 		console.log(`[SUCCESS] "${fileName}" added to queue.`);
 	} catch (error) {
@@ -84,7 +83,7 @@ export async function POST() {
 				.map(async (dir) => (await Array.fromAsync(new Glob('**/*').scan({ cwd: dir }))).map((file) => path.join(dir, file)))
 		)
 	).flat();
-	const importPromises = files.map(file => limit(() => importFile(file)));
+	const importPromises = files.map((file) => limit(() => importFile(file)));
 
 	const existingImports = await db.query.importTable.findMany();
 	for (const imp of existingImports) {
