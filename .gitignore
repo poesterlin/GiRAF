@@ -1,7 +1,8 @@
+# Dependencies and tooling
 node_modules
 /.fallow
 
-# Output
+# Build output
 .output
 .vercel
 .netlify
@@ -9,42 +10,29 @@ node_modules
 /.svelte-kit
 /build
 /dist
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+src/lib/assets/THIRD_PARTY_LICENSES.txt
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Env
+# Environment
 .env
 .env.*
 !.env.example
 !.env.test
 
-# Vite
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
-
+# Runtime data: photos, renders, tokens, the database and LUT packs
+/import/
+/export/
+/exports/
+/tmp/
+/data/
+/cluts/
+/pgdata/
 HaldCLUT/
 
-./images/
-
-./import/
-
-exports/
-
-import/
-
-cluts/
-
-tmp/
-
-export/
-
-/data/
-
-pgdata
-
-
-src/lib/assets/THIRD_PARTY_LICENSES.txt
-
+# Local scripts
 deploy.sh
