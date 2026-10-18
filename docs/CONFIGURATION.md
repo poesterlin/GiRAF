@@ -12,6 +12,8 @@ Copy `.env.example` to `.env` and adjust values.
 
 ## Optional
 
+- `DATA_DIR`: Where the Google Photos sign-in is stored (defaults to `data` in the working directory, `/app/data` in Docker). Mount it as a volume so the sign-in survives rebuilds.
+- `RENDER_CONCURRENCY`: Most RawTherapee processes to run at once (defaults to half the CPU cores, at least 2). Editor previews go ahead of imports and exports.
 - `HOST_DOMAIN`: Domain name for Traefik routing (if using Traefik)
 - `RAWTHERAPEE_VERSION`: RawTherapee release tag used when building the Docker image (defaults to latest)
 - `IMPORT_EXTRA_DIRS`: Extra directories to scan for RAW files, separated by `:`. Uploads still land in `IMPORT_DIR`.
@@ -41,4 +43,12 @@ When using `docker-compose.selfhost.yml`, the defaults are:
 - `CLUT_DIR=/app/cluts`
 - `IMPORT_DIR=/app/import`
 - `EXPORT_DIR=/app/export`
-- `DATA_DIR=/app/data` (optional, for token persistence)
+- `DATA_DIR=/app/data` (mounted from `./data`, keeps the Google Photos sign-in)
+
+## Export settings
+
+The JPEG quality and size of exports are chosen on the **Settings** page and stored in the database. They apply to every session. After you change them, the next export of a session renders all its photos again.
+
+## Temporary files
+
+On start, GiRAF removes working folders older than an hour that interrupted renders left in `TMP_DIR`. Editor TIFFs and the develop cache are kept.

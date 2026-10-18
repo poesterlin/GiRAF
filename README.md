@@ -94,6 +94,8 @@ docker compose -f docker-compose.selfhost.yml up -d
 Now open [http://localhost:4893](http://localhost:4893).
 On another device, use `http://<your-server-address>:4893`.
 
+**Choose the export size and quality:** open **Settings** and pick a JPEG quality and a size.
+
 **Add photos:** put RAW files in `./import` and press **Scan Directory**.
 You can also press **Manual Upload**.
 
