@@ -20,7 +20,10 @@ export function parsePP3(pp3: string) {
 		}
 
 		const chapterObject = result[currentChapter];
-		const [key, value] = trimmedLine.split('=');
+		// Values may contain '=' themselves, so only the first one separates key and value
+		const separator = trimmedLine.indexOf('=');
+		const key = separator === -1 ? '' : trimmedLine.slice(0, separator);
+		const value = separator === -1 ? '' : trimmedLine.slice(separator + 1);
 		if (!key || !value) {
 			continue; // Skip lines that do not have a key-value pair
 		}
