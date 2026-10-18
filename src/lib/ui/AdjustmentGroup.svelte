@@ -3,11 +3,16 @@
 	import Section from './Section.svelte';
 	import { edits } from '$lib/state/editing.svelte';
 	import { page } from '$app/state';
-	let { title, group, children }: { title: string; group: string; children: Snippet } = $props();
-	const enabled = $derived(!edits.disabledGroups.includes(group));
+	let { title, group, checked, onchange, children }: { title: string; group: string; checked?: boolean; onchange?: (value: boolean) => void; children: Snippet } = $props();
+	// Masks are not documents, so a caller can own the toggle instead of the disabled-group list
+	const enabled = $derived(checked ?? !edits.disabledGroups.includes(group));
+	function toggle() {
+		if (onchange) onchange(!enabled);
+		else edits.toggleGroup(group);
+	}
 </script>
 
-{#if !page.data.hiddenAdjustmentCategories?.includes(group)}
+{#if checked !== undefined || !page.data.hiddenAdjustmentCategories?.includes(group)}
 	<div class="adjustment-group relative">
 		<Section {title} section="" showToggle={false} groupId={group}>
 			<fieldset class="min-w-0 space-y-3 border-0 p-0" class:opacity-50={!enabled}>
@@ -19,8 +24,8 @@
 			class="bypass absolute top-0 right-2 flex h-11 w-11 items-center justify-center rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-400"
 			aria-label={`Enable ${title}`}
 			aria-pressed={enabled}
-			title={enabled ? `Bypass ${title}` : `Enable ${title}`}
-			onclick={() => edits.toggleGroup(group)}
+			title={enabled ? `Turn ${title} off` : `Enable ${title}`}
+			onclick={toggle}
 		>
 			<span class="flex h-7 w-7 items-center justify-center" class:opacity-40={!enabled}>
 				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

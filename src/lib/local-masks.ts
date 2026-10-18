@@ -78,14 +78,6 @@ export const maskTools: MaskTool[] = [
 			{ key: 'Sharamount', label: 'Amount', min: 1, max: 100, reset: 50 },
 			{ key: 'Sharradius', label: 'Radius', min: 0.4, max: 2.5, step: 0.01, reset: 0.75, precision: 2 }
 		]
-	},
-	{
-		enable: 'Expblur',
-		label: 'Blur',
-		controls: [
-			{ key: 'Strength', label: 'Amount', min: 0, max: 100, reset: 0 },
-			{ key: 'Radius', label: 'Radius', min: 1.5, max: 50, step: 0.5, reset: 1.5, precision: 1 }
-		]
 	}
 ];
 

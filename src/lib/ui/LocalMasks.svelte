@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { edits } from '$lib/state/editing.svelte';
 	import { maskIndices, addLocalMask, deleteLocalMask, maskTools, setMaskToolEnabled, type MaskTool } from '$lib/local-masks';
+	import AdjustmentGroup from './AdjustmentGroup.svelte';
 	import Slider from './Slider.svelte';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
 	import IconDots from '@tabler/icons-svelte/icons/dots';
 	import IconPower from '@tabler/icons-svelte/icons/power';
-	import IconChevronDown from '@tabler/icons-svelte/icons/chevron-down';
 	let menu = $state<HTMLDetailsElement>();
 	let { onadd }: { onadd?: () => void } = $props();
 	const indices = $derived(maskIndices(edits.pp3));
@@ -23,8 +23,8 @@
 		setMaskToolEnabled(edits.pp3, selected, tool, true);
 		changed();
 	}
-	function toggleTool(tool: MaskTool) {
-		setMaskToolEnabled(edits.pp3, selected, tool, !toolEnabled(tool));
+	function setTool(tool: MaskTool, enabled: boolean) {
+		setMaskToolEnabled(edits.pp3, selected, tool, enabled);
 		edits.pushHistory(true);
 	}
 </script>
@@ -128,48 +128,25 @@
 					onchange={changed}
 				/>
 			{/each}
-			<div class="space-y-2 pt-1">
-				{#each maskTools as tool (tool.enable)}
-					{@const on = toolEnabled(tool)}
-					<details class="rounded-lg border border-neutral-800">
-						<summary class="flex min-h-11 cursor-pointer list-none items-center gap-1 px-3 text-xs text-neutral-300 select-none hover:text-white">
-							<IconChevronDown size={14} class="shrink-0 opacity-60" />
-							<span class="min-w-0 flex-1 truncate">{tool.label}</span>
-							<button
-								type="button"
-								class="mask-switch"
-								class:mask-switch-on={on}
-								role="switch"
-								aria-checked={on}
-								aria-label={`Use ${tool.label} on this mask`}
-								title={`Use ${tool.label} on this mask`}
-								onclick={(event) => {
-									event.preventDefault();
-									event.stopPropagation();
-									toggleTool(tool);
-								}}
-							></button>
-						</summary>
-						<div class="space-y-3 border-t border-neutral-800 p-2 pb-3">
-							{#each tool.controls as control (control.key)}
-								<Slider
-									editable
-									label={control.label}
-									bind:value={edits.pp3.Locallab[`${control.key}_${selected}`] as number}
-									min={control.min}
-									max={control.max}
-									step={control.step ?? 1}
-									precision={control.precision}
-									centered={control.centered}
-									resetValue={control.reset}
-									unit={control.unit}
-									onchange={() => toolChanged(tool)}
-								/>
-							{/each}
-						</div>
-					</details>
-				{/each}
-			</div>
+			{#each maskTools as tool (tool.enable)}
+				<AdjustmentGroup title={tool.label} group={tool.enable} checked={toolEnabled(tool)} onchange={(enabled) => setTool(tool, enabled)}>
+					{#each tool.controls as control (control.key)}
+						<Slider
+							editable
+							label={control.label}
+							bind:value={edits.pp3.Locallab[`${control.key}_${selected}`] as number}
+							min={control.min}
+							max={control.max}
+							step={control.step ?? 1}
+							precision={control.precision}
+							centered={control.centered}
+							resetValue={control.reset}
+							unit={control.unit}
+							onchange={() => toolChanged(tool)}
+						/>
+					{/each}
+				</AdjustmentGroup>
+			{/each}
 		{/key}
 	{/if}
 </div>
@@ -213,42 +190,6 @@
 		color: #fff;
 	}
 	.mask-action:focus-visible {
-		outline: 2px solid #fff;
-		outline-offset: 2px;
-	}
-	details[open] > summary :global(svg) {
-		transform: rotate(180deg);
-	}
-	.mask-switch {
-		position: relative;
-		flex-shrink: 0;
-		width: 40px;
-		height: 24px;
-		border-radius: 9999px;
-		background: #404040;
-		transition: background 120ms linear;
-	}
-	.mask-switch::after {
-		content: '';
-		position: absolute;
-		top: 4px;
-		left: 4px;
-		width: 16px;
-		height: 16px;
-		border-radius: 9999px;
-		background: #a3a3a3;
-		transition:
-			transform 120ms linear,
-			background 120ms linear;
-	}
-	.mask-switch-on {
-		background: #e5e5e5;
-	}
-	.mask-switch-on::after {
-		transform: translateX(16px);
-		background: #171717;
-	}
-	.mask-switch:focus-visible {
 		outline: 2px solid #fff;
 		outline-offset: 2px;
 	}

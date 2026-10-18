@@ -76,15 +76,16 @@ try {
 	assert.equal(fresh.methodcap_0, 'rl');
 	assert.equal(fresh.ShMethod_0, 'std');
 	assert.equal(fresh.localcontMethod_0, 'loc');
-	assert.equal(await page.getByRole('switch', { name: 'Use Sharpening on this mask' }).getAttribute('aria-checked'), 'false');
+	const sharpeningToggle = page.getByRole('button', { name: 'Enable Sharpening' });
+	assert.equal(await sharpeningToggle.getAttribute('aria-pressed'), 'false');
 
-	// The switch turns a tool on and off without opening the group
-	await page.getByRole('switch', { name: 'Use Sharpening on this mask' }).click();
+	// The group's own toggle turns a tool on and off without opening the group
+	await sharpeningToggle.click();
 	assert.equal((await locallab()).Expsharp_0, true);
-	assert.equal(await page.getByRole('switch', { name: 'Use Sharpening on this mask' }).getAttribute('aria-checked'), 'true');
-	assert.equal(await group('Sharpening').getByLabel('Amount value').isVisible(), false, 'the switch must not open the group');
+	assert.equal(await sharpeningToggle.getAttribute('aria-pressed'), 'true');
+	assert.equal(await group('Sharpening').getByLabel('Amount value').isVisible(), false, 'the toggle must not open the group');
 	assert.equal(await history(), 1);
-	await page.getByRole('switch', { name: 'Use Sharpening on this mask' }).click();
+	await sharpeningToggle.click();
 	assert.equal((await locallab()).Expsharp_0, false);
 
 	// Moving a slider of a tool that is off turns that tool on
@@ -102,7 +103,7 @@ try {
 	assert.equal(changed.Expsharp_0, false, 'another tool must stay off');
 
 	assert.deepEqual(errors, []);
-	console.log(`PASS: ${maskTools.length} mask tools render, and the switches and sliders write to the spot`);
+	console.log(`PASS: ${maskTools.length} mask tools render, and the group toggles and sliders write to the spot`);
 } finally {
 	await closeProbe({ browser, server, temporary });
 }
