@@ -61,7 +61,7 @@
 	const done = $derived(progress && page.data.navigationImages.length ? progress.finished.size / page.data.navigationImages.length : 0);
 	const editingDisabled = $derived(busy || !!page.data.editorError || page.data.hasMatchingImages === false);
 	/** Autosave owns the writes; the footer only reports where they stand. */
-	const saveState = $derived(edits.isFaulty ? 'Save failed' : edits.isSaving ? 'Saving…' : edits.hasChanges ? 'Unsaved' : 'Saved');
+	const saveState = $derived(edits.isFaulty ? 'Save failed' : edits.isSaving ? 'Saving…' : edits.hasChanges ? 'Unsaved' : edits.isPreviewFaulty ? 'Preview failed' : 'Saved');
 	/** Once its edits are safe, an archived photo says so in place of "Saved". */
 	const showArchived = $derived(saveState === 'Saved' && !!page.data.image?.isArchived);
 	function undo() {

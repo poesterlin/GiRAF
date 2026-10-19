@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test';
-import { EditorPreviewQueue, loadEditorPreview } from './editor-preview';
+import { EditorPreviewQueue, loadEditorPreview, newPreviewId } from './editor-preview';
 
 const originalFetch = globalThis.fetch;
 const originalImage = globalThis.Image;
@@ -14,6 +14,16 @@ function decodingImage(decode: () => Promise<void> = async () => {}) {
 		decode = decode;
 	} as unknown as typeof Image;
 }
+
+test('preview ids also work where crypto.randomUUID is unavailable', () => {
+	const original = crypto.randomUUID;
+	Object.defineProperty(crypto, 'randomUUID', { value: undefined, configurable: true });
+	try {
+		expect(newPreviewId()).toMatch(/^[a-z0-9]+$/);
+	} finally {
+		Object.defineProperty(crypto, 'randomUUID', { value: original, configurable: true });
+	}
+});
 
 test('keeps the successful quick preview when refinement fails', async () => {
 	decodingImage();

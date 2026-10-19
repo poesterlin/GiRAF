@@ -34,6 +34,8 @@ class EditingState {
 	});
 	public isLoading = $state(false);
 	public isFaulty = $state(false);
+	/** A preview render can fail without the edit itself being unsafe. */
+	public isPreviewFaulty = $state(false);
 	public isSaving = $state(false);
 	/** Bumped whenever the edit changes, so autosave can debounce on it. */
 	public changeRevision = $state(0);
@@ -155,6 +157,7 @@ class EditingState {
 
 	initialize(pp3: string | PP3, image: Image) {
 		assert(image, 'Image must be provided to initialize editing state');
+		if (this.currentImageId !== String(image.id)) this.isPreviewFaulty = false;
 		if (this.currentImageId === String(image.id) && (this.hasChangesFor(String(image.id)) || this.snapshots.hasPending(String(image.id)))) return;
 		const document = typeof pp3 === 'string' ? parsePP3Document(pp3) : { settings: pp3, comments: [] };
 		this.disabledGroups = normalizeDisabledGroups(document.ui?.disabledGroups ?? []);

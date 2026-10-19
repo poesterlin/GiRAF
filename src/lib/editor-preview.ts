@@ -3,6 +3,11 @@ import { previewResponseMetrics, trackPreview, trackPreviewPaint, type PreviewMe
 
 let clientId: string | undefined;
 
+/** Preview ids are only correlation keys; plain HTTP origins have no crypto.randomUUID. */
+export function newPreviewId() {
+	return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+}
+
 async function findCachedPreview(endpoint: string, options: RequestInit, signal: AbortSignal) {
 	const probes = [
 		{ source: 'browser', url: endpoint, options: { ...options, mode: 'same-origin' as const, cache: 'only-if-cached' as const } },
@@ -68,8 +73,8 @@ export function getPreviewDevice(): PreviewDevice {
  * `quickDone` runs once the quick stage has finished, before any refinement starts.
  */
 export async function loadEditorPreview(imageId: string, config: string, device: PreviewDevice, signal: AbortSignal, publish: (url: string) => void, quickDone?: () => void) {
-	clientId ??= crypto.randomUUID();
-	const requestId = crypto.randomUUID();
+	clientId ??= newPreviewId();
+	const requestId = newPreviewId();
 	const started = performance.now();
 	let ready = false;
 	for (const stage of ['quick', 'final'] as const) {

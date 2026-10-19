@@ -29,13 +29,13 @@
 			if (sampleImage.startsWith('blob:')) URL.revokeObjectURL(sampleImage);
 			sampleImage = url;
 			sampleImageId = imageId;
-			edits.isFaulty = false;
+			edits.isPreviewFaulty = false;
 			if (latest) edits.isLoading = false;
 		},
 		(error) => {
 			if (error) {
 				console.error('Error refreshing image:', error);
-				edits.isFaulty = true;
+				edits.isPreviewFaulty = true;
 			}
 			edits.isLoading = false;
 		}
