@@ -226,15 +226,14 @@ export function maskIndices(settings: PP3): number[] {
 		.sort((a, b) => a - b);
 }
 
-export function addLocalMask(settings: PP3, shape: 'ELI' | 'RECT'): number {
-	settings.Locallab ??= { Enabled: false, Selspot: 0 };
-	const indices = maskIndices(settings);
-	const index = indices.length ? Math.max(...indices) + 1 : 0;
-	const defaults = {
-		Name: `Mask ${index + 1}`,
+/**
+ * Every setting a mask's panel reads, so a fresh mask and a mask saved before a setting existed end up
+ * the same. The shape and name are the mask's identity and are set separately.
+ */
+export function maskSpotDefaults(): Record<string, string | number | boolean> {
+	return {
 		Isvisible: true,
 		Activ: true,
-		Shape: shape,
 		SpotMethod: 'norm',
 		ShapeMethod: 'IND',
 		QualityMethod: 'enh',
@@ -262,6 +261,28 @@ export function addLocalMask(settings: PP3, shape: 'ELI' | 'RECT'): number {
 		// The gradient stays at zero strength until the mask becomes a gradient
 		...Object.fromEntries(gradientControls.map((control) => [control.key, control.key === 'Strcol' ? 0 : control.reset]))
 	};
+}
+
+/**
+ * Fills in the settings a mask is missing. A mask saved before a setting existed carries no key for it,
+ * and every slider and switch in the mask panel binds to one: a missing key is `undefined`, which stops
+ * the whole page from loading rather than falling back.
+ */
+export function ensureMaskSettings(settings: PP3) {
+	if (!settings.Locallab) return;
+	const defaults = maskSpotDefaults();
+	for (const index of maskIndices(settings)) {
+		for (const [key, value] of Object.entries(defaults)) {
+			if (settings.Locallab[`${key}_${index}`] === undefined) settings.Locallab[`${key}_${index}`] = value;
+		}
+	}
+}
+
+export function addLocalMask(settings: PP3, shape: 'ELI' | 'RECT'): number {
+	settings.Locallab ??= { Enabled: false, Selspot: 0 };
+	const indices = maskIndices(settings);
+	const index = indices.length ? Math.max(...indices) + 1 : 0;
+	const defaults = { ...maskSpotDefaults(), Name: `Mask ${index + 1}`, Shape: shape };
 	for (const [key, value] of Object.entries(defaults)) settings.Locallab[`${key}_${index}`] = value;
 	settings.Locallab.Enabled = true;
 	settings.Locallab.Selspot = index;

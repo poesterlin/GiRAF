@@ -2,6 +2,7 @@ import { test, expect } from 'bun:test';
 import {
 	addLocalMask,
 	deleteLocalMask,
+	ensureMaskSettings,
 	isGradientMask,
 	maskColourRange,
 	maskIndices,
@@ -17,6 +18,70 @@ import {
 } from './local-masks';
 import { parsePP3, stringifyPP3, type PP3 } from './pp3-utils';
 import { scaleEditSettings } from './edit-strength';
+
+/** A mask as it was saved before the per-mask tools, the colour range and invert existed. */
+function legacyMask(): PP3 {
+	const settings: PP3 = {
+		Locallab: {
+			Enabled: true,
+			Selspot: 0,
+			Name_0: 'Mask 1',
+			Isvisible_0: true,
+			Activ_0: true,
+			Shape_0: 'ELI',
+			Loc_0: '500;500;500;500;',
+			CenterX_0: 0,
+			CenterY_0: 0,
+			Feather_0: 25,
+			Expcolor_0: true,
+			Lightness_0: 0,
+			Contrast_0: 0,
+			Chroma_0: 0,
+			Sensi_0: 60,
+			Expexpose_0: true,
+			Expcomp_0: 0.5,
+			Sensiex_0: 100
+		}
+	};
+	return settings;
+}
+
+test('a mask saved before a setting existed gets it, and keeps what it has', () => {
+	const settings = legacyMask();
+	settings.Locallab.Sharamount_0 = 80;
+	ensureMaskSettings(settings);
+	for (const tool of maskTools) {
+		expect(settings.Locallab[`${tool.enable}_0`]).toBe(false);
+		expect(settings.Locallab[`${tool.scope}_0`]).toBe(100);
+		for (const control of tool.controls) expect(settings.Locallab[`${control.key}_0`]).not.toBeUndefined();
+	}
+	expect(settings.Locallab.Invers_0).toBe(false);
+	// What the mask already set is left alone, including a narrower colour range
+	expect(settings.Locallab.Expcomp_0).toBe(0.5);
+	expect(settings.Locallab.Feather_0).toBe(25);
+	expect(settings.Locallab.Sensi_0).toBe(60);
+	expect(settings.Locallab.Sharamount_0).toBe(80);
+});
+
+test('a filled-in mask carries every key a fresh one does, and a photo without masks is untouched', () => {
+	const settings = legacyMask();
+	ensureMaskSettings(settings);
+	const fresh: PP3 = {};
+	addLocalMask(fresh, 'ELI');
+	// The name and shape are the mask's identity; everything else must line up key for key
+	expect(Object.keys(settings.Locallab).sort()).toEqual(Object.keys(fresh.Locallab).sort());
+	// Running it again changes nothing
+	const filled = JSON.stringify(settings);
+	ensureMaskSettings(settings);
+	expect(JSON.stringify(settings)).toBe(filled);
+
+	const empty: PP3 = { Exposure: { Compensation: 1 } };
+	ensureMaskSettings(empty);
+	expect(Object.keys(empty).sort()).toEqual(['Exposure']);
+	const noMasks: PP3 = { Locallab: { Enabled: false, Selspot: 0 } };
+	ensureMaskSettings(noMasks);
+	expect(Object.keys(noMasks.Locallab).sort()).toEqual(['Enabled', 'Selspot']);
+});
 
 test('local masks round trip multiple regions and compact unknown tool fields on deletion', () => {
 	const settings: PP3 = {};

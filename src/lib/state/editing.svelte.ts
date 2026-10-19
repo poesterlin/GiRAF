@@ -8,6 +8,7 @@ import { EditPreviewScheduler } from '$lib/edit-preview-scheduler';
 import { SnapshotQueue } from '$lib/snapshot-queue';
 import { changedStructuralChapters, pp3EditDistance, snapshotDecision } from '$lib/snapshot-classifier';
 import { creativeDefaults } from '$lib/creative-adjustments';
+import { ensureMaskSettings } from '$lib/local-masks';
 
 type EditState = { settings: PP3; disabledGroups: string[]; editStrength: number };
 type SavedVersion = { imageId: string; id: number; createdAt: number; settings: PP3; exported: boolean };
@@ -104,6 +105,8 @@ class EditingState {
 		ensureSectionDefaults(newPp3, 'PCVignette', { Enabled: false, Strength: 0, Feather: 50, Roundness: 50 });
 		ensureSectionDefaults(newPp3, 'Gradient', { Enabled: false, Strength: 0, Degree: 0, Feather: 50, CenterX: 0, CenterY: 0 });
 		ensureSectionDefaults(newPp3, 'Locallab', { Enabled: false, Selspot: 0 });
+		// Masks saved before a setting existed carry no key for it, and the mask panel binds to every one
+		ensureMaskSettings(newPp3);
 		ensureSectionDefaults(newPp3, 'Channel_Mixer', { Enabled: false, Red: '1000;0;0;', Green: '0;1000;0;', Blue: '0;0;1000;' });
 		ensureSectionDefaults(newPp3, 'Film_Simulation', { Enabled: false, ClutFilename: '', Strength: 100 });
 		ensureSectionDefaults(newPp3, 'Sharpening', { Enabled: false, Amount: 50, Radius: 1, Method: 'usm' });
