@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { addLocalMask, deleteLocalMask, maskIndices, maskSize, maskTools, setMaskSize, setMaskToolEnabled } from './local-masks';
+import { addLocalMask, deleteLocalMask, isGradientMask, maskIndices, maskSize, maskTools, setMaskSize, setMaskToolEnabled } from './local-masks';
 import { parsePP3, stringifyPP3, type PP3 } from './pp3-utils';
 import { scaleEditSettings } from './edit-strength';
 
@@ -72,4 +72,28 @@ test('edit strength scales per-mask amounts but not its radii', () => {
 	expect(half.Locallab[`Sharradius_${index}`]).toBe(2);
 	expect(half.Locallab[`Lcradius_${index}`]).toBe(80);
 	expect(half.Locallab[`ShMethod_${index}`]).toBe('std');
+});
+
+test('a gradient mask covers the whole frame and starts with a visible darkening', () => {
+	const settings: PP3 = {};
+	addLocalMask(settings, 'ELI');
+	const index = addLocalMask(settings, 'GRADIENT');
+	const parsed = parsePP3(stringifyPP3(settings));
+	expect(isGradientMask(parsed, index)).toBe(true);
+	expect(isGradientMask(parsed, 0)).toBe(false);
+	expect(parsed.Locallab[`Shape_${index}`]).toBe('RECT');
+	expect(parsed.Locallab[`Name_${index}`]).toBe('Gradient 2');
+	expect(parsed.Locallab[`Strcol_${index}`]).toBe(1);
+	expect(parsed.Locallab.Strcol_0).toBe(0);
+	// Deleting the mask before it keeps it a gradient
+	deleteLocalMask(parsed, 0);
+	expect(isGradientMask(parsed, 0)).toBe(true);
+});
+
+test('gradient strength follows the edit strength', () => {
+	const settings: PP3 = {};
+	const index = addLocalMask(settings, 'GRADIENT');
+	settings.Locallab[`Strcol_${index}`] = 2;
+	expect(scaleEditSettings(settings, 50).Locallab[`Strcol_${index}`]).toBe(1);
+	expect(scaleEditSettings(settings, 50).Locallab[`Angcol_${index}`]).toBe(0);
 });

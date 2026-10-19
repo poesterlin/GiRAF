@@ -1,16 +1,23 @@
 <script lang="ts">
 	import { edits } from '$lib/state/editing.svelte';
-	import { maskIndices, addLocalMask, deleteLocalMask, maskTools, setMaskToolEnabled, type MaskTool } from '$lib/local-masks';
+	import { maskIndices, addLocalMask, deleteLocalMask, maskTools, setMaskToolEnabled, gradientControls, isGradientMask, type MaskTool } from '$lib/local-masks';
 	import AdjustmentGroup from './AdjustmentGroup.svelte';
 	import Slider from './Slider.svelte';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
 	import IconDots from '@tabler/icons-svelte/icons/dots';
 	import IconPower from '@tabler/icons-svelte/icons/power';
+	import IconSunset from '@tabler/icons-svelte/icons/sunset';
 	let menu = $state<HTMLDetailsElement>();
 	let { onadd }: { onadd?: () => void } = $props();
 	const indices = $derived(maskIndices(edits.pp3));
 	const selected = $derived(indices.includes(Number(edits.pp3.Locallab.Selspot)) ? Number(edits.pp3.Locallab.Selspot) : indices[0]);
+	const gradient = $derived(selected !== undefined && isGradientMask(edits.pp3, selected));
+	function add(shape: 'ELI' | 'GRADIENT') {
+		addLocalMask(edits.pp3, shape);
+		edits.pushHistory(true);
+		onadd?.();
+	}
 	function changed() {
 		edits.pp3.Locallab.Enabled = true;
 		edits.pushHistory();
@@ -39,17 +46,8 @@
 />
 <div class="space-y-3">
 	<div class="flex items-center gap-1 rounded-lg bg-neutral-900/70">
-		<button
-			type="button"
-			class="mask-action"
-			aria-label="Add mask"
-			title="Add mask"
-			onclick={() => {
-				addLocalMask(edits.pp3, 'ELI');
-				edits.pushHistory(true);
-				onadd?.();
-			}}><IconPlus size={20} /></button
-		>
+		<button type="button" class="mask-action" aria-label="Add mask" title="Add mask" onclick={() => add('ELI')}><IconPlus size={20} /></button>
+		<button type="button" class="mask-action" aria-label="Add gradient" title="Add gradient, for skies" onclick={() => add('GRADIENT')}><IconSunset size={20} /></button>
 		{#if indices.length}
 			<select
 				class="min-w-0 flex-1"
@@ -89,7 +87,26 @@
 			</details>
 		{/if}
 	</div>
-	{#if selected !== undefined}
+	{#if selected !== undefined && gradient}
+		{#key selected}
+			<p class="text-xs text-neutral-400">Drag the line on the photo to move the horizon. The tinted side is the one the gradient changes; positive strength darkens it.</p>
+			{#each gradientControls as control (control.key)}
+				<Slider
+					editable
+					label={control.label}
+					bind:value={edits.pp3.Locallab[`${control.key}_${selected}`] as number}
+					min={control.min}
+					max={control.max}
+					step={control.step ?? 1}
+					precision={control.precision}
+					centered={control.centered}
+					resetValue={control.reset}
+					unit={control.unit}
+					onchange={changed}
+				/>
+			{/each}
+		{/key}
+	{:else if selected !== undefined}
 		{#key selected}
 			<div class="space-y-3 border-b border-neutral-800 pb-3">
 				<select

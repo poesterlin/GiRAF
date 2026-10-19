@@ -107,21 +107,45 @@ export function setMaskToolEnabled(settings: PP3, index: number, tool: MaskTool,
 	settings.Locallab[`${tool.enable}_${index}`] = enabled;
 }
 
+/**
+ * A gradient mask is a rectangle reaching far past every edge, so RawTherapee's Color & Light
+ * gradient runs across the whole photo. Measured on a developed TIFF: a positive strength darkens
+ * the side the angle points to (0° the top, 90° the left, 180° the bottom), the mask's centre sets
+ * where the transition sits, and the other mask sliders would apply evenly over the frame, so a
+ * gradient mask offers only these.
+ */
+const GRADIENT_REACH = 3000;
+
+export const gradientControls: MaskToolControl[] = [
+	{ key: 'Strcol', label: 'Strength', min: -3, max: 3, step: 0.05, reset: 1, centered: true, precision: 2, unit: ' EV' },
+	{ key: 'Angcol', label: 'Angle', min: -180, max: 180, reset: 0, centered: true, unit: '°' },
+	{ key: 'Feathercol', label: 'Softness', min: 10, max: 100, reset: 25 }
+];
+
+export function isGradientMask(settings: PP3, index: number): boolean {
+	const reach = String(settings.Locallab?.[`Loc_${index}`] ?? '')
+		.split(';')
+		.filter(Boolean)
+		.map(Number);
+	return reach.length === 4 && reach.every((value) => value >= GRADIENT_REACH);
+}
+
 export function maskIndices(settings: PP3): number[] {
 	return Object.keys(settings.Locallab ?? {})
 		.flatMap((key) => (/^Name_\d+$/.test(key) ? [Number(key.slice(5))] : []))
 		.sort((a, b) => a - b);
 }
 
-export function addLocalMask(settings: PP3, shape: 'ELI' | 'RECT'): number {
+export function addLocalMask(settings: PP3, shape: 'ELI' | 'RECT' | 'GRADIENT'): number {
 	settings.Locallab ??= { Enabled: false, Selspot: 0 };
 	const indices = maskIndices(settings);
 	const index = indices.length ? Math.max(...indices) + 1 : 0;
+	const gradient = shape === 'GRADIENT';
 	const defaults = {
-		Name: `Mask ${index + 1}`,
+		Name: gradient ? `Gradient ${index + 1}` : `Mask ${index + 1}`,
 		Isvisible: true,
 		Activ: true,
-		Shape: shape,
+		Shape: gradient ? 'RECT' : shape,
 		SpotMethod: 'norm',
 		ShapeMethod: 'IND',
 		QualityMethod: 'enh',
@@ -143,7 +167,10 @@ export function addLocalMask(settings: PP3, shape: 'ELI' | 'RECT'): number {
 		Complexexpose: 0,
 		Expcomp: 0,
 		Sensiex: 100,
-		...maskToolDefaults()
+		...maskToolDefaults(),
+		// Only a gradient mask uses the gradient; the others keep it at zero strength
+		...Object.fromEntries(gradientControls.map((control) => [control.key, control.key === 'Strcol' && !gradient ? 0 : control.reset])),
+		...(gradient ? { Loc: `${GRADIENT_REACH};${GRADIENT_REACH};${GRADIENT_REACH};${GRADIENT_REACH};` } : {})
 	};
 	for (const [key, value] of Object.entries(defaults)) settings.Locallab[`${key}_${index}`] = value;
 	settings.Locallab.Enabled = true;

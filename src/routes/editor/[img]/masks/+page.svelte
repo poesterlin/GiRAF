@@ -5,7 +5,7 @@
 	import { edits } from '$lib/state/editing.svelte';
 	import { excludePP3, toBase64 } from '$lib/pp3-utils';
 	import { DoubleTapDetector } from '$lib/double-tap';
-	import { maskIndices, maskSize, setMaskSize } from '$lib/local-masks';
+	import { isGradientMask, maskIndices, maskSize, setMaskSize } from '$lib/local-masks';
 	import LocalMasks from '$lib/ui/LocalMasks.svelte';
 	import EditorToolPanel from '$lib/ui/EditorToolPanel.svelte';
 	import EditorZoomControls from '$lib/ui/EditorZoomControls.svelte';
@@ -219,59 +219,94 @@
 						{#each indices as index (index)}
 							{@const w = maskSize(edits.pp3, index, 'width')}
 							{@const h = maskSize(edits.pp3, index, 'height')}
-							<div
-								class="absolute"
-								style:left={`${50 + Number(edits.pp3.Locallab[`CenterX_${index}`]) / 20}%`}
-								style:top={`${50 + Number(edits.pp3.Locallab[`CenterY_${index}`]) / 20}%`}
-								style:width={`${w}%`}
-								style:height={`${h}%`}
-								style:transform="translate(-50%, -50%)"
-							>
+							{#if isGradientMask(edits.pp3, index)}
+								{@const centerX = 50 + Number(edits.pp3.Locallab[`CenterX_${index}`]) / 20}
+								{@const centerY = 50 + Number(edits.pp3.Locallab[`CenterY_${index}`]) / 20}
+								<!-- The horizon: the line the gradient fades across, tinted on the side it changes -->
+								<div class="pointer-events-none absolute inset-0 overflow-hidden" class:opacity-40={!edits.pp3.Locallab[`Activ_${index}`]}>
+									<div
+										class="absolute"
+										style:left={`${centerX}%`}
+										style:top={`${centerY}%`}
+										style:width="400%"
+										style:height="400%"
+										style:transform={`translate(-50%, -50%) rotate(${-Number(edits.pp3.Locallab[`Angcol_${index}`] ?? 0)}deg)`}
+									>
+										<div class="gradient-side absolute inset-x-0 top-0 h-1/2" class:selected={selected === index}></div>
+										<div class="absolute inset-x-0 top-1/2 border-t-2 border-dashed border-white/60" class:gradient-line={selected === index}></div>
+									</div>
+								</div>
 								<button
 									type="button"
 									aria-label={`Move ${edits.pp3.Locallab[`Name_${index}`]}`}
 									aria-pressed={selected === index}
-									class="absolute inset-0 touch-none border-2 border-dashed border-white/50 bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300"
-									class:border-sky-300={selected === index}
-									style:border-radius={edits.pp3.Locallab[`Shape_${index}`] === 'ELI' ? '50%' : '0'}
-									class:opacity-40={!edits.pp3.Locallab[`Activ_${index}`]}
+									class="gradient-handle absolute z-10 flex h-11 w-11 touch-none items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-white"
+									style:left={`${centerX}%`}
+									style:top={`${centerY}%`}
+									style:transform={`translate(-50%, -50%) scale(${1 / zoom})`}
 									onpointerdown={(event) => start(event, index, 'move')}
 									onpointermove={move}
 									onpointerup={finish}
 									onpointercancel={finish}
 									onlostpointercapture={finish}
 									onkeydown={(event) => nudge(event, index)}
-									onclick={() => (edits.pp3.Locallab.Selspot = index)}
+									onclick={() => (edits.pp3.Locallab.Selspot = index)}><span class="h-4 w-4 rounded-full border-2 border-neutral-950 shadow-lg"></span></button
 								>
+							{:else}
+								<div
+									class="absolute"
+									style:left={`${50 + Number(edits.pp3.Locallab[`CenterX_${index}`]) / 20}%`}
+									style:top={`${50 + Number(edits.pp3.Locallab[`CenterY_${index}`]) / 20}%`}
+									style:width={`${w}%`}
+									style:height={`${h}%`}
+									style:transform="translate(-50%, -50%)"
+								>
+									<button
+										type="button"
+										aria-label={`Move ${edits.pp3.Locallab[`Name_${index}`]}`}
+										aria-pressed={selected === index}
+										class="absolute inset-0 touch-none border-2 border-dashed border-white/50 bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300"
+										class:border-sky-300={selected === index}
+										style:border-radius={edits.pp3.Locallab[`Shape_${index}`] === 'ELI' ? '50%' : '0'}
+										class:opacity-40={!edits.pp3.Locallab[`Activ_${index}`]}
+										onpointerdown={(event) => start(event, index, 'move')}
+										onpointermove={move}
+										onpointerup={finish}
+										onpointercancel={finish}
+										onlostpointercapture={finish}
+										onkeydown={(event) => nudge(event, index)}
+										onclick={() => (edits.pp3.Locallab.Selspot = index)}
+									>
+										{#if selected === index}
+											<span
+												aria-hidden="true"
+												class="pointer-events-none absolute border border-dotted border-sky-200/80"
+												style:inset={`${Math.max(0, Math.min(100, Number(edits.pp3.Locallab[`Feather_${index}`] ?? 25))) / 2}%`}
+												style:border-radius={edits.pp3.Locallab[`Shape_${index}`] === 'ELI' ? '50%' : '0'}
+											></span>
+										{/if}
+									</button>
 									{#if selected === index}
-										<span
-											aria-hidden="true"
-											class="pointer-events-none absolute border border-dotted border-sky-200/80"
-											style:inset={`${Math.max(0, Math.min(100, Number(edits.pp3.Locallab[`Feather_${index}`] ?? 25))) / 2}%`}
-											style:border-radius={edits.pp3.Locallab[`Shape_${index}`] === 'ELI' ? '50%' : '0'}
-										></span>
+										{#each ['width', 'height'] as axis (axis)}
+											<button
+												type="button"
+												aria-label={`Resize mask ${axis}`}
+												class="absolute z-10 flex h-11 w-11 touch-none items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-white"
+												style:left={axis === 'width' ? '100%' : '50%'}
+												style:top={axis === 'height' ? '100%' : '50%'}
+												style:transform={`translate(-50%, -50%) scale(${1 / zoom})`}
+												onpointerdown={(event) => start(event, index, axis === 'width' ? 'e' : 's')}
+												onpointermove={move}
+												onpointerup={finish}
+												onpointercancel={finish}
+												onlostpointercapture={finish}
+												onkeydown={(event) => resizeKey(event, index, axis as 'width' | 'height')}
+												><span class="h-3.5 w-3.5 rounded-full border-2 border-neutral-950 bg-sky-200 shadow-lg"></span></button
+											>
+										{/each}
 									{/if}
-								</button>
-								{#if selected === index}
-									{#each ['width', 'height'] as axis (axis)}
-										<button
-											type="button"
-											aria-label={`Resize mask ${axis}`}
-											class="absolute z-10 flex h-11 w-11 touch-none items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-white"
-											style:left={axis === 'width' ? '100%' : '50%'}
-											style:top={axis === 'height' ? '100%' : '50%'}
-											style:transform={`translate(-50%, -50%) scale(${1 / zoom})`}
-											onpointerdown={(event) => start(event, index, axis === 'width' ? 'e' : 's')}
-											onpointermove={move}
-											onpointerup={finish}
-											onpointercancel={finish}
-											onlostpointercapture={finish}
-											onkeydown={(event) => resizeKey(event, index, axis as 'width' | 'height')}
-											><span class="h-3.5 w-3.5 rounded-full border-2 border-neutral-950 bg-sky-200 shadow-lg"></span></button
-										>
-									{/each}
-								{/if}
-							</div>
+								</div>
+							{/if}
 						{/each}
 					{/if}
 				</div>
@@ -327,6 +362,21 @@
 	}
 	button[aria-label^='Resize mask'] > span {
 		background: var(--color-accent-soft);
+	}
+	.gradient-handle > span {
+		background: rgb(255 255 255 / 0.7);
+	}
+	.gradient-handle[aria-pressed='true'] > span {
+		background: var(--color-accent-soft);
+	}
+	.gradient-side {
+		background: linear-gradient(to top, rgb(255 255 255 / 0.18), transparent 8%);
+	}
+	.gradient-side.selected {
+		background: linear-gradient(to top, color-mix(in srgb, var(--color-accent-soft) 55%, transparent), transparent 8%);
+	}
+	.gradient-line {
+		border-color: var(--color-accent);
 	}
 	.chosen {
 		background: #f5f5f5;
