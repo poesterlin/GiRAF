@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from 'bun:test';
-import { EditorPreviewQueue, loadEditorPreview, newPreviewId } from './editor-preview';
+import { randomId } from '$lib';
+import { EditorPreviewQueue, loadEditorPreview } from './editor-preview';
 
 const originalFetch = globalThis.fetch;
 const originalImage = globalThis.Image;
@@ -15,11 +16,11 @@ function decodingImage(decode: () => Promise<void> = async () => {}) {
 	} as unknown as typeof Image;
 }
 
-test('preview ids also work where crypto.randomUUID is unavailable', () => {
+test('preview ids stay UUIDs the server accepts where crypto.randomUUID is unavailable', () => {
 	const original = crypto.randomUUID;
 	Object.defineProperty(crypto, 'randomUUID', { value: undefined, configurable: true });
 	try {
-		expect(newPreviewId()).toMatch(/^[a-z0-9]+$/);
+		expect(randomId()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 	} finally {
 		Object.defineProperty(crypto, 'randomUUID', { value: original, configurable: true });
 	}

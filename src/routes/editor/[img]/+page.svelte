@@ -160,7 +160,7 @@
 				<EditorMobileToolbar img={page.params.img!} />
 				<div class="px-3 py-2 lg:px-6 lg:py-4">
 					{#if edits.pp3}
-						<Adjustments {data} bind:showLutPicker previewSrc={sampleImageId === String(data.image.id) && !edits.isFaulty ? sampleImage : ''} />
+						<Adjustments {data} bind:showLutPicker previewSrc={sampleImageId === String(data.image.id) && !edits.isPreviewFaulty ? sampleImage : ''} />
 					{/if}
 				</div>
 			</div>

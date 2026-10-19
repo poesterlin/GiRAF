@@ -1,3 +1,5 @@
+import { randomId } from '$lib';
+
 interface Toast {
 	id: string;
 	message: string;
@@ -56,11 +58,6 @@ class AppState {
 		return task;
 	}
 
-	private createId() {
-		// crypto.randomUUID() is not available in all contexts
-		return Math.random().toString(36).substring(2, 9);
-	}
-
 	setNotifications(notifications: NotificationItem[]) {
 		this.notifications = notifications;
 	}
@@ -94,7 +91,7 @@ class AppState {
 			this.scheduleRemoval(merged);
 			return merged.id;
 		}
-		const id = this.createId();
+		const id = randomId();
 		const toast: Toast = { id, message, type, action, duration, key: options?.key, count: 1 };
 		this.toasts = [...this.toasts, toast].slice(-3);
 		this.scheduleRemoval(toast);
