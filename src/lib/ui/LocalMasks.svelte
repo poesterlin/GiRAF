@@ -11,7 +11,8 @@
 		maskKind,
 		setMaskKind,
 		type MaskKind,
-		type MaskTool
+		type MaskTool,
+		type MaskToolControl
 	} from '$lib/local-masks';
 	import AdjustmentGroup from './AdjustmentGroup.svelte';
 	import Slider from './Slider.svelte';
@@ -55,6 +56,24 @@
 		if (event.key === 'Escape' && menu) menu.open = false;
 	}}
 />
+{#snippet gradientSlider(control: MaskToolControl)}
+	{@const key = `${control.key}_${selected}`}
+	{@const sign = control.invert ? -1 : 1}
+	<Slider
+		editable
+		label={control.label}
+		bind:value={() => sign * Number(edits.pp3.Locallab[key] ?? 0), (value) => (edits.pp3.Locallab[key] = sign * value)}
+		min={control.min}
+		max={control.max}
+		step={control.step ?? 1}
+		precision={control.precision}
+		centered={control.centered}
+		resetValue={sign * control.reset}
+		unit={control.unit}
+		onchange={changed}
+	/>
+{/snippet}
+
 <div class="space-y-3">
 	<div class="flex items-center gap-1 rounded-lg bg-neutral-900/70">
 		<button type="button" class="mask-action" aria-label="Add mask" title="Add mask" onclick={add}><IconPlus size={20} /></button>
@@ -111,30 +130,15 @@
 				>
 				{#if gradient}
 					<p class="text-xs text-neutral-400">
-						Drag the line on the photo to move the horizon. Exposure and colour fade in across it; the adjustments below apply to the whole photo.
+						Drag the line on the photo to move the horizon. Exposure and colour fade in across it; the other adjustments apply to the whole photo.
 					</p>
+					{#each gradientControls.filter((control) => control.shape) as control (control.key)}{@render gradientSlider(control)}{/each}
 				{:else}
 					<Slider editable label="Feather" bind:value={edits.pp3.Locallab[`Feather_${selected}`] as number} min={0} max={100} step={1} resetValue={25} onchange={changed} />
 				{/if}
 			</div>
 			{#if gradient}
-				{#each gradientControls as control (control.key)}
-					{@const key = `${control.key}_${selected}`}
-					{@const sign = control.invert ? -1 : 1}
-					<Slider
-						editable
-						label={control.label}
-						bind:value={() => sign * Number(edits.pp3.Locallab[key] ?? 0), (value) => (edits.pp3.Locallab[key] = sign * value)}
-						min={control.min}
-						max={control.max}
-						step={control.step ?? 1}
-						precision={control.precision}
-						centered={control.centered}
-						resetValue={sign * control.reset}
-						unit={control.unit}
-						onchange={changed}
-					/>
-				{/each}
+				{#each gradientControls.filter((control) => !control.shape) as control (control.key)}{@render gradientSlider(control)}{/each}
 			{:else}
 				<Slider
 					editable

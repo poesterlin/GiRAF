@@ -14,6 +14,8 @@ export type MaskToolControl = {
 	unit?: string;
 	/** The slider shows the setting negated, where RawTherapee's direction reads backwards. */
 	invert?: boolean;
+	/** Shapes the mask rather than adjusting the photo, so it sits with the mask type. */
+	shape?: boolean;
 };
 
 export type MaskTool = {
@@ -123,8 +125,8 @@ export const gradientControls: MaskToolControl[] = [
 	// The gradient's brightness strength is in EV and darkens when positive, so it is shown as exposure
 	{ key: 'Strcol', label: 'Exposure', min: -3, max: 3, step: 0.05, reset: 1, centered: true, precision: 2, unit: ' EV', invert: true },
 	{ key: 'Strcolab', label: 'Colour', min: -3, max: 3, step: 0.05, reset: 0, centered: true, precision: 2, invert: true },
-	{ key: 'Angcol', label: 'Angle', min: -180, max: 180, reset: 0, centered: true, unit: '°' },
-	{ key: 'Feathercol', label: 'Feather', min: 10, max: 100, reset: 25 }
+	{ key: 'Angcol', label: 'Angle', min: -180, max: 180, reset: 0, centered: true, unit: '°', shape: true },
+	{ key: 'Feathercol', label: 'Feather', min: 10, max: 100, reset: 25, shape: true }
 ];
 
 /** The size a mask gets when it is added, and again when it stops being a gradient. */
