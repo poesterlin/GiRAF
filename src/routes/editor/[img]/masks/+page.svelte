@@ -222,7 +222,7 @@
 							{#if isGradientMask(edits.pp3, index)}
 								{@const centerX = 50 + Number(edits.pp3.Locallab[`CenterX_${index}`]) / 20}
 								{@const centerY = 50 + Number(edits.pp3.Locallab[`CenterY_${index}`]) / 20}
-								<!-- The horizon: the line the gradient fades across, tinted on the side it changes -->
+								<!-- The horizon: the line the gradient fades across -->
 								<div class="pointer-events-none absolute inset-0 overflow-hidden" class:opacity-40={!edits.pp3.Locallab[`Activ_${index}`]}>
 									<div
 										class="absolute"
@@ -232,7 +232,6 @@
 										style:height="400%"
 										style:transform={`translate(-50%, -50%) rotate(${-Number(edits.pp3.Locallab[`Angcol_${index}`] ?? 0)}deg)`}
 									>
-										<div class="gradient-side absolute inset-x-0 top-0 h-1/2" class:selected={selected === index}></div>
 										<div class="absolute inset-x-0 top-1/2 border-t-2 border-dashed border-white/60" class:gradient-line={selected === index}></div>
 									</div>
 								</div>
@@ -368,12 +367,6 @@
 	}
 	.gradient-handle[aria-pressed='true'] > span {
 		background: var(--color-accent-soft);
-	}
-	.gradient-side {
-		background: linear-gradient(to top, rgb(255 255 255 / 0.18), transparent 8%);
-	}
-	.gradient-side.selected {
-		background: linear-gradient(to top, color-mix(in srgb, var(--color-accent-soft) 55%, transparent), transparent 8%);
 	}
 	.gradient-line {
 		border-color: var(--color-accent);
