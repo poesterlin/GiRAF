@@ -111,7 +111,7 @@
 				>
 				{#if gradient}
 					<p class="text-xs text-neutral-400">
-						Drag the line on the photo to move the horizon. Darken and colour fade in across it; the adjustments below apply to the whole photo.
+						Drag the line on the photo to move the horizon. Exposure and colour fade in across it; the adjustments below apply to the whole photo.
 					</p>
 				{:else}
 					<Slider editable label="Feather" bind:value={edits.pp3.Locallab[`Feather_${selected}`] as number} min={0} max={100} step={1} resetValue={25} onchange={changed} />
@@ -135,20 +135,21 @@
 						onchange={changed}
 					/>
 				{/each}
+			{:else}
+				<Slider
+					editable
+					label="Exposure"
+					bind:value={edits.pp3.Locallab[`Expcomp_${selected}`] as number}
+					min={-1}
+					max={1}
+					step={0.01}
+					precision={2}
+					centered
+					resetValue={0}
+					unit=" EV"
+					onchange={changed}
+				/>
 			{/if}
-			<Slider
-				editable
-				label="Exposure"
-				bind:value={edits.pp3.Locallab[`Expcomp_${selected}`] as number}
-				min={-1}
-				max={1}
-				step={0.01}
-				precision={2}
-				centered
-				resetValue={0}
-				unit=" EV"
-				onchange={changed}
-			/>
 			{#each [{ key: 'Lightness', label: 'Brightness' }, { key: 'Contrast', label: 'Contrast' }, { key: 'Chroma', label: 'Saturation' }] as control (control.key)}
 				<Slider
 					editable

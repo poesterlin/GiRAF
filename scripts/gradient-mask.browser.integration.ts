@@ -79,9 +79,18 @@ try {
 	assert.equal(isGradientMask({ Locallab: added as Record<string, string | number | boolean> }, 0), false, 'the other mask stays an ellipse');
 
 	// A gradient offers its own controls and every adjustment the other masks have, but no feather
-	for (const label of ['Darken', 'Colour', 'Angle', 'Feather']) await page.getByLabel(`${label} value`).waitFor();
+	for (const label of ['Exposure', 'Colour', 'Angle', 'Feather']) await page.getByLabel(`${label} value`).waitFor();
+	assert.equal(await page.getByLabel('Exposure value').count(), 1, 'only the graded exposure');
+	assert.equal(await page.getByLabel('Exposure value').inputValue(), '-1', 'a fresh gradient darkens by 1 EV');
+
+	// Exposure reads like exposure: positive brightens, which RawTherapee's gradient writes as negative
+	await page.locator('input[type="range"][aria-label="Exposure"]').evaluate((input: HTMLInputElement) => {
+		input.value = '-2';
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+	});
+	assert.equal((await locallab()).Strcol_1, 2);
 	// Saturation also appears in the Warm & colour tool, as on every mask
-	for (const label of ['Exposure', 'Brightness', 'Contrast', 'Saturation']) await page.getByLabel(`${label} value`).first().waitFor();
+	for (const label of ['Brightness', 'Contrast', 'Saturation']) await page.getByLabel(`${label} value`).first().waitFor();
 	// A gradient's Feather is the width of its transition, not the edge of a region
 	await page.locator('input[type="range"][aria-label="Feather"]').evaluate((input: HTMLInputElement) => {
 		input.value = '50';

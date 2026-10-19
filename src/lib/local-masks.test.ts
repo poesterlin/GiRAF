@@ -79,6 +79,7 @@ test('a mask becomes a gradient covering the whole frame and back again', () => 
 	addLocalMask(settings, 'ELI');
 	const index = addLocalMask(settings, 'ELI');
 	settings.Locallab[`CenterY_${index}`] = -300;
+	settings.Locallab[`Expcomp_${index}`] = 0.5;
 	expect(maskKind(settings, index)).toBe('ELI');
 	expect(settings.Locallab[`Strcol_${index}`]).toBe(0);
 
@@ -87,6 +88,7 @@ test('a mask becomes a gradient covering the whole frame and back again', () => 
 	expect(maskKind(parsed, index)).toBe('GRADIENT');
 	expect(isGradientMask(parsed, 0)).toBe(false);
 	expect(parsed.Locallab[`Strcol_${index}`]).toBe(1);
+	expect(parsed.Locallab[`Expcomp_${index}`]).toBe(0);
 	expect(parsed.Locallab[`CenterY_${index}`]).toBe(-300);
 	// Deleting the mask before it keeps it a gradient
 	deleteLocalMask(parsed, 0);

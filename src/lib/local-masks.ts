@@ -120,7 +120,8 @@ export function setMaskToolEnabled(settings: PP3, index: number, tool: MaskTool,
 const GRADIENT_REACH = 3000;
 
 export const gradientControls: MaskToolControl[] = [
-	{ key: 'Strcol', label: 'Darken', min: -3, max: 3, step: 0.05, reset: 1, centered: true, precision: 2, unit: ' EV' },
+	// The gradient's brightness strength is in EV and darkens when positive, so it is shown as exposure
+	{ key: 'Strcol', label: 'Exposure', min: -3, max: 3, step: 0.05, reset: 1, centered: true, precision: 2, unit: ' EV', invert: true },
 	{ key: 'Strcolab', label: 'Colour', min: -3, max: 3, step: 0.05, reset: 0, centered: true, precision: 2, invert: true },
 	{ key: 'Angcol', label: 'Angle', min: -180, max: 180, reset: 0, centered: true, unit: '°' },
 	{ key: 'Feathercol', label: 'Feather', min: 10, max: 100, reset: 25 }
@@ -149,6 +150,8 @@ export function setMaskKind(settings: PP3, index: number, kind: MaskKind) {
 		locallab[`Shape_${index}`] = 'RECT';
 		locallab[`Loc_${index}`] = `${GRADIENT_REACH};${GRADIENT_REACH};${GRADIENT_REACH};${GRADIENT_REACH};`;
 		for (const control of gradientControls) locallab[`${control.key}_${index}`] = control.reset;
+		// A gradient's exposure is the graded one; the region exposure would brighten the whole photo, unseen
+		locallab[`Expcomp_${index}`] = 0;
 		return;
 	}
 	locallab[`Shape_${index}`] = kind;
