@@ -92,10 +92,12 @@ test('a mask becomes a gradient covering the whole frame and back again', () => 
 	deleteLocalMask(parsed, 0);
 	expect(isGradientMask(parsed, 0)).toBe(true);
 
+	parsed.Locallab.Strcolab_0 = -1.5;
 	setMaskKind(parsed, 0, 'RECT');
 	expect(maskKind(parsed, 0)).toBe('RECT');
 	expect(maskSize(parsed, 0, 'width')).toBe(50);
 	expect(parsed.Locallab.Strcol_0).toBe(0);
+	expect(parsed.Locallab.Strcolab_0).toBe(0);
 	expect(parsed.Locallab.CenterY_0).toBe(-300);
 });
 
@@ -113,6 +115,8 @@ test('gradient strength follows the edit strength', () => {
 	const index = addLocalMask(settings, 'ELI');
 	setMaskKind(settings, index, 'GRADIENT');
 	settings.Locallab[`Strcol_${index}`] = 2;
+	settings.Locallab[`Strcolab_${index}`] = -2;
 	expect(scaleEditSettings(settings, 50).Locallab[`Strcol_${index}`]).toBe(1);
+	expect(scaleEditSettings(settings, 50).Locallab[`Strcolab_${index}`]).toBe(-1);
 	expect(scaleEditSettings(settings, 50).Locallab[`Angcol_${index}`]).toBe(0);
 });

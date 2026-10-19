@@ -19,7 +19,7 @@ export function scaleEditSettings(settings: PP3, percent: number, whiteBalance: 
 	if (strength === 1) return result;
 	// Per-mask Locallab tools. Amounts scale with the edit; geometry, radii and method names do not.
 	const maskAmounts = new Set(['Warm', 'Saturated', 'Pastels', 'shadows', 'highlights', 'Dehaz', 'Sharamount']);
-	const maskFractions = new Set(['Lcamount', 'Strcol']);
+	const maskFractions = new Set(['Lcamount', 'Strcol', 'Strcolab']);
 	for (const [key, value] of Object.entries(result.Locallab ?? {})) {
 		if (typeof value !== 'number') continue;
 		if (/^(Expcomp|Lightness|Contrast|Chroma)_\d+$/.test(key)) {

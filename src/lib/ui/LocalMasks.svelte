@@ -110,74 +110,77 @@
 					}}><option value="ELI">Ellipse</option><option value="RECT">Rectangle</option><option value="GRADIENT">Gradient</option></select
 				>
 				{#if gradient}
-					<p class="text-xs text-neutral-400">Drag the line on the photo to move the horizon. The tinted side is the one the gradient changes; positive strength darkens it.</p>
+					<p class="text-xs text-neutral-400">
+						Drag the line on the photo to move the horizon. Darken and colour fade in on the tinted side; the adjustments below apply to the whole photo.
+					</p>
 				{:else}
 					<Slider editable label="Feather" bind:value={edits.pp3.Locallab[`Feather_${selected}`] as number} min={0} max={100} step={1} resetValue={25} onchange={changed} />
 				{/if}
 			</div>
 			{#if gradient}
 				{#each gradientControls as control (control.key)}
+					{@const key = `${control.key}_${selected}`}
+					{@const sign = control.invert ? -1 : 1}
 					<Slider
 						editable
 						label={control.label}
-						bind:value={edits.pp3.Locallab[`${control.key}_${selected}`] as number}
+						bind:value={() => sign * Number(edits.pp3.Locallab[key] ?? 0), (value) => (edits.pp3.Locallab[key] = sign * value)}
 						min={control.min}
 						max={control.max}
 						step={control.step ?? 1}
 						precision={control.precision}
 						centered={control.centered}
-						resetValue={control.reset}
+						resetValue={sign * control.reset}
 						unit={control.unit}
 						onchange={changed}
 					/>
 				{/each}
-			{:else}
+			{/if}
+			<Slider
+				editable
+				label="Exposure"
+				bind:value={edits.pp3.Locallab[`Expcomp_${selected}`] as number}
+				min={-1}
+				max={1}
+				step={0.01}
+				precision={2}
+				centered
+				resetValue={0}
+				unit=" EV"
+				onchange={changed}
+			/>
+			{#each [{ key: 'Lightness', label: 'Brightness' }, { key: 'Contrast', label: 'Contrast' }, { key: 'Chroma', label: 'Saturation' }] as control (control.key)}
 				<Slider
 					editable
-					label="Exposure"
-					bind:value={edits.pp3.Locallab[`Expcomp_${selected}`] as number}
-					min={-1}
-					max={1}
-					step={0.01}
-					precision={2}
+					label={control.label}
+					bind:value={edits.pp3.Locallab[`${control.key}_${selected}`] as number}
+					min={-100}
+					max={100}
+					step={1}
 					centered
 					resetValue={0}
-					unit=" EV"
 					onchange={changed}
 				/>
-				{#each [{ key: 'Lightness', label: 'Brightness' }, { key: 'Contrast', label: 'Contrast' }, { key: 'Chroma', label: 'Saturation' }] as control (control.key)}
-					<Slider
-						editable
-						label={control.label}
-						bind:value={edits.pp3.Locallab[`${control.key}_${selected}`] as number}
-						min={-100}
-						max={100}
-						step={1}
-						centered
-						resetValue={0}
-						onchange={changed}
-					/>
-				{/each}
-				{#each maskTools as tool (tool.enable)}
-					<AdjustmentGroup title={tool.label} group={tool.enable} checked={toolEnabled(tool)} onchange={(enabled) => setTool(tool, enabled)}>
-						{#each tool.controls as control (control.key)}
-							<Slider
-								editable
-								label={control.label}
-								bind:value={edits.pp3.Locallab[`${control.key}_${selected}`] as number}
-								min={control.min}
-								max={control.max}
-								step={control.step ?? 1}
-								precision={control.precision}
-								centered={control.centered}
-								resetValue={control.reset}
-								unit={control.unit}
-								onchange={() => toolChanged(tool)}
-							/>
-						{/each}
-					</AdjustmentGroup>
-				{/each}
-			{/if}
+			{/each}
+			{#each maskTools as tool (tool.enable)}
+				<AdjustmentGroup title={tool.label} group={tool.enable} checked={toolEnabled(tool)} onchange={(enabled) => setTool(tool, enabled)}>
+					{#each tool.controls as control (control.key)}
+						<Slider
+							editable
+							label={control.label}
+							bind:value={edits.pp3.Locallab[`${control.key}_${selected}`] as number}
+							min={control.min}
+							max={control.max}
+							step={control.step ?? 1}
+							precision={control.precision}
+							centered={control.centered}
+							resetValue={control.reset}
+							unit={control.unit}
+							onchange={() => toolChanged(tool)}
+						/>
+					{/each}
+				</AdjustmentGroup>
+			{/each}
 		{/key}
 	{/if}
 </div>

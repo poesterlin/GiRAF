@@ -78,10 +78,19 @@ try {
 	assert.equal(added.Strcol_1, 1, 'a fresh gradient darkens visibly');
 	assert.equal(isGradientMask({ Locallab: added as Record<string, string | number | boolean> }, 0), false, 'the other mask stays an ellipse');
 
-	// The panel offers the gradient's own controls, and none of the region sliders
-	for (const label of ['Strength', 'Angle', 'Softness']) await page.getByLabel(`${label} value`).waitFor();
-	for (const label of ['Feather', 'Exposure']) assert.equal(await page.getByLabel(`${label} value`).count(), 0, `${label} is not offered for a gradient`);
-	assert.equal(await page.getByRole('button', { name: 'Enable Sharpening' }).count(), 0, 'no per-mask tools for a gradient');
+	// A gradient offers its own controls and every adjustment the other masks have, but no feather
+	for (const label of ['Darken', 'Colour', 'Angle', 'Softness']) await page.getByLabel(`${label} value`).waitFor();
+	// Saturation also appears in the Warm & colour tool, as on every mask
+	for (const label of ['Exposure', 'Brightness', 'Contrast', 'Saturation']) await page.getByLabel(`${label} value`).first().waitFor();
+	assert.equal(await page.getByLabel('Feather value').count(), 0, 'feather shapes a region, not a gradient');
+	assert.equal(await page.getByRole('button', { name: 'Enable Sharpening' }).count(), 1, 'the per-mask tools are offered too');
+
+	// Colour reads the way it is named: positive is more colourful, which RawTherapee writes as negative
+	await page.locator('input[type="range"][aria-label="Colour"]').evaluate((input: HTMLInputElement) => {
+		input.value = '1';
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+	});
+	assert.equal((await locallab()).Strcolab_1, -1);
 
 	await page.locator('input[type="range"][aria-label="Angle"]').evaluate((input: HTMLInputElement) => {
 		input.value = '30';
@@ -110,9 +119,10 @@ try {
 	assert.equal(ellipse.Strcol_1, 0, 'the gradient is off on a region');
 	assert.equal(isGradientMask({ Locallab: ellipse as Record<string, string | number | boolean> }, 1), false);
 	// Dehaze has a Strength slider too, so check the controls only a gradient has
-	for (const label of ['Angle', 'Softness']) assert.equal(await page.getByLabel(`${label} value`).count(), 0, `${label} belongs to gradients only`);
+	assert.equal(ellipse.Strcolab_1, 0, 'the colour gradient is off on a region too');
+	for (const label of ['Colour', 'Angle', 'Softness']) assert.equal(await page.getByLabel(`${label} value`).count(), 0, `${label} belongs to gradients only`);
 	assert.deepEqual(errors, []);
-	console.log('PASS: the type selector turns a mask into a gradient and back, the gradient offers strength, angle and softness, and its horizon drags the centre');
+	console.log('PASS: the type selector turns a mask into a gradient and back, the gradient offers its own controls plus every mask adjustment, and its horizon drags the centre');
 } finally {
 	await closeProbe({ browser, server, temporary });
 }

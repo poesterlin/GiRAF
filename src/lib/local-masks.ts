@@ -12,6 +12,8 @@ export type MaskToolControl = {
 	centered?: boolean;
 	precision?: number;
 	unit?: string;
+	/** The slider shows the setting negated, where RawTherapee's direction reads backwards. */
+	invert?: boolean;
 };
 
 export type MaskTool = {
@@ -110,14 +112,16 @@ export function setMaskToolEnabled(settings: PP3, index: number, tool: MaskTool,
 /**
  * A gradient mask is a rectangle reaching far past every edge, so RawTherapee's Color & Light
  * gradient runs across the whole photo. Measured on a developed TIFF: a positive strength darkens
- * the side the angle points to (0° the top, 90° the left, 180° the bottom), the mask's centre sets
- * where the transition sits, and the other mask sliders would apply evenly over the frame, so a
- * gradient mask offers only these.
+ * the side the angle points to (0° the top, 90° the left, 180° the bottom) and a negative chroma
+ * strength makes it more colourful, the mask's centre sets where the transition sits, and RawTherapee's
+ * hue gradient does not respond, so it is left out. Only these fade across the line: the mask's other
+ * adjustments apply evenly over the whole photo.
  */
 const GRADIENT_REACH = 3000;
 
 export const gradientControls: MaskToolControl[] = [
-	{ key: 'Strcol', label: 'Strength', min: -3, max: 3, step: 0.05, reset: 1, centered: true, precision: 2, unit: ' EV' },
+	{ key: 'Strcol', label: 'Darken', min: -3, max: 3, step: 0.05, reset: 1, centered: true, precision: 2, unit: ' EV' },
+	{ key: 'Strcolab', label: 'Colour', min: -3, max: 3, step: 0.05, reset: 0, centered: true, precision: 2, invert: true },
 	{ key: 'Angcol', label: 'Angle', min: -180, max: 180, reset: 0, centered: true, unit: '°' },
 	{ key: 'Feathercol', label: 'Softness', min: 10, max: 100, reset: 25 }
 ];
@@ -151,6 +155,7 @@ export function setMaskKind(settings: PP3, index: number, kind: MaskKind) {
 	if (wasGradient) {
 		locallab[`Loc_${index}`] = DEFAULT_LOC;
 		locallab[`Strcol_${index}`] = 0;
+		locallab[`Strcolab_${index}`] = 0;
 	}
 }
 
