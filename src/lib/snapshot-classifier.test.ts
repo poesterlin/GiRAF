@@ -106,3 +106,9 @@ describe('snapshot decision', () => {
 		expect(snapshotDecision({ ...recent, ageMs: -1 })).toBe('update');
 	});
 });
+
+test('inverting a mask is structural, its colour range is tuning', () => {
+	const mask = { Locallab: { Enabled: true, Shape_0: 'ELI', Invers_0: false, Sensi_0: 100 } };
+	expect(changedStructuralChapters(mask, { Locallab: { ...mask.Locallab, Invers_0: true } })).toEqual(['Locallab']);
+	expect(changedStructuralChapters(mask, { Locallab: { ...mask.Locallab, Sensi_0: 30 } })).toEqual([]);
+});

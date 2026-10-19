@@ -29,6 +29,10 @@ export type MaskTool = {
 	 */
 	settings?: Record<string, string>;
 	controls: MaskToolControl[];
+	/** The tool's own colour range (scope) setting. */
+	scope: string;
+	/** The tool's invert setting; tools without one can't follow an inverted mask. */
+	invert?: string;
 };
 
 /**
@@ -41,6 +45,7 @@ export type MaskTool = {
 export const maskTools: MaskTool[] = [
 	{
 		enable: 'Expvibrance',
+		scope: 'Sensiv',
 		label: 'Warm & colour',
 		controls: [
 			{ key: 'Warm', label: 'Warm / cool', min: -100, max: 100, reset: 0, centered: true },
@@ -51,6 +56,8 @@ export const maskTools: MaskTool[] = [
 	},
 	{
 		enable: 'Expshadhigh',
+		scope: 'sensihs',
+		invert: 'Inverssh',
 		label: 'Shadows & highlights',
 		settings: { ShMethod: 'std' },
 		controls: [
@@ -60,6 +67,7 @@ export const maskTools: MaskTool[] = [
 	},
 	{
 		enable: 'Expcontrast',
+		scope: 'Sensilc',
 		label: 'Clarity',
 		settings: { localcontMethod: 'loc' },
 		controls: [
@@ -69,6 +77,8 @@ export const maskTools: MaskTool[] = [
 	},
 	{
 		enable: 'Expreti',
+		scope: 'Sensih',
+		invert: 'Inversret',
 		label: 'Dehaze',
 		controls: [
 			{ key: 'Dehaz', label: 'Strength', min: -100, max: 100, reset: 0, centered: true },
@@ -77,6 +87,8 @@ export const maskTools: MaskTool[] = [
 	},
 	{
 		enable: 'Expsharp',
+		scope: 'Sensisha',
+		invert: 'Inverssha',
 		label: 'Sharpening',
 		settings: { methodcap: 'rl' },
 		controls: [
@@ -86,11 +98,43 @@ export const maskTools: MaskTool[] = [
 	}
 ];
 
+/**
+ * A mask's colour range and invert are one setting each in the editor, but RawTherapee keeps them per
+ * tool: the basic sliders (Color & Light), exposure and every tool have their own. Measured on rendered
+ * photos, both work on developed TIFFs, and an inverted mask still keeps to its colour range.
+ */
+const baseScopes = ['Sensi', 'Sensiex'];
+const baseInverts = ['Invers', 'Inversex'];
+
+/** RawTherapee's tool scopes default to 30-60, which limited tools to similar colours unasked. */
+const FULL_RANGE = 100;
+
+export function maskColourRange(settings: PP3, index: number): number {
+	const value = Number(settings.Locallab?.[`Sensi_${index}`]);
+	return Number.isFinite(value) ? value : FULL_RANGE;
+}
+
+export function setMaskColourRange(settings: PP3, index: number, range: number) {
+	for (const key of [...baseScopes, ...maskTools.map((tool) => tool.scope)]) settings.Locallab[`${key}_${index}`] = range;
+}
+
+export function maskInverted(settings: PP3, index: number): boolean {
+	return settings.Locallab?.[`Invers_${index}`] === true;
+}
+
+/** Inverting turns off the tools that can't be inverted, so none keeps working inside the shape unseen. */
+export function setMaskInverted(settings: PP3, index: number, inverted: boolean) {
+	for (const key of [...baseInverts, ...maskTools.flatMap((tool) => (tool.invert ? [tool.invert] : []))]) settings.Locallab[`${key}_${index}`] = inverted;
+	if (inverted) for (const tool of maskTools) if (!tool.invert) settings.Locallab[`${tool.enable}_${index}`] = false;
+}
+
 /** Every tool's neutral values, so a fresh mask says which tools it is not using. */
 export function maskToolDefaults(): Record<string, string | number | boolean> {
 	const defaults: Record<string, string | number | boolean> = {};
 	for (const tool of maskTools) {
 		defaults[tool.enable] = false;
+		defaults[tool.scope] = FULL_RANGE;
+		if (tool.invert) defaults[tool.invert] = false;
 		Object.assign(defaults, tool.settings ?? {});
 		for (const control of tool.controls) if (!(control.key in defaults)) defaults[control.key] = control.reset;
 	}
@@ -155,6 +199,9 @@ export function setMaskKind(settings: PP3, index: number, kind: MaskKind) {
 		for (const control of gradientControls) locallab[`${control.key}_${index}`] = control.reset;
 		// A gradient's exposure is the graded one; the region exposure would brighten the whole photo, unseen
 		locallab[`Expcomp_${index}`] = 0;
+		// Nor do invert and colour range, which a gradient doesn't offer, stay behind
+		setMaskInverted(settings, index, false);
+		setMaskColourRange(settings, index, FULL_RANGE);
 		return;
 	}
 	locallab[`Shape_${index}`] = kind;
@@ -209,6 +256,8 @@ export function addLocalMask(settings: PP3, shape: 'ELI' | 'RECT'): number {
 		Complexexpose: 0,
 		Expcomp: 0,
 		Sensiex: 100,
+		Invers: false,
+		Inversex: false,
 		...maskToolDefaults(),
 		// The gradient stays at zero strength until the mask becomes a gradient
 		...Object.fromEntries(gradientControls.map((control) => [control.key, control.key === 'Strcol' ? 0 : control.reset]))

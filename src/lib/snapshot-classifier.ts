@@ -40,7 +40,7 @@ const chapterIdentity: Record<string, (chapter: PP3[string] | undefined) => stri
 	Spot_removal: (chapter) => `${enabled(chapter)}`,
 	Locallab: (chapter) =>
 		`${enabled(chapter)}|${Object.keys(chapter ?? {})
-			.filter((key) => /^Shape_\d+$/.test(key))
+			.filter((key) => /^(Shape|Invers)_\d+$/.test(key))
 			.sort()
 			.map((key) => `${key}=${chapter![key]}`)
 			.join(',')}`
@@ -51,7 +51,7 @@ const structuralChapters = [...geometryChapters, ...Object.keys(chapterIdentity)
 function isIdentityField(chapter: string, key: string): boolean {
 	if (geometryChapters.includes(chapter)) return true;
 	if (!(chapter in chapterIdentity)) return false;
-	return key === 'Enabled' || key === 'ClutFilename' || (chapter === 'Black_&_White' && key === 'Method') || /^Shape_\d+$/.test(key);
+	return key === 'Enabled' || key === 'ClutFilename' || (chapter === 'Black_&_White' && key === 'Method') || /^(Shape|Invers)_\d+$/.test(key);
 }
 
 /**

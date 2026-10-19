@@ -5,7 +5,9 @@
 	import { edits } from '$lib/state/editing.svelte';
 	import { excludePP3, toBase64 } from '$lib/pp3-utils';
 	import { DoubleTapDetector } from '$lib/double-tap';
-	import { isGradientMask, maskIndices, maskSize, setMaskSize } from '$lib/local-masks';
+	import { isGradientMask, maskColourRange, maskIndices, maskInverted, maskSize, setMaskSize } from '$lib/local-masks';
+	import { maskWeights, referenceColour, toLabImage, type LabImage } from '$lib/mask-colour-range';
+	import { maskRangePreview } from '$lib/state/mask-range.svelte';
 	import LocalMasks from '$lib/ui/LocalMasks.svelte';
 	import EditorToolPanel from '$lib/ui/EditorToolPanel.svelte';
 	import EditorZoomControls from '$lib/ui/EditorZoomControls.svelte';
@@ -36,6 +38,65 @@
 		return toBase64(pp3);
 	});
 	const src = $derived(`/api/images/${data.image.id}/edit?stage=quick&config=${config}`);
+
+	/**
+	 * The colour range on the photo. RawTherapee compares colours before any mask applies, so the photo
+	 * without masks is loaded once, converted to Lab at a small size, and each slider move only recomputes
+	 * the weights. Bright areas get the mask's effect; dimmed ones don't.
+	 */
+	const ANALYSIS_WIDTH = 480;
+	const unmaskedSrc = $derived.by(() => {
+		const pp3 = excludePP3(edits.throttledPP3, ['Crop', 'Rotation']);
+		if (pp3.Locallab) pp3.Locallab = { ...pp3.Locallab, Enabled: false };
+		return `/api/images/${data.image.id}/edit?stage=quick&config=${toBase64(pp3)}`;
+	});
+	let unmasked = $state.raw<{ src: string; image: LabImage }>();
+	let rangeCanvas = $state<HTMLCanvasElement>();
+	const rangeVisible = $derived(maskRangePreview.visible && selected !== undefined && !isGradientMask(edits.pp3, selected));
+	$effect(() => {
+		if (!rangeVisible || unmasked?.src === unmaskedSrc) return;
+		const source = unmaskedSrc;
+		const image = new Image();
+		image.onload = () => {
+			const height = Math.max(1, Math.round((ANALYSIS_WIDTH * image.naturalHeight) / image.naturalWidth));
+			const canvas = document.createElement('canvas');
+			canvas.width = ANALYSIS_WIDTH;
+			canvas.height = height;
+			const context = canvas.getContext('2d', { willReadFrequently: true })!;
+			context.drawImage(image, 0, 0, ANALYSIS_WIDTH, height);
+			unmasked = { src: source, image: toLabImage(context.getImageData(0, 0, ANALYSIS_WIDTH, height).data, ANALYSIS_WIDTH, height) };
+		};
+		image.src = source;
+	});
+	$effect(() => {
+		const canvas = rangeCanvas;
+		const lab = unmasked?.image;
+		if (!canvas || !lab || !rangeVisible || selected === undefined) return;
+		const locallab = edits.pp3.Locallab;
+		const reach = String(locallab[`Loc_${selected}`]).split(';').filter(Boolean).map(Number);
+		const area = {
+			shape: locallab[`Shape_${selected}`] === 'RECT' ? ('RECT' as const) : ('ELI' as const),
+			centerX: 0.5 + Number(locallab[`CenterX_${selected}`]) / 2000,
+			centerY: 0.5 + Number(locallab[`CenterY_${selected}`]) / 2000,
+			halfWidth: (reach[0] + reach[1]) / 4000,
+			halfHeight: (reach[2] + reach[3]) / 4000,
+			inverted: maskInverted(edits.pp3, selected)
+		};
+		const weights = maskWeights(lab, area, referenceColour(lab, area.centerX, area.centerY), maskColourRange(edits.pp3, selected));
+		canvas.width = lab.width;
+		canvas.height = lab.height;
+		const context = canvas.getContext('2d')!;
+		const overlay = context.createImageData(lab.width, lab.height);
+		for (let i = 0; i < weights.length; i++) {
+			// Untouched areas are dimmed; reached areas keep the photo with a light accent
+			const weight = weights[i];
+			overlay.data[i * 4] = 251 * weight;
+			overlay.data[i * 4 + 1] = 146 * weight;
+			overlay.data[i * 4 + 2] = 60 * weight;
+			overlay.data[i * 4 + 3] = 255 * (0.72 - 0.52 * weight);
+		}
+		context.putImageData(overlay, 0, 0);
+	});
 	let settledSrc = $state('');
 	let geometryImageId = $state<number>();
 	const geometryReady = $derived(geometryImageId === data.image.id);
@@ -215,6 +276,9 @@
 							settledSrc = event.currentTarget.getAttribute('src') ?? '';
 						}}
 					/>
+					{#if rangeVisible && unmasked}
+						<canvas bind:this={rangeCanvas} aria-hidden="true" class="pointer-events-none absolute inset-0 h-full w-full"></canvas>
+					{/if}
 					{#if geometryReady && showOverlay && !compare}
 						{#each indices as index (index)}
 							{@const w = maskSize(edits.pp3, index, 'width')}

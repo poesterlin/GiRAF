@@ -10,11 +10,17 @@
 		isGradientMask,
 		maskKind,
 		setMaskKind,
+		maskColourRange,
+		setMaskColourRange,
+		maskInverted,
+		setMaskInverted,
 		type MaskKind,
 		type MaskTool,
 		type MaskToolControl
 	} from '$lib/local-masks';
 	import AdjustmentGroup from './AdjustmentGroup.svelte';
+	import Checkbox from './Checkbox.svelte';
+	import { showMaskRange } from '$lib/state/mask-range.svelte';
 	import Slider from './Slider.svelte';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
@@ -132,6 +138,31 @@
 					{#each gradientControls.filter((control) => control.shape) as control (control.key)}{@render gradientSlider(control)}{/each}
 				{:else}
 					<Slider editable label="Feather" bind:value={edits.pp3.Locallab[`Feather_${selected}`] as number} min={0} max={100} step={1} resetValue={25} onchange={changed} />
+					<Slider
+						editable
+						label="Colour range"
+						bind:value={
+							() => maskColourRange(edits.pp3, selected),
+							(value) => {
+								setMaskColourRange(edits.pp3, selected, value);
+								showMaskRange();
+							}
+						}
+						min={0}
+						max={100}
+						step={1}
+						resetValue={100}
+						onchange={changed}
+					/>
+					<Checkbox
+						label="Invert"
+						checked={maskInverted(edits.pp3, selected)}
+						onchange={(inverted) => {
+							setMaskInverted(edits.pp3, selected, inverted);
+							edits.pp3.Locallab.Enabled = true;
+							edits.pushHistory(true);
+						}}
+					/>
 				{/if}
 			</div>
 			{#if gradient}
@@ -164,7 +195,8 @@
 					onchange={changed}
 				/>
 			{/each}
-			{#each maskTools as tool (tool.enable)}
+			<!-- Warm & colour and Clarity can't be inverted in RawTherapee, so an inverted mask doesn't offer them -->
+			{#each maskTools.filter((tool) => tool.invert || !maskInverted(edits.pp3, selected)) as tool (tool.enable)}
 				<AdjustmentGroup title={tool.label} group={tool.enable} checked={toolEnabled(tool)} onchange={(enabled) => setTool(tool, enabled)}>
 					{#each tool.controls as control (control.key)}
 						<Slider

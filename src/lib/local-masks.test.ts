@@ -1,5 +1,20 @@
 import { test, expect } from 'bun:test';
-import { addLocalMask, deleteLocalMask, isGradientMask, maskIndices, maskKind, maskSize, maskTools, setMaskKind, setMaskSize, setMaskToolEnabled } from './local-masks';
+import {
+	addLocalMask,
+	deleteLocalMask,
+	isGradientMask,
+	maskColourRange,
+	maskIndices,
+	maskInverted,
+	maskKind,
+	maskSize,
+	maskTools,
+	setMaskColourRange,
+	setMaskInverted,
+	setMaskKind,
+	setMaskSize,
+	setMaskToolEnabled
+} from './local-masks';
 import { parsePP3, stringifyPP3, type PP3 } from './pp3-utils';
 import { scaleEditSettings } from './edit-strength';
 
@@ -121,4 +136,27 @@ test('gradient strength follows the edit strength', () => {
 	expect(scaleEditSettings(settings, 50).Locallab[`Strcol_${index}`]).toBe(1);
 	expect(scaleEditSettings(settings, 50).Locallab[`Strcolab_${index}`]).toBe(-1);
 	expect(scaleEditSettings(settings, 50).Locallab[`Angcol_${index}`]).toBe(0);
+});
+
+test('colour range and invert set every tool of the mask together', () => {
+	const settings: PP3 = {};
+	addLocalMask(settings, 'ELI');
+	const index = addLocalMask(settings, 'ELI');
+	expect(maskColourRange(settings, index)).toBe(100);
+	for (const tool of maskTools) expect(settings.Locallab[`${tool.scope}_${index}`]).toBe(100);
+
+	setMaskColourRange(settings, index, 25);
+	for (const key of ['Sensi', 'Sensiex', ...maskTools.map((tool) => tool.scope)]) expect(settings.Locallab[`${key}_${index}`]).toBe(25);
+	expect(settings.Locallab.Sensi_0).toBe(100);
+
+	for (const tool of maskTools) setMaskToolEnabled(settings, index, tool, true);
+	setMaskInverted(settings, index, true);
+	expect(maskInverted(settings, index)).toBe(true);
+	for (const key of ['Invers', 'Inversex', ...maskTools.flatMap((tool) => (tool.invert ? [tool.invert] : []))]) expect(settings.Locallab[`${key}_${index}`]).toBe(true);
+	// Tools without an invert setting are switched off, the others stay on
+	for (const tool of maskTools) expect(settings.Locallab[`${tool.enable}_${index}`]).toBe(!!tool.invert);
+
+	setMaskKind(settings, index, 'GRADIENT');
+	expect(maskInverted(settings, index)).toBe(false);
+	expect(maskColourRange(settings, index)).toBe(100);
 });
