@@ -251,64 +251,65 @@
 				edits.pushHistory();
 			}}
 		/>
-		<!-- RawTherapee's clarity tool is Local Contrast: the amount is the clarity itself -->
-		<Slider
-			label="Clarity"
-			bind:value={edits.pp3.Local_Contrast.Amount as number}
-			min={0}
-			max={1}
-			step={0.01}
-			resetValue={0}
-			ignored={(!edits.pp3.Local_Contrast.Enabled as boolean) && Number(edits.pp3.Local_Contrast.Amount) !== 0}
-			onchange={() => {
-				edits.pp3.Local_Contrast.Enabled = true;
-				edits.pushHistory();
-			}}
-		/>
-		<Slider
-			label="Radius"
-			bind:value={edits.pp3.Local_Contrast.Radius as number}
-			min={20}
-			max={200}
-			step={1}
-			resetValue={80}
-			ignored={toolIgnored('Local_Contrast', ['Amount'])}
-			onchange={() => {
-				edits.pp3.Local_Contrast.Enabled = true;
-				edits.pushHistory();
-			}}
-		/>
-		<details>
-			<summary class="min-h-11 cursor-pointer py-3 text-xs font-semibold tracking-wider text-neutral-300 uppercase">Advanced</summary>
-			<div class="space-y-3">
-				<Slider
-					label="Darkness"
-					bind:value={edits.pp3.Local_Contrast.Darkness as number}
-					min={0}
-					max={3}
-					step={0.01}
-					resetValue={1}
-					ignored={toolIgnored('Local_Contrast', ['Amount'])}
-					onchange={() => {
-						edits.pp3.Local_Contrast.Enabled = true;
-						edits.pushHistory();
-					}}
-				/>
-				<Slider
-					label="Lightness"
-					bind:value={edits.pp3.Local_Contrast.Lightness as number}
-					min={0}
-					max={3}
-					step={0.01}
-					resetValue={1}
-					ignored={toolIgnored('Local_Contrast', ['Amount'])}
-					onchange={() => {
-						edits.pp3.Local_Contrast.Enabled = true;
-						edits.pushHistory();
-					}}
-				/>
-			</div>
-		</details>
+		<AdjustmentSubsection title="Local Contrast" section="Local_Contrast">
+			<Slider
+				label="Amount"
+				bind:value={edits.pp3.Local_Contrast.Amount as number}
+				min={0}
+				max={1}
+				step={0.01}
+				resetValue={0}
+				ignored={(!edits.pp3.Local_Contrast.Enabled as boolean) && Number(edits.pp3.Local_Contrast.Amount) !== 0}
+				onchange={() => {
+					edits.pp3.Local_Contrast.Enabled = true;
+					edits.pushHistory();
+				}}
+			/>
+			<details>
+				<summary class="min-h-11 cursor-pointer py-3 text-xs font-semibold tracking-wider text-neutral-300 uppercase">Advanced</summary>
+				<div class="space-y-3">
+					<Slider
+						label="Radius"
+						bind:value={edits.pp3.Local_Contrast.Radius as number}
+						min={20}
+						max={200}
+						step={1}
+						resetValue={80}
+						ignored={toolIgnored('Local_Contrast', ['Amount'])}
+						onchange={() => {
+							edits.pp3.Local_Contrast.Enabled = true;
+							edits.pushHistory();
+						}}
+					/>
+					<Slider
+						label="Darkness"
+						bind:value={edits.pp3.Local_Contrast.Darkness as number}
+						min={0}
+						max={3}
+						step={0.01}
+						resetValue={1}
+						ignored={toolIgnored('Local_Contrast', ['Amount'])}
+						onchange={() => {
+							edits.pp3.Local_Contrast.Enabled = true;
+							edits.pushHistory();
+						}}
+					/>
+					<Slider
+						label="Lightness"
+						bind:value={edits.pp3.Local_Contrast.Lightness as number}
+						min={0}
+						max={3}
+						step={0.01}
+						resetValue={1}
+						ignored={toolIgnored('Local_Contrast', ['Amount'])}
+						onchange={() => {
+							edits.pp3.Local_Contrast.Enabled = true;
+							edits.pushHistory();
+						}}
+					/>
+				</div>
+			</details>
+		</AdjustmentSubsection>
 	</AdjustmentGroup>
 	<AdjustmentGroup title="Noise Reduction" group="noiseReduction">
 		{@const denoise = edits.pp3.Directional_Pyramid_Denoising}
