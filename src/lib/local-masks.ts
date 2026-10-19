@@ -122,6 +122,38 @@ export const gradientControls: MaskToolControl[] = [
 	{ key: 'Feathercol', label: 'Softness', min: 10, max: 100, reset: 25 }
 ];
 
+/** The size a mask gets when it is added, and again when it stops being a gradient. */
+const DEFAULT_LOC = '500;500;500;500;';
+
+export type MaskKind = 'ELI' | 'RECT' | 'GRADIENT';
+
+export function maskKind(settings: PP3, index: number): MaskKind {
+	if (isGradientMask(settings, index)) return 'GRADIENT';
+	return settings.Locallab?.[`Shape_${index}`] === 'RECT' ? 'RECT' : 'ELI';
+}
+
+/**
+ * Turns a mask into an ellipse, a rectangle or a gradient. A gradient reaches past every edge and
+ * starts at a visible strength; a mask that stops being one gets the default size back and its
+ * gradient switched off, so no hidden gradient stays behind in a region. The centre is kept.
+ */
+export function setMaskKind(settings: PP3, index: number, kind: MaskKind) {
+	const locallab = settings.Locallab;
+	const wasGradient = isGradientMask(settings, index);
+	if (kind === 'GRADIENT') {
+		if (wasGradient) return;
+		locallab[`Shape_${index}`] = 'RECT';
+		locallab[`Loc_${index}`] = `${GRADIENT_REACH};${GRADIENT_REACH};${GRADIENT_REACH};${GRADIENT_REACH};`;
+		for (const control of gradientControls) locallab[`${control.key}_${index}`] = control.reset;
+		return;
+	}
+	locallab[`Shape_${index}`] = kind;
+	if (wasGradient) {
+		locallab[`Loc_${index}`] = DEFAULT_LOC;
+		locallab[`Strcol_${index}`] = 0;
+	}
+}
+
 export function isGradientMask(settings: PP3, index: number): boolean {
 	const reach = String(settings.Locallab?.[`Loc_${index}`] ?? '')
 		.split(';')
@@ -136,21 +168,20 @@ export function maskIndices(settings: PP3): number[] {
 		.sort((a, b) => a - b);
 }
 
-export function addLocalMask(settings: PP3, shape: 'ELI' | 'RECT' | 'GRADIENT'): number {
+export function addLocalMask(settings: PP3, shape: 'ELI' | 'RECT'): number {
 	settings.Locallab ??= { Enabled: false, Selspot: 0 };
 	const indices = maskIndices(settings);
 	const index = indices.length ? Math.max(...indices) + 1 : 0;
-	const gradient = shape === 'GRADIENT';
 	const defaults = {
-		Name: gradient ? `Gradient ${index + 1}` : `Mask ${index + 1}`,
+		Name: `Mask ${index + 1}`,
 		Isvisible: true,
 		Activ: true,
-		Shape: gradient ? 'RECT' : shape,
+		Shape: shape,
 		SpotMethod: 'norm',
 		ShapeMethod: 'IND',
 		QualityMethod: 'enh',
 		ComplexMethod: 'mod',
-		Loc: '500;500;500;500;',
+		Loc: DEFAULT_LOC,
 		CenterX: 0,
 		CenterY: 0,
 		Transit: 60,
@@ -168,9 +199,8 @@ export function addLocalMask(settings: PP3, shape: 'ELI' | 'RECT' | 'GRADIENT'):
 		Expcomp: 0,
 		Sensiex: 100,
 		...maskToolDefaults(),
-		// Only a gradient mask uses the gradient; the others keep it at zero strength
-		...Object.fromEntries(gradientControls.map((control) => [control.key, control.key === 'Strcol' && !gradient ? 0 : control.reset])),
-		...(gradient ? { Loc: `${GRADIENT_REACH};${GRADIENT_REACH};${GRADIENT_REACH};${GRADIENT_REACH};` } : {})
+		// The gradient stays at zero strength until the mask becomes a gradient
+		...Object.fromEntries(gradientControls.map((control) => [control.key, control.key === 'Strcol' ? 0 : control.reset]))
 	};
 	for (const [key, value] of Object.entries(defaults)) settings.Locallab[`${key}_${index}`] = value;
 	settings.Locallab.Enabled = true;

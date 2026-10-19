@@ -5,8 +5,8 @@ import { readFile } from 'node:fs/promises';
 import { isGradientMask } from '../src/lib/local-masks';
 import { closeProbe, collectPageErrors, createProbeProject, createProbeServer, launchProbeBrowser, listenOnPort, repoRoot, type ProbeBrowser } from './lib/browser-probe';
 
-// Drives the real mask page: adding a gradient mask, its own controls in the panel, and the
-// horizon line on the photo, which drags the gradient's centre.
+// Drives the real mask page: turning a mask into a gradient with the type selector, the
+// gradient's own controls in the panel, and the horizon line on the photo, which drags its centre.
 
 const temporary = await createProbeProject({ prefix: 'giraf-gradient-mask-', tailwind: true });
 await writeFile(
@@ -68,13 +68,15 @@ try {
 	const locallab = () => page.evaluate(() => (window as unknown as ProbeWindow).probe.locallab());
 
 	await page.goto(`http://127.0.0.1:${port}`, { waitUntil: 'domcontentloaded' });
-	await page.getByRole('button', { name: 'Add gradient' }).click();
+	await page.getByRole('button', { name: 'Add mask' }).click();
+	assert.equal((await locallab()).Selspot, 1, 'the new mask is selected');
+	assert.deepEqual(await page.getByLabel('Mask type').locator('option').allTextContents(), ['Ellipse', 'Rectangle', 'Gradient']);
+	await page.getByLabel('Mask type').selectOption('GRADIENT');
 
 	const added = await locallab();
-	assert.equal(added.Selspot, 1, 'the new gradient is selected');
-	assert.equal(added.Name_1, 'Gradient 2');
 	assert.ok(isGradientMask({ Locallab: added as Record<string, string | number | boolean> }, 1));
 	assert.equal(added.Strcol_1, 1, 'a fresh gradient darkens visibly');
+	assert.equal(isGradientMask({ Locallab: added as Record<string, string | number | boolean> }, 0), false, 'the other mask stays an ellipse');
 
 	// The panel offers the gradient's own controls, and none of the region sliders
 	for (const label of ['Strength', 'Angle', 'Softness']) await page.getByLabel(`${label} value`).waitFor();
@@ -88,7 +90,7 @@ try {
 	assert.equal((await locallab()).Angcol_1, 30);
 
 	// Dragging the horizon handle moves the gradient's centre
-	const handle = page.getByRole('button', { name: 'Move Gradient 2' });
+	const handle = page.getByRole('button', { name: 'Move Mask 2' });
 	const box = (await handle.boundingBox())!;
 	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 	await page.mouse.down();
@@ -98,17 +100,19 @@ try {
 	assert.ok(Number(moved.CenterY_1) < 0, `the horizon moved up (CenterY ${moved.CenterY_1})`);
 	assert.equal(moved.CenterY_0, 0, 'the other mask stays put');
 
-	// Switching back to the ellipse brings its region controls back
-	await page.getByLabel('Selected mask').selectOption('0');
-	await page.getByLabel('Feather value').waitFor();
+	if (process.env.GRADIENT_PROBE_SHOT) await page.screenshot({ path: process.env.GRADIENT_PROBE_SHOT });
 
-	if (process.env.GRADIENT_PROBE_SHOT) {
-		await page.getByLabel('Selected mask').selectOption('1');
-		await page.getByLabel('Strength value').waitFor();
-		await page.screenshot({ path: process.env.GRADIENT_PROBE_SHOT });
-	}
+	// Turning it back into an ellipse brings the region controls back and leaves no gradient behind
+	await page.getByLabel('Mask type').selectOption('ELI');
+	await page.getByLabel('Feather value').waitFor();
+	const ellipse = await locallab();
+	assert.equal(ellipse.Shape_1, 'ELI');
+	assert.equal(ellipse.Strcol_1, 0, 'the gradient is off on a region');
+	assert.equal(isGradientMask({ Locallab: ellipse as Record<string, string | number | boolean> }, 1), false);
+	// Dehaze has a Strength slider too, so check the controls only a gradient has
+	for (const label of ['Angle', 'Softness']) assert.equal(await page.getByLabel(`${label} value`).count(), 0, `${label} belongs to gradients only`);
 	assert.deepEqual(errors, []);
-	console.log('PASS: a gradient mask is added, offers strength, angle and softness, and its horizon drags the centre');
+	console.log('PASS: the type selector turns a mask into a gradient and back, the gradient offers strength, angle and softness, and its horizon drags the centre');
 } finally {
 	await closeProbe({ browser, server, temporary });
 }

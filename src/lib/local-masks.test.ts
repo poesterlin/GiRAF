@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { addLocalMask, deleteLocalMask, isGradientMask, maskIndices, maskSize, maskTools, setMaskSize, setMaskToolEnabled } from './local-masks';
+import { addLocalMask, deleteLocalMask, isGradientMask, maskIndices, maskKind, maskSize, maskTools, setMaskKind, setMaskSize, setMaskToolEnabled } from './local-masks';
 import { parsePP3, stringifyPP3, type PP3 } from './pp3-utils';
 import { scaleEditSettings } from './edit-strength';
 
@@ -74,25 +74,44 @@ test('edit strength scales per-mask amounts but not its radii', () => {
 	expect(half.Locallab[`ShMethod_${index}`]).toBe('std');
 });
 
-test('a gradient mask covers the whole frame and starts with a visible darkening', () => {
+test('a mask becomes a gradient covering the whole frame and back again', () => {
 	const settings: PP3 = {};
 	addLocalMask(settings, 'ELI');
-	const index = addLocalMask(settings, 'GRADIENT');
+	const index = addLocalMask(settings, 'ELI');
+	settings.Locallab[`CenterY_${index}`] = -300;
+	expect(maskKind(settings, index)).toBe('ELI');
+	expect(settings.Locallab[`Strcol_${index}`]).toBe(0);
+
+	setMaskKind(settings, index, 'GRADIENT');
 	const parsed = parsePP3(stringifyPP3(settings));
-	expect(isGradientMask(parsed, index)).toBe(true);
+	expect(maskKind(parsed, index)).toBe('GRADIENT');
 	expect(isGradientMask(parsed, 0)).toBe(false);
-	expect(parsed.Locallab[`Shape_${index}`]).toBe('RECT');
-	expect(parsed.Locallab[`Name_${index}`]).toBe('Gradient 2');
 	expect(parsed.Locallab[`Strcol_${index}`]).toBe(1);
-	expect(parsed.Locallab.Strcol_0).toBe(0);
+	expect(parsed.Locallab[`CenterY_${index}`]).toBe(-300);
 	// Deleting the mask before it keeps it a gradient
 	deleteLocalMask(parsed, 0);
 	expect(isGradientMask(parsed, 0)).toBe(true);
+
+	setMaskKind(parsed, 0, 'RECT');
+	expect(maskKind(parsed, 0)).toBe('RECT');
+	expect(maskSize(parsed, 0, 'width')).toBe(50);
+	expect(parsed.Locallab.Strcol_0).toBe(0);
+	expect(parsed.Locallab.CenterY_0).toBe(-300);
+});
+
+test('choosing gradient again keeps its settings', () => {
+	const settings: PP3 = {};
+	const index = addLocalMask(settings, 'RECT');
+	setMaskKind(settings, index, 'GRADIENT');
+	settings.Locallab[`Angcol_${index}`] = 45;
+	setMaskKind(settings, index, 'GRADIENT');
+	expect(settings.Locallab[`Angcol_${index}`]).toBe(45);
 });
 
 test('gradient strength follows the edit strength', () => {
 	const settings: PP3 = {};
-	const index = addLocalMask(settings, 'GRADIENT');
+	const index = addLocalMask(settings, 'ELI');
+	setMaskKind(settings, index, 'GRADIENT');
 	settings.Locallab[`Strcol_${index}`] = 2;
 	expect(scaleEditSettings(settings, 50).Locallab[`Strcol_${index}`]).toBe(1);
 	expect(scaleEditSettings(settings, 50).Locallab[`Angcol_${index}`]).toBe(0);
