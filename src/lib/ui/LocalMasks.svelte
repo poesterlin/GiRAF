@@ -163,6 +163,9 @@
 							edits.pushHistory(true);
 						}}
 					/>
+					{#if maskInverted(edits.pp3, selected)}
+						<p class="px-1 text-xs leading-relaxed text-neutral-500">Warm &amp; colour and Clarity can’t be inverted, so they’re hidden.</p>
+					{/if}
 				{/if}
 			</div>
 			{#if gradient}

@@ -244,9 +244,9 @@
 						{:else}
 							{#each app.notifications as notification (notification.id)}
 								{@const typeColor = {
-									success: 'bg-neutral-500',
-									error: 'bg-neutral-500',
-									info: 'bg-neutral-500'
+									success: 'bg-emerald-400',
+									error: 'bg-red-400',
+									info: 'bg-neutral-400'
 								}[notification.type]}
 								<div class="border-b border-neutral-800/70 px-3 py-2 last:border-b-0">
 									<div class="flex items-start gap-2">
