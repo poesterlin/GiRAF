@@ -36,7 +36,16 @@
 	let lastX = 0;
 	let lastY = 0;
 	let apiPath = $derived(`/api/images/${data.image.id}`);
-	let imageUrl = $derived(apiPath + `/edit?preview&config=${toBase64(excludePP3(edits.throttledPP3, ['Crop', 'Rotation']))}`);
+	/**
+	 * RawTherapee applies rotation and perspective together, which the canvas can't reproduce exactly. Without
+	 * perspective the canvas rotates the preview itself, so straightening follows the slider instantly; with it,
+	 * the server renders the preview already rotated and the canvas draws it as it is. Crop coordinates live in
+	 * the transformed frame either way.
+	 */
+	const perspectiveActive = $derived(hasPerspective(edits.throttledPP3));
+	let imageUrl = $derived(apiPath + `/edit?preview&config=${toBase64(excludePP3(edits.throttledPP3, perspectiveActive ? ['Crop'] : ['Crop', 'Rotation']))}`);
+	/** Whether the image on the canvas came from the server already rotated. */
+	let serverRotated = false;
 
 	$effect(() => {
 		const latestSnapshot = data.snapshots[0];
@@ -103,8 +112,17 @@
 		return context;
 	});
 
+	/** The rotation the canvas draws: none when the server already rotated the preview. */
 	function getRotationDeg() {
-		return safeNumber(edits.pp3?.Rotation?.Degree);
+		return serverRotated ? 0 : safeNumber(edits.pp3?.Rotation?.Degree);
+	}
+
+	function hasPerspective(pp3: PP3 | undefined) {
+		return !!safeNumber(pp3?.Perspective?.Vertical) || !!safeNumber(pp3?.Perspective?.Horizontal);
+	}
+
+	function setPerspective(axis: 'Vertical' | 'Horizontal', value: number) {
+		edits.pp3.Perspective = { Method: 'simple', Horizontal: 0, Vertical: 0, ...edits.pp3.Perspective, [axis]: value };
 	}
 	$effect(() => {
 		JSON.stringify(edits.pp3?.Crop);
@@ -316,7 +334,16 @@
 	}
 </script>
 
-<img src={imageUrl} alt="" class="hidden" bind:this={imgEl} onload={draw} />
+<img
+	src={imageUrl}
+	alt=""
+	class="hidden"
+	bind:this={imgEl}
+	onload={() => {
+		serverRotated = perspectiveActive;
+		draw();
+	}}
+/>
 
 <div class="flex h-full flex-col overflow-hidden bg-neutral-950 text-neutral-200 lg:flex-row">
 	<!-- Image Preview Section -->
@@ -367,7 +394,7 @@
 				{#if edits.pp3?.Rotation}
 					<div class="space-y-3 lg:space-y-8">
 						<Slider
-							label="Rotate"
+							label="Straighten"
 							min={-45}
 							max={45}
 							step={0.1}
@@ -380,6 +407,22 @@
 								requestAnimationFrame(() => draw());
 							}}
 						/>
+
+						<div class="space-y-3">
+							<div class="text-[10px] font-bold tracking-[0.2em] text-neutral-500 uppercase">Perspective</div>
+							{#each [{ axis: 'Vertical', label: 'Vertical' }, { axis: 'Horizontal', label: 'Horizontal' }] as const as control (control.axis)}
+								<Slider
+									label={control.label}
+									min={-100}
+									max={100}
+									step={0.5}
+									centered
+									resetValue={0}
+									bind:value={() => safeNumber(edits.pp3.Perspective?.[control.axis]), (value) => setPerspective(control.axis, value)}
+									onchange={() => edits.pushHistory()}
+								/>
+							{/each}
+						</div>
 
 						{#if imageInfo}
 							<div class="hidden rounded-xl border border-neutral-800 bg-neutral-900/30 p-4 lg:block">

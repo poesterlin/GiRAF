@@ -1,7 +1,7 @@
 import type { PP3 } from './pp3-utils';
 import type { EditorTool } from './editor-tools';
 const chapters: Record<Exclude<EditorTool, 'adjustments'>, string[]> = {
-	crop: ['Crop', 'Rotation'],
+	crop: ['Crop', 'Rotation', 'Perspective'],
 	retouch: ['Spot_removal'],
 	masks: ['Locallab']
 };
