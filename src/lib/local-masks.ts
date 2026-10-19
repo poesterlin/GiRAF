@@ -44,8 +44,9 @@ export const maskTools: MaskTool[] = [
 		label: 'Warm & colour',
 		controls: [
 			{ key: 'Warm', label: 'Warm / cool', min: -100, max: 100, reset: 0, centered: true },
-			{ key: 'Pastels', label: 'Vibrance', min: -100, max: 100, reset: 0, centered: true },
-			{ key: 'Saturated', label: 'Saturation', min: -100, max: 100, reset: 0, centered: true }
+			// Named like the editor's Muted Saturation, and kept apart from the mask's own Saturation
+			{ key: 'Pastels', label: 'Muted saturation', min: -100, max: 100, reset: 0, centered: true },
+			{ key: 'Saturated', label: 'Vivid saturation', min: -100, max: 100, reset: 0, centered: true }
 		]
 	},
 	{

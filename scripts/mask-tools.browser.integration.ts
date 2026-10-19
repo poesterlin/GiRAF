@@ -102,6 +102,10 @@ try {
 	assert.equal(changed.localcontMethod_0, 'loc');
 	assert.equal(changed.Expsharp_0, false, 'another tool must stay off');
 
+	// The warm & colour tool's sliders must not share a name with the mask's own Saturation
+	const labels = await page.locator('input[type="range"]').evaluateAll((inputs) => inputs.map((input) => input.getAttribute('aria-label')));
+	assert.equal(labels.filter((label) => label === 'Saturation').length, 1);
+
 	assert.deepEqual(errors, []);
 	console.log(`PASS: ${maskTools.length} mask tools render, and the group toggles and sliders write to the spot`);
 } finally {

@@ -89,8 +89,7 @@ try {
 		input.dispatchEvent(new Event('input', { bubbles: true }));
 	});
 	assert.equal((await locallab()).Strcol_1, 2);
-	// Saturation also appears in the Warm & colour tool, as on every mask
-	for (const label of ['Brightness', 'Contrast', 'Saturation']) await page.getByLabel(`${label} value`).first().waitFor();
+	for (const label of ['Brightness', 'Contrast', 'Saturation']) await page.getByLabel(`${label} value`, { exact: true }).waitFor();
 	// A gradient's Feather is the width of its transition, not the edge of a region
 	await page.locator('input[type="range"][aria-label="Feather"]').evaluate((input: HTMLInputElement) => {
 		input.value = '50';
