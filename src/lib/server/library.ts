@@ -57,7 +57,7 @@ export async function taggedPhotos(tag: string): Promise<LibraryPhoto[]> {
 		.orderBy(desc(sessionTable.startedAt), asc(imageTable.recordedAt), asc(imageTable.id));
 }
 
-export type ArchivedSession = { id: number; name: string; startedAt: string; imageCount: number; cover: LibraryPhoto[] };
+export type ArchivedSession = { id: number; name: string; startedAt: string; imageCount: number; totalImageCount: number; cover: LibraryPhoto[] };
 
 export async function archivedSessionCount(): Promise<number> {
 	const [{ total }] = await db.select({ total: count() }).from(sessionTable).where(eq(sessionTable.isArchived, true));
@@ -72,7 +72,13 @@ async function coverExists(photo: { previewPath: string | null; filepath: string
 /** Archived sessions with a few photos each, so they can be recognised before restoring. */
 export async function archivedSessions(): Promise<ArchivedSession[]> {
 	const sessions = await db
-		.select({ id: sessionTable.id, name: sessionTable.name, startedAt: sessionTable.startedAt, imageCount: count(imageTable.id) })
+		.select({
+			id: sessionTable.id,
+			name: sessionTable.name,
+			startedAt: sessionTable.startedAt,
+			imageCount: count(sql`case when ${imageTable.isArchived} = false then ${imageTable.id} end`),
+			totalImageCount: count(imageTable.id)
+		})
 		.from(sessionTable)
 		.leftJoin(imageTable, eq(imageTable.sessionId, sessionTable.id))
 		.where(eq(sessionTable.isArchived, true))

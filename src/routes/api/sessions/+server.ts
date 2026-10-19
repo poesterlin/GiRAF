@@ -51,7 +51,7 @@ export const GET: RequestHandler = async ({ url }) => {
 			name: sessionTable.name,
 			startedAt: sessionTable.startedAt,
 			endedAt: sessionTable.endedAt,
-			imageCount: count(imageTable.id).as('imageCount'),
+			imageCount: count(sql`case when ${imageTable.isArchived} = false then ${imageTable.id} end`).as('imageCount'),
 			images: buildJSONColumn(
 				{
 					id: imageTable.id,

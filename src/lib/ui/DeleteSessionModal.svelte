@@ -24,8 +24,8 @@
 	<div class="p-6 text-neutral-100">
 		<h2 class="pr-10 text-lg font-semibold">Delete “{session.name}”?</h2>
 		<p class="mt-2 text-sm text-neutral-300">
-			This permanently removes the session, its {session.imageCount}
-			photo{session.imageCount === 1 ? '' : 's'} and every edit. Cached previews and intermediates are always cleared.
+			This permanently removes the session, its {session.totalImageCount}
+			photo{session.totalImageCount === 1 ? '' : 's'} and every edit. Cached previews and intermediates are always cleared.
 		</p>
 
 		<fieldset class="mt-5 rounded-xl border border-neutral-800 p-3" disabled={busy}>
