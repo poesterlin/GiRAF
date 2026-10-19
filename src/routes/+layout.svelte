@@ -82,7 +82,10 @@
 		const nextIds = new Set(mapped.map((notification) => notification.id));
 		if (emitToasts) {
 			for (const notification of mapped) {
-				if (!knownNotificationIds.has(notification.id) && !(notification.type !== 'error' && /^Import (started|completed) for /.test(notification.message))) {
+				// Quiet job updates stay in the panel. Starting and cancelling an export is already confirmed
+				// by the page it was clicked on, so a second toast from the server only repeats it.
+				const quiet = /^(Import (started|completed)|Export (started|cancelled)) for /.test(notification.message);
+				if (!knownNotificationIds.has(notification.id) && !(notification.type !== 'error' && quiet)) {
 					app.addToast(notification.message, notification.type);
 				}
 			}
