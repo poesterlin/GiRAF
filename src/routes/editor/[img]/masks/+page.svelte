@@ -222,7 +222,10 @@
 							{#if isGradientMask(edits.pp3, index)}
 								{@const centerX = 50 + Number(edits.pp3.Locallab[`CenterX_${index}`]) / 20}
 								{@const centerY = 50 + Number(edits.pp3.Locallab[`CenterY_${index}`]) / 20}
-								<!-- The horizon: the line the gradient fades across -->
+								<!-- Measured on rendered photos: the transition spans the softness as a percentage of the
+								     photo's diagonal, centred on the horizon. The solid line is where the effect is full, the
+								     dotted one where it has faded out. -->
+								{@const reach = ((Number(edits.pp3.Locallab[`Feathercol_${index}`] ?? 25) / 100) * Math.hypot(displayWidth, displayWidth / aspect)) / 2}
 								<div class="pointer-events-none absolute inset-0 overflow-hidden" class:opacity-40={!edits.pp3.Locallab[`Activ_${index}`]}>
 									<div
 										class="absolute"
@@ -232,7 +235,9 @@
 										style:height="400%"
 										style:transform={`translate(-50%, -50%) rotate(${-Number(edits.pp3.Locallab[`Angcol_${index}`] ?? 0)}deg)`}
 									>
+										<div class="absolute inset-x-0 border-t border-white/60" class:gradient-line={selected === index} style:top={`calc(50% - ${reach}px)`}></div>
 										<div class="absolute inset-x-0 top-1/2 border-t-2 border-dashed border-white/60" class:gradient-line={selected === index}></div>
+										<div class="absolute inset-x-0 border-t border-dotted border-white/50" class:gradient-line={selected === index} style:top={`calc(50% + ${reach}px)`}></div>
 									</div>
 								</div>
 								<button
