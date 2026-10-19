@@ -79,10 +79,17 @@ try {
 	assert.equal(isGradientMask({ Locallab: added as Record<string, string | number | boolean> }, 0), false, 'the other mask stays an ellipse');
 
 	// A gradient offers its own controls and every adjustment the other masks have, but no feather
-	for (const label of ['Darken', 'Colour', 'Angle', 'Softness']) await page.getByLabel(`${label} value`).waitFor();
+	for (const label of ['Darken', 'Colour', 'Angle', 'Feather']) await page.getByLabel(`${label} value`).waitFor();
 	// Saturation also appears in the Warm & colour tool, as on every mask
 	for (const label of ['Exposure', 'Brightness', 'Contrast', 'Saturation']) await page.getByLabel(`${label} value`).first().waitFor();
-	assert.equal(await page.getByLabel('Feather value').count(), 0, 'feather shapes a region, not a gradient');
+	// A gradient's Feather is the width of its transition, not the edge of a region
+	await page.locator('input[type="range"][aria-label="Feather"]').evaluate((input: HTMLInputElement) => {
+		input.value = '50';
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+	});
+	const feathered = await locallab();
+	assert.equal(feathered.Feathercol_1, 50);
+	assert.equal(feathered.Feather_1, 25, 'the region feather is untouched');
 	assert.equal(await page.getByRole('button', { name: 'Enable Sharpening' }).count(), 1, 'the per-mask tools are offered too');
 
 	// Colour reads the way it is named: positive is more colourful, which RawTherapee writes as negative
@@ -120,7 +127,7 @@ try {
 	assert.equal(isGradientMask({ Locallab: ellipse as Record<string, string | number | boolean> }, 1), false);
 	// Dehaze has a Strength slider too, so check the controls only a gradient has
 	assert.equal(ellipse.Strcolab_1, 0, 'the colour gradient is off on a region too');
-	for (const label of ['Colour', 'Angle', 'Softness']) assert.equal(await page.getByLabel(`${label} value`).count(), 0, `${label} belongs to gradients only`);
+	for (const label of ['Colour', 'Angle']) assert.equal(await page.getByLabel(`${label} value`).count(), 0, `${label} belongs to gradients only`);
 	assert.deepEqual(errors, []);
 	console.log('PASS: the type selector turns a mask into a gradient and back, the gradient offers its own controls plus every mask adjustment, and its horizon drags the centre');
 } finally {

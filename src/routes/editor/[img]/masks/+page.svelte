@@ -222,7 +222,7 @@
 							{#if isGradientMask(edits.pp3, index)}
 								{@const centerX = 50 + Number(edits.pp3.Locallab[`CenterX_${index}`]) / 20}
 								{@const centerY = 50 + Number(edits.pp3.Locallab[`CenterY_${index}`]) / 20}
-								<!-- Measured on rendered photos: the transition spans the softness as a percentage of the
+								<!-- Measured on rendered photos: the transition spans the feather as a percentage of the
 								     photo's diagonal, centred on the horizon. The solid line is where the effect is full, the
 								     dotted one where it has faded out. -->
 								{@const reach = ((Number(edits.pp3.Locallab[`Feathercol_${index}`] ?? 25) / 100) * Math.hypot(displayWidth, displayWidth / aspect)) / 2}

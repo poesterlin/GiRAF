@@ -123,7 +123,7 @@ export const gradientControls: MaskToolControl[] = [
 	{ key: 'Strcol', label: 'Darken', min: -3, max: 3, step: 0.05, reset: 1, centered: true, precision: 2, unit: ' EV' },
 	{ key: 'Strcolab', label: 'Colour', min: -3, max: 3, step: 0.05, reset: 0, centered: true, precision: 2, invert: true },
 	{ key: 'Angcol', label: 'Angle', min: -180, max: 180, reset: 0, centered: true, unit: '°' },
-	{ key: 'Feathercol', label: 'Softness', min: 10, max: 100, reset: 25 }
+	{ key: 'Feathercol', label: 'Feather', min: 10, max: 100, reset: 25 }
 ];
 
 /** The size a mask gets when it is added, and again when it stops being a gradient. */
