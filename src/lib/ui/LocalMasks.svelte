@@ -129,9 +129,6 @@
 					}}><option value="ELI">Ellipse</option><option value="RECT">Rectangle</option><option value="GRADIENT">Gradient</option></select
 				>
 				{#if gradient}
-					<p class="text-xs text-neutral-400">
-						Drag the line on the photo to move the horizon. Exposure and colour fade in across it; the other adjustments apply to the whole photo.
-					</p>
 					{#each gradientControls.filter((control) => control.shape) as control (control.key)}{@render gradientSlider(control)}{/each}
 				{:else}
 					<Slider editable label="Feather" bind:value={edits.pp3.Locallab[`Feather_${selected}`] as number} min={0} max={100} step={1} resetValue={25} onchange={changed} />
