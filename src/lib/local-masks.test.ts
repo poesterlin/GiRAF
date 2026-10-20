@@ -167,13 +167,14 @@ test('a mask becomes a gradient covering the whole frame and back again', () => 
 	const parsed = parsePP3(stringifyPP3(settings));
 	expect(maskKind(parsed, index)).toBe('GRADIENT');
 	expect(isGradientMask(parsed, 0)).toBe(false);
-	expect(parsed.Locallab[`Strcol_${index}`]).toBe(1);
+	expect(parsed.Locallab[`Strcol_${index}`]).toBe(0);
 	expect(parsed.Locallab[`Expcomp_${index}`]).toBe(0);
 	expect(parsed.Locallab[`CenterY_${index}`]).toBe(-300);
 	// Deleting the mask before it keeps it a gradient
 	deleteLocalMask(parsed, 0);
 	expect(isGradientMask(parsed, 0)).toBe(true);
 
+	parsed.Locallab.Strcol_0 = 1;
 	parsed.Locallab.Strcolab_0 = -1.5;
 	setMaskKind(parsed, 0, 'RECT');
 	expect(maskKind(parsed, 0)).toBe('RECT');

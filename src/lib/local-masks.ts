@@ -168,7 +168,7 @@ const GRADIENT_REACH = 3000;
 
 export const gradientControls: MaskToolControl[] = [
 	// The gradient's brightness strength is in EV and darkens when positive, so it is shown as exposure
-	{ key: 'Strcol', label: 'Exposure', min: -3, max: 3, step: 0.05, reset: 1, centered: true, precision: 2, unit: ' EV', invert: true },
+	{ key: 'Strcol', label: 'Exposure', min: -3, max: 3, step: 0.05, reset: 0, centered: true, precision: 2, unit: ' EV', invert: true },
 	{ key: 'Strcolab', label: 'Colour', min: -3, max: 3, step: 0.05, reset: 0, centered: true, precision: 2, invert: true },
 	{ key: 'Angcol', label: 'Angle', min: -180, max: 180, reset: 0, centered: true, unit: '°', shape: true },
 	{ key: 'Feathercol', label: 'Feather', min: 10, max: 100, reset: 25, shape: true }
@@ -186,8 +186,8 @@ export function maskKind(settings: PP3, index: number): MaskKind {
 
 /**
  * Turns a mask into an ellipse, a rectangle or a gradient. A gradient reaches past every edge and
- * starts at a visible strength; a mask that stops being one gets the default size back and its
- * gradient switched off, so no hidden gradient stays behind in a region. The centre is kept.
+ * starts neutral; a mask that stops being one gets the default size back and its gradient switched
+ * off, so no hidden gradient stays behind in a region. The centre is kept.
  */
 export function setMaskKind(settings: PP3, index: number, kind: MaskKind) {
 	const locallab = settings.Locallab;
@@ -258,8 +258,7 @@ export function maskSpotDefaults(): Record<string, string | number | boolean> {
 		Invers: false,
 		Inversex: false,
 		...maskToolDefaults(),
-		// The gradient stays at zero strength until the mask becomes a gradient
-		...Object.fromEntries(gradientControls.map((control) => [control.key, control.key === 'Strcol' ? 0 : control.reset]))
+		...Object.fromEntries(gradientControls.map((control) => [control.key, control.reset]))
 	};
 }
 
