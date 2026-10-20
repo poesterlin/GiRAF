@@ -1,5 +1,6 @@
 <script lang="ts" generics="T extends string | number = string">
 	import { onMount } from 'svelte';
+	import IconCheck from '@tabler/icons-svelte/icons/check';
 
 	interface Props {
 		options: Map<string | number, T> | Record<string, T>;
@@ -176,6 +177,7 @@
 					onmouseenter={() => onOptionMouseEnter(i)}
 				>
 					{entry.label}
+					{#if selectedIndex === i}<IconCheck size={18} aria-hidden="true" />{/if}
 				</li>
 			{/each}
 		</ul>
@@ -195,6 +197,7 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 0.5rem;
+		min-height: 48px;
 		padding: 0.75rem 1rem;
 		border-radius: 6px;
 		border: 1px solid #d0d0d0;
@@ -239,37 +242,54 @@
 		font-size: 0.85rem;
 	}
 
+	/* Dark like the panels, lifted off them, with rows tall and divided enough to tell apart and hit on a phone */
 	.list {
 		position: absolute;
 		left: 0;
 		right: 0;
-		margin-top: 6px;
-		padding: 6px;
-		max-height: 180px;
+		margin-top: 4px;
+		padding: 4px;
+		max-height: 320px;
 		overflow: auto;
-		border-radius: 6px;
-		border: 1px solid #d0d0d0;
-		background: #fff;
-		box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+		border-radius: 8px;
+		border: 1px solid #525252;
+		background: #262626;
+		box-shadow: 0 16px 40px rgb(0 0 0 / 0.8);
 		list-style: none;
 		outline: none;
 		z-index: 20;
 	}
 
 	.list li {
-		padding: 6px 8px;
-		border-radius: 4px;
+		display: flex;
+		min-height: 48px;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0 12px;
+		border-radius: 6px;
 		cursor: pointer;
-		color: #111;
+		color: #e5e5e5;
+		font-size: 15px;
+	}
+
+	.list li + li {
+		box-shadow: inset 0 1px 0 #3a3a3a;
 	}
 
 	.list li:hover,
 	.list li.active {
-		background: #efefef;
+		background: #333;
 	}
 
 	.list li.selected {
 		font-weight: 600;
-		background: #e6e6e6;
+		color: #fff;
+		background: #404040;
+	}
+
+	.list li.selected + li,
+	.list li.active + li {
+		box-shadow: none;
 	}
 </style>
