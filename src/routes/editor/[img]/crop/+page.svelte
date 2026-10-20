@@ -2,19 +2,11 @@
 	import { untrack } from 'svelte';
 	import { assert } from '$lib';
 	import BasePP3 from '$lib/assets/client.pp3?raw';
-	import {
-		createInitialCrop,
-		getAutoFillScale,
-		getDisplayDimensions,
-		getDisplayScale,
-		safeNumber,
-		sanitizeCrop,
-		scaleCropPP3,
-		screenToCropSpace,
-		type Dimensions
-	} from '$lib/canvas/crop';
+	import { createInitialCrop, getDisplayDimensions, getDisplayScale, safeNumber, sanitizeCrop, scaleCropPP3, screenToCropSpace, type Dimensions } from '$lib/canvas/crop';
 	import { checkHandleCollision, drawCropGrid, moveHandle } from '$lib/canvas/grid';
+	import { drawPerspectivePreview } from '$lib/canvas/perspective';
 	import { excludePP3, toBase64, type PP3 } from '$lib/pp3-utils';
+	import { getPreviewDevice } from '$lib/editor-preview';
 	import { edits } from '$lib/state/editing.svelte';
 	import EditorTools from '$lib/ui/EditorTools.svelte';
 	import EditorMobileToolbar from '$lib/ui/EditorMobileToolbar.svelte';
@@ -27,7 +19,6 @@
 	let { data } = $props();
 	let imageDimensions: Dimensions = { width: 0, height: 0 };
 	let displayDimensions: Dimensions = { width: 0, height: 0 };
-	let autoFillScale = 1;
 	let displayScale = 1;
 	const padding = 24;
 	let isMoving = false;
@@ -37,15 +28,54 @@
 	let lastY = 0;
 	let apiPath = $derived(`/api/images/${data.image.id}`);
 	/**
-	 * RawTherapee applies rotation and perspective together, which the canvas can't reproduce exactly. Without
-	 * perspective the canvas rotates the preview itself, so straightening follows the slider instantly; with it,
-	 * the server renders the preview already rotated and the canvas draws it as it is. Crop coordinates live in
-	 * the transformed frame either way.
+	 * The canvas draws rotation and perspective itself, so the server preview is always the flat photo:
+	 * the crop tool stays responsive even on a phone, where a server render per slider tick would lag.
+	 * Crop coordinates live in the transformed frame the canvas draws.
 	 */
-	const perspectiveActive = $derived(hasPerspective(edits.throttledPP3));
-	let imageUrl = $derived(apiPath + `/edit?preview&config=${toBase64(excludePP3(edits.throttledPP3, perspectiveActive ? ['Crop'] : ['Crop', 'Rotation']))}`);
-	/** Whether the image on the canvas came from the server already rotated. */
-	let serverRotated = false;
+	let imageUrl = $derived(apiPath + `/edit?preview&config=${toBase64(excludePP3(edits.throttledPP3, ['Crop', 'Rotation', 'Perspective']))}`);
+	/**
+	 * The local warp covers the slider drag. Once the edit settles, RawTherapee renders the same
+	 * geometry on the server; when that arrives it replaces the approximation, and the next drag falls
+	 * back to the local warp immediately.
+	 */
+	const RENDER_SETTLE_MS = 300;
+	let renderedUrl = $state<string | null>(null);
+	let renderedReady = $state(false);
+	let renderedImg = $state<HTMLImageElement>();
+	let renderedToken = 0;
+
+	$effect(() => {
+		const vertical = safeNumber(edits.pp3?.Perspective?.Vertical);
+		const horizontal = safeNumber(edits.pp3?.Perspective?.Horizontal);
+		const degree = safeNumber(edits.pp3?.Rotation?.Degree);
+		// Re-render the settled preview when anything besides the crop frame changes too.
+		void imageUrl;
+
+		renderedReady = false;
+		renderedUrl = null;
+		if (!vertical && !horizontal && !degree) return;
+
+		const token = ++renderedToken;
+		const endpoint = apiPath;
+		const geometry = { vertical, horizontal, degree };
+		const timer = setTimeout(() => {
+			if (token !== renderedToken) return;
+			// Keep the on-device preview on constrained connections instead of downloading a second render.
+			if (getPreviewDevice() === 'constrained') return;
+			const pp3 = structuredClone($state.snapshot(edits.throttledPP3));
+			pp3.Perspective = { ...pp3.Perspective, Method: 'simple', Vertical: geometry.vertical, Horizontal: geometry.horizontal };
+
+			pp3.Rotation = { ...pp3.Rotation, Degree: geometry.degree };
+			renderedUrl = `${endpoint}/edit?preview&config=${toBase64(excludePP3(pp3, ['Crop']))}`;
+		}, RENDER_SETTLE_MS);
+		return () => clearTimeout(timer);
+	});
+
+	function renderedPreviewLoaded(event: Event) {
+		if (event.currentTarget !== renderedImg || !renderedUrl) return;
+		renderedReady = true;
+		draw();
+	}
 
 	$effect(() => {
 		const latestSnapshot = data.snapshots[0];
@@ -112,13 +142,9 @@
 		return context;
 	});
 
-	/** The rotation the canvas draws: none when the server already rotated the preview. */
+	/** The rotation the canvas draws, on top of the perspective correction. */
 	function getRotationDeg() {
-		return serverRotated ? 0 : safeNumber(edits.pp3?.Rotation?.Degree);
-	}
-
-	function hasPerspective(pp3: PP3 | undefined) {
-		return !!safeNumber(pp3?.Perspective?.Vertical) || !!safeNumber(pp3?.Perspective?.Horizontal);
+		return safeNumber(edits.pp3?.Rotation?.Degree);
 	}
 
 	function setPerspective(axis: 'Vertical' | 'Horizontal', value: number) {
@@ -127,6 +153,8 @@
 	$effect(() => {
 		JSON.stringify(edits.pp3?.Crop);
 		void edits.pp3?.Rotation?.Degree;
+		void edits.pp3?.Perspective?.Vertical;
+		void edits.pp3?.Perspective?.Horizontal;
 		const frame = untrack(() => requestAnimationFrame(draw));
 		return () => cancelAnimationFrame(frame);
 	});
@@ -151,8 +179,6 @@
 			return;
 		}
 
-		const angleDeg = getRotationDeg();
-		autoFillScale = getAutoFillScale(imageDimensions.width, imageDimensions.height, angleDeg);
 		displayScale = getDisplayScale(imageDimensions.width, imageDimensions.height, maxWidth, maxHeight);
 		displayDimensions = getDisplayDimensions(imageDimensions.width, imageDimensions.height, displayScale);
 	}
@@ -187,16 +213,20 @@
 		ctx.rect(padding, padding, displayW, displayH);
 		ctx.clip();
 
-		// draw rotated image with AutoFill zoom
-		const angleDeg = getRotationDeg();
-		const angleRad = (angleDeg * Math.PI) / 180;
-		const centerX = padding + displayW / 2;
-		const centerY = padding + displayH / 2;
-		ctx.translate(centerX, centerY);
-		ctx.scale(displayScale * autoFillScale, displayScale * autoFillScale);
-		ctx.rotate(-angleRad);
-		ctx.translate(-imageDimensions.width / 2, -imageDimensions.height / 2);
-		ctx.drawImage(imgEl, 0, 0, imageDimensions.width, imageDimensions.height);
+		// Use the server's geometry render when it has arrived; otherwise warp the flat photo here.
+		const useRendered = renderedReady && !!renderedImg?.complete && !!renderedImg.naturalWidth;
+		canvasEl.dataset.previewSource = useRendered ? 'rendered' : 'local';
+		if (useRendered) {
+			ctx.imageSmoothingQuality = 'high';
+			ctx.drawImage(renderedImg!, padding, padding, displayW, displayH);
+		} else {
+			const geometry = {
+				vertical: safeNumber(edits.pp3?.Perspective?.Vertical),
+				horizontal: safeNumber(edits.pp3?.Perspective?.Horizontal),
+				degree: getRotationDeg()
+			};
+			drawPerspectivePreview(ctx, imgEl, geometry, { padding, displayScale }, imageDimensions);
+		}
 		ctx.restore();
 
 		// draw crop grid
@@ -340,10 +370,13 @@
 	class="hidden"
 	bind:this={imgEl}
 	onload={() => {
-		serverRotated = perspectiveActive;
 		draw();
 	}}
 />
+
+{#if renderedUrl}
+	<img src={renderedUrl} alt="" class="hidden" data-rendered-preview bind:this={renderedImg} onload={renderedPreviewLoaded} />
+{/if}
 
 <div class="flex h-full flex-col overflow-hidden bg-neutral-950 text-neutral-200 lg:flex-row">
 	<!-- Image Preview Section -->
@@ -404,7 +437,6 @@
 							onchange={(v) => {
 								edits.pp3.Rotation.Degree = v;
 								edits.pushHistory();
-								requestAnimationFrame(() => draw());
 							}}
 						/>
 
