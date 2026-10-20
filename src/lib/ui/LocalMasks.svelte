@@ -203,11 +203,12 @@
 			{#if gradient}
 				{#each gradientControls.filter((control) => !control.shape) as control (control.key)}{@render gradientSlider(control)}{/each}
 			{:else}
+				<!-- Measured on a developed TIFF: each EV up to +4 still brightens, while +5 renders the mask black -->
 				<Slider
 					label="Exposure"
 					bind:value={edits.pp3.Locallab[`Expcomp_${selected}`] as number}
-					min={-1}
-					max={1}
+					min={-4}
+					max={4}
 					step={0.01}
 					precision={2}
 					centered
