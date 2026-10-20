@@ -43,6 +43,13 @@
       "when": 1792316955422,
       "tag": "0005_curved_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792486757892,
+      "tag": "0006_uneven_snowbird",
+      "breakpoints": true
     }
   ]
 }

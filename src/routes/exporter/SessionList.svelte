@@ -225,13 +225,25 @@
 					<div class="flex flex-wrap items-center gap-2 sm:gap-3">
 						<h2 class="w-full text-lg font-bold tracking-tight break-words text-neutral-100 sm:w-auto sm:text-xl"><a href="/exporter/{item.id}">{item.name}</a></h2>
 
-						<span
-							class="inline-flex items-center gap-1.5 rounded-full border border-neutral-300/20 bg-neutral-500/10 px-3 py-1 text-[10px] font-black tracking-wider text-neutral-100 uppercase"
-							role="status"
-						>
-							<span class="h-1.5 w-1.5 rounded-full bg-neutral-400" class:animate-pulse={busy}></span>
-							{busy ? (state.status === 'cancelling' ? 'Cancelling' : 'Exporting') : item.status === 'Updated' ? 'Changes Pending' : 'Exported'}
-						</span>
+						{#if item.status === 'Updated' && !busy}
+							<a
+								href="/exporter/{item.id}/changes"
+								class="inline-flex items-center gap-1.5 rounded-full border border-neutral-300/20 bg-neutral-500/10 px-3 py-1 text-[10px] font-black tracking-wider text-neutral-100 uppercase transition-colors hover:border-neutral-200/40 hover:bg-neutral-500/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-200"
+								aria-label="Changes pending for {item.name}. See what changed."
+								title="See what changed since the last export"
+							>
+								<span class="h-1.5 w-1.5 rounded-full bg-neutral-400"></span>
+								Changes Pending
+							</a>
+						{:else}
+							<span
+								class="inline-flex items-center gap-1.5 rounded-full border border-neutral-300/20 bg-neutral-500/10 px-3 py-1 text-[10px] font-black tracking-wider text-neutral-100 uppercase"
+								role="status"
+							>
+								<span class="h-1.5 w-1.5 rounded-full bg-neutral-400" class:animate-pulse={busy}></span>
+								{busy ? (state.status === 'cancelling' ? 'Cancelling' : 'Exporting') : 'Exported'}
+							</span>
+						{/if}
 					</div>
 					<p class="flex flex-wrap gap-x-2 gap-y-1 text-xs font-medium text-neutral-400 sm:text-sm">
 						<span>{item.images.length} images</span><span aria-hidden="true" class="text-neutral-600">·</span><span>{formatDate(item.startedAt)}</span>

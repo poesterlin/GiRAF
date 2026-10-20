@@ -45,6 +45,7 @@ export const imageTable = pgTable(
 		whiteBalance: real('white_balance'),
 		tint: real('tint'),
 		isArchived: boolean('is_archived').notNull().default(false),
+		archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
 		phash: text('phash'),
 		stackId: integer('stack_id'),
 		isStackBase: boolean('is_stack_base').notNull().default(false),

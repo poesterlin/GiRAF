@@ -15,7 +15,10 @@ async function setArchived(id: number, archived: boolean): Promise<Image | null>
 	if (session) {
 		await moveExportFile(makeOutputPath(image, session), archived);
 	}
-	await db.update(imageTable).set({ isArchived: archived }).where(eq(imageTable.id, id));
+	await db
+		.update(imageTable)
+		.set({ isArchived: archived, archivedAt: archived ? new Date() : null })
+		.where(eq(imageTable.id, id));
 
 	return image;
 }
