@@ -120,7 +120,8 @@
 
 <div class="space-y-3">
 	<div class="flex items-center gap-1 rounded-lg bg-neutral-900/70">
-		<button type="button" class="mask-action" aria-label="Add mask" title="Add mask" onclick={add}><IconPlus size={20} /></button>
+		<!-- With no masks yet, adding one is the only thing to do, so it fills the bar -->
+		<button type="button" class="mask-action" class:only-action={!indices.length} aria-label="Add mask" title="Add mask" onclick={add}><IconPlus size={20} /></button>
 		{#if indices.length}
 			<MaskPicker {indices} {selected} {aspect} onselect={(index) => (edits.pp3.Locallab.Selspot = index)} />
 			<button
@@ -273,6 +274,11 @@
 		justify-content: center;
 		border-radius: 9999px;
 		color: #d4d4d4;
+	}
+	.mask-action.only-action {
+		flex: 1;
+		min-height: 48px;
+		border-radius: 0.5rem;
 	}
 	.mask-action:hover {
 		background: #262626;

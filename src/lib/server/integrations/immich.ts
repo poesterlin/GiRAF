@@ -1,8 +1,15 @@
 import { env } from '$env/dynamic/private';
 import type { Album, Image } from '../db/schema';
-import type { PhotoIntegration } from './types';
+import type { ExternalAlbum, PhotoIntegration } from './types';
 
 type AlbumAssetResult = { id: string; success: boolean; error?: string; errorMessage?: string };
+type ImmichAlbum = {
+	id: string;
+	albumName: string;
+	assetCount?: number;
+	albumThumbnailAssetId?: string | null;
+	updatedAt?: string | null;
+};
 
 export class ImmichProvider implements PhotoIntegration {
 	type = 'immich';
@@ -55,6 +62,38 @@ export class ImmichProvider implements PhotoIntegration {
 		const data = (await res.json()) as { id?: string };
 		if (!data.id) throw new Error('Immich.createAlbum: missing album ID');
 		return { id: data.id };
+	}
+
+	/**
+	 * Lists albums the API key can see. Immich has no server-side album search, so the
+	 * (small) list is fetched once and filtered here.
+	 */
+	async listAlbums(query?: string): Promise<ExternalAlbum[]> {
+		const res = await fetch(`${this.serverUrl}/api/albums`, { headers: this.headers(false) });
+		await this.checkResponse(res, 'listAlbums');
+		const data = (await res.json()) as unknown;
+		if (!Array.isArray(data)) throw new Error('Immich.listAlbums: invalid response');
+
+		const needle = query?.trim().toLowerCase();
+		return (data as ImmichAlbum[])
+			.filter((album) => album && typeof album.id === 'string' && typeof album.albumName === 'string')
+			.map((album) => ({
+				id: album.id,
+				title: album.albumName,
+				assetCount: typeof album.assetCount === 'number' ? album.assetCount : 0,
+				thumbnailAssetId: album.albumThumbnailAssetId ?? null,
+				updatedAt: album.updatedAt ?? null
+			}))
+			.filter((album) => !needle || album.title.toLowerCase().includes(needle))
+			.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '') || a.title.localeCompare(b.title));
+	}
+
+	async getAlbumThumbnail(assetId: string): Promise<Response> {
+		const res = await fetch(`${this.serverUrl}/api/assets/${encodeURIComponent(assetId)}/thumbnail`, {
+			headers: { 'x-api-key': this.apiKey, Accept: 'image/*' }
+		});
+		await this.checkResponse(res, 'getAlbumThumbnail');
+		return res;
 	}
 
 	async uploadFile(fileBuffer: Uint8Array | Buffer, filename: string, image: Image): Promise<{ id: string }> {

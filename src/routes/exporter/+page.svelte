@@ -24,6 +24,7 @@
 					data.next = next;
 				}}
 				integrations={data.configuredIntegrations}
+				linkableIntegrations={data.linkableIntegrations}
 			/>
 		</div>
 	</div>
