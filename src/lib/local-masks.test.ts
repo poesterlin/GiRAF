@@ -103,6 +103,17 @@ test('local masks round trip multiple regions and compact unknown tool fields on
 	expect(parsed.Locallab.Enabled).toBe(false);
 });
 
+test('a saved value outside its slider is brought into range', () => {
+	const settings = legacyMask();
+	settings.Locallab.Dehaz_0 = -21;
+	settings.Locallab.Lcradius_0 = 10;
+	settings.Locallab.Lcamount_0 = 0.4;
+	ensureMaskSettings(settings);
+	expect(settings.Locallab.Dehaz_0).toBe(0);
+	expect(settings.Locallab.Lcradius_0).toBe(20);
+	expect(settings.Locallab.Lcamount_0).toBe(0.4);
+});
+
 test('a new mask arrives with every tool off, before and after a round trip', () => {
 	const settings: PP3 = {};
 	const index = addLocalMask(settings, 'ELI');

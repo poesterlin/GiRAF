@@ -3,10 +3,19 @@
 	import { edits } from '$lib/state/editing.svelte';
 	import Checkbox from './Checkbox.svelte';
 
-	let { title, section, group, children }: { title: string; section?: string; group?: string; children: Snippet } = $props();
-	const enabled = $derived(group ? !edits.disabledGroups.includes(group) : !!section && edits.pp3[section]?.Enabled !== false);
+	let {
+		title,
+		section,
+		group,
+		checked,
+		onchange,
+		children
+	}: { title: string; section?: string; group?: string; checked?: boolean; onchange?: (value: boolean) => void; children: Snippet } = $props();
+	// A mask's subsection is no PP3 section, so its caller owns the switch, as with AdjustmentGroup
+	const enabled = $derived(checked ?? (group ? !edits.disabledGroups.includes(group) : !!section && edits.pp3[section]?.Enabled !== false));
 	function toggle(value: boolean) {
-		if (group) edits.toggleGroup(group);
+		if (onchange) onchange(value);
+		else if (group) edits.toggleGroup(group);
 		else if (section) {
 			edits.pp3[section].Enabled = value;
 			edits.pushHistory(true);

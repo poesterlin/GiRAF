@@ -19,6 +19,7 @@
 		type MaskToolControl
 	} from '$lib/local-masks';
 	import AdjustmentGroup from './AdjustmentGroup.svelte';
+	import AdjustmentSubsection from './AdjustmentSubsection.svelte';
 	import Checkbox from './Checkbox.svelte';
 	import { showMaskRange } from '$lib/state/mask-range.svelte';
 	import Slider from './Slider.svelte';
@@ -48,10 +49,22 @@
 		setMaskToolEnabled(edits.pp3, selected, tool, true);
 		changed();
 	}
-	function setTool(tool: MaskTool, enabled: boolean) {
-		setMaskToolEnabled(edits.pp3, selected, tool, enabled);
+	function setTools(tools: MaskTool[], enabled: boolean) {
+		for (const tool of tools) setMaskToolEnabled(edits.pp3, selected, tool, enabled);
 		edits.pushHistory(true);
 	}
+	/** Tools sharing an editor group, such as Clarity's Dehaze and Local Contrast, sit in one group here too. */
+	const toolGroups = $derived.by(() => {
+		const groups: { title: string; tools: MaskTool[] }[] = [];
+		// Warm & colour and Local Contrast can't be inverted in RawTherapee, so an inverted mask doesn't offer them
+		for (const tool of maskTools.filter((tool) => tool.invert || !maskInverted(edits.pp3, selected))) {
+			const title = tool.group ?? tool.label;
+			const group = groups.find((group) => group.title === title);
+			if (group) group.tools.push(tool);
+			else groups.push({ title, tools: [tool] });
+		}
+		return groups;
+	});
 </script>
 
 <svelte:window
@@ -62,6 +75,32 @@
 		if (event.key === 'Escape' && menu) menu.open = false;
 	}}
 />
+{#snippet toolSlider(tool: MaskTool, control: MaskToolControl)}
+	<Slider
+		editable
+		label={control.label}
+		bind:value={edits.pp3.Locallab[`${control.key}_${selected}`] as number}
+		min={control.min}
+		max={control.max}
+		step={control.step ?? 1}
+		precision={control.precision}
+		centered={control.centered}
+		resetValue={control.reset}
+		unit={control.unit}
+		onchange={() => toolChanged(tool)}
+	/>
+{/snippet}
+{#snippet toolControls(tool: MaskTool)}
+	{#each tool.controls.filter((control) => !control.advanced) as control (control.key)}{@render toolSlider(tool, control)}{/each}
+	{#if tool.controls.some((control) => control.advanced)}
+		<details>
+			<summary class="min-h-11 cursor-pointer py-3 text-xs font-semibold tracking-wider text-neutral-300 uppercase">Advanced</summary>
+			<div class="space-y-3">
+				{#each tool.controls.filter((control) => control.advanced) as control (control.key)}{@render toolSlider(tool, control)}{/each}
+			</div>
+		</details>
+	{/if}
+{/snippet}
 {#snippet gradientSlider(control: MaskToolControl)}
 	{@const key = `${control.key}_${selected}`}
 	{@const sign = control.invert ? -1 : 1}
@@ -164,7 +203,7 @@
 						}}
 					/>
 					{#if maskInverted(edits.pp3, selected)}
-						<p class="px-1 text-xs leading-relaxed text-neutral-500">Warm &amp; colour and Clarity can’t be inverted, so they’re hidden.</p>
+						<p class="px-1 text-xs leading-relaxed text-neutral-500">Warm &amp; colour and Local Contrast can’t be inverted, so they’re hidden.</p>
 					{/if}
 				{/if}
 			</div>
@@ -198,23 +237,16 @@
 					onchange={changed}
 				/>
 			{/each}
-			<!-- Warm & colour and Clarity can't be inverted in RawTherapee, so an inverted mask doesn't offer them -->
-			{#each maskTools.filter((tool) => tool.invert || !maskInverted(edits.pp3, selected)) as tool (tool.enable)}
-				<AdjustmentGroup title={tool.label} group={tool.enable} checked={toolEnabled(tool)} onchange={(enabled) => setTool(tool, enabled)}>
-					{#each tool.controls as control (control.key)}
-						<Slider
-							editable
-							label={control.label}
-							bind:value={edits.pp3.Locallab[`${control.key}_${selected}`] as number}
-							min={control.min}
-							max={control.max}
-							step={control.step ?? 1}
-							precision={control.precision}
-							centered={control.centered}
-							resetValue={control.reset}
-							unit={control.unit}
-							onchange={() => toolChanged(tool)}
-						/>
+			{#each toolGroups as { title, tools } (title)}
+				<AdjustmentGroup {title} group={tools[0].enable} checked={tools.some(toolEnabled)} onchange={(enabled) => setTools(tools, enabled)}>
+					{#each tools as tool (tool.enable)}
+						{#if tool.subsection}
+							<AdjustmentSubsection title={tool.label} checked={toolEnabled(tool)} onchange={(enabled) => setTools([tool], enabled)}>
+								{@render toolControls(tool)}
+							</AdjustmentSubsection>
+						{:else}
+							{@render toolControls(tool)}
+						{/if}
 					{/each}
 				</AdjustmentGroup>
 			{/each}

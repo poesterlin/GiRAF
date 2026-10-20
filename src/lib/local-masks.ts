@@ -1,3 +1,4 @@
+import { clamp } from '$lib';
 import type { PP3 } from './pp3-utils';
 
 export type MaskToolControl = {
@@ -16,6 +17,8 @@ export type MaskToolControl = {
 	invert?: boolean;
 	/** Shapes the mask rather than adjusting the photo, so it sits with the mask type. */
 	shape?: boolean;
+	/** Tucked under Advanced, as in the editor. */
+	advanced?: boolean;
 };
 
 export type MaskTool = {
@@ -33,6 +36,10 @@ export type MaskTool = {
 	scope: string;
 	/** The tool's invert setting; tools without one can't follow an inverted mask. */
 	invert?: string;
+	/** The editor group the tool shares with others, such as Dehaze and Local Contrast in Clarity. */
+	group?: string;
+	/** Shown as its own subsection of that group, with its own switch, like the editor's Local Contrast. */
+	subsection?: boolean;
 };
 
 /**
@@ -66,24 +73,28 @@ export const maskTools: MaskTool[] = [
 			{ key: 'shadows', label: 'Shadows', min: 0, max: 100, reset: 0 }
 		]
 	},
-	{
-		enable: 'Expcontrast',
-		scope: 'Sensilc',
-		label: 'Clarity',
-		settings: { localcontMethod: 'loc' },
-		controls: [
-			{ key: 'Lcamount', label: 'Amount', min: 0, max: 1, step: 0.01, reset: 0, precision: 2 },
-			{ key: 'Lcradius', label: 'Radius', min: 10, max: 100, reset: 80 }
-		]
-	},
+	// Clarity holds Dehaze and Local Contrast with the editor's ranges. Both leave the photo unchanged
+	// at zero; Depth barely changes it and the editor doesn't offer it, and Local Contrast's Lightness
+	// does nothing in a mask, so neither is shown.
 	{
 		enable: 'Expreti',
 		scope: 'Sensih',
 		invert: 'Inversret',
 		label: 'Dehaze',
+		group: 'Clarity',
+		controls: [{ key: 'Dehaz', label: 'Dehaze', min: 0, max: 100, reset: 0 }]
+	},
+	{
+		enable: 'Expcontrast',
+		scope: 'Sensilc',
+		label: 'Local Contrast',
+		group: 'Clarity',
+		subsection: true,
+		settings: { localcontMethod: 'loc' },
 		controls: [
-			{ key: 'Dehaz', label: 'Strength', min: -100, max: 100, reset: 0, centered: true },
-			{ key: 'Depth', label: 'Depth', min: 0, max: 100, reset: 25 }
+			{ key: 'Lcamount', label: 'Amount', min: 0, max: 1, step: 0.01, reset: 0, precision: 2 },
+			{ key: 'Lcradius', label: 'Radius', min: 20, max: 200, reset: 80, advanced: true },
+			{ key: 'Lcdarkness', label: 'Darkness', min: 0, max: 3, step: 0.01, reset: 1, precision: 2, advanced: true }
 		]
 	},
 	{
@@ -274,6 +285,12 @@ export function ensureMaskSettings(settings: PP3) {
 	for (const index of maskIndices(settings)) {
 		for (const [key, value] of Object.entries(defaults)) {
 			if (settings.Locallab[`${key}_${index}`] === undefined) settings.Locallab[`${key}_${index}`] = value;
+		}
+		// A range that has since narrowed, such as Dehaze no longer adding haze, can't hide a value its slider can't show
+		for (const control of maskTools.flatMap((tool) => tool.controls)) {
+			const key = `${control.key}_${index}`;
+			const value = Number(settings.Locallab[key]);
+			if (Number.isFinite(value)) settings.Locallab[key] = clamp(value, control.min, control.max);
 		}
 	}
 }
