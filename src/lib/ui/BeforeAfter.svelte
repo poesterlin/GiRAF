@@ -272,12 +272,13 @@
 	</div>
 
 	<div
-		class="comparison-label absolute top-4 left-4 z-30 rounded-full border border-neutral-700/50 bg-neutral-950/40 text-[10px] font-bold tracking-widest text-neutral-300 uppercase backdrop-blur-md"
+		class="comparison-label absolute top-4 left-4 z-30 flex items-center rounded-full border border-neutral-700/50 bg-neutral-950/40 text-[10px] font-bold tracking-widest text-neutral-300 uppercase backdrop-blur-md"
 	>
+		<span class="pl-3 text-neutral-500" aria-hidden="true">Before</span>
 		<select
 			bind:value={comparison}
 			aria-label="Left comparison version"
-			class="cursor-pointer appearance-none rounded-full bg-transparent py-1 pr-7 pl-3 text-[10px] font-bold tracking-widest uppercase focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
+			class="cursor-pointer appearance-none rounded-full bg-transparent py-1 pr-7 pl-1.5 text-[10px] font-bold tracking-widest uppercase focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
 		>
 			<option value="original" class="bg-neutral-900">Original</option>
 			<option value="saved" class="bg-neutral-900">Saved</option>

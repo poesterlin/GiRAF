@@ -21,6 +21,7 @@
 	import AdjustmentGroup from './AdjustmentGroup.svelte';
 	import AdjustmentSubsection from './AdjustmentSubsection.svelte';
 	import MaskPicker from './MaskPicker.svelte';
+	import Select from './Select.svelte';
 	import Checkbox from './Checkbox.svelte';
 	import { showMaskRange } from '$lib/state/mask-range.svelte';
 	import Slider from './Slider.svelte';
@@ -154,15 +155,18 @@
 	{#if selected !== undefined}
 		{#key selected}
 			<div class="space-y-3 border-b border-neutral-800 pb-3">
-				<select
-					aria-label="Mask type"
+				<Select
+					ariaLabel="Mask type"
+					label="Type"
 					value={maskKind(edits.pp3, selected)}
-					onchange={(event) => {
-						setMaskKind(edits.pp3, selected, event.currentTarget.value as MaskKind);
+					options={{ ELI: 'Ellipse', RECT: 'Rectangle', GRADIENT: 'Gradient' } satisfies Record<MaskKind, string>}
+					onchange={(kind) => {
+						if (!kind) return;
+						setMaskKind(edits.pp3, selected, kind as MaskKind);
 						edits.pp3.Locallab.Enabled = true;
 						edits.pushHistory(true);
-					}}><option value="ELI">Ellipse</option><option value="RECT">Rectangle</option><option value="GRADIENT">Gradient</option></select
-				>
+					}}
+				/>
 				{#if gradient}
 					{#each gradientControls.filter((control) => control.shape) as control (control.key)}{@render gradientSlider(control)}{/each}
 				{:else}
@@ -242,19 +246,6 @@
 </div>
 
 <style>
-	select {
-		min-height: 44px;
-		width: 100%;
-		padding: 0 8px;
-		background: #171717;
-		color: #e5e5e5;
-		border-radius: 6px;
-		font-size: 12px;
-	}
-	select:focus-visible {
-		outline: 2px solid white;
-		outline-offset: -2px;
-	}
 	.mask-action[aria-pressed='true'] {
 		color: #fff;
 		background: #404040;

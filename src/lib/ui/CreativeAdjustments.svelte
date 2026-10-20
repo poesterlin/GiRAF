@@ -94,8 +94,9 @@
 	/>
 	<Select
 		ariaLabel="Black and white filter"
+		label="Filter"
 		value={edits.pp3['Black_&_White'].Filter as string}
-		options={{ None: 'No filter', Red: 'Red filter', Orange: 'Orange filter', Yellow: 'Yellow filter', Green: 'Green filter', Blue: 'Blue filter' }}
+		options={{ None: 'None', Red: 'Red', Orange: 'Orange', Yellow: 'Yellow', Green: 'Green', Blue: 'Blue' }}
 		onchange={(filter) => {
 			if (!filter) return;
 			edits.pp3['Black_&_White'].Filter = filter;

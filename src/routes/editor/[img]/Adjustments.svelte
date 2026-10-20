@@ -87,6 +87,7 @@
 	<AdjustmentGroup title="White Balance" group="whiteBalance">
 		<Select
 			ariaLabel="White Balance"
+			label="Preset"
 			options={{ Camera: 'Camera', Daylight: 'Daylight', Shade: 'Shade', Cloudy: 'Cloudy', Custom: 'Custom' }}
 			onchange={(value) => {
 				const img = data.image;

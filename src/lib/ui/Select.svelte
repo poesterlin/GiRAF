@@ -7,10 +7,12 @@
 		placeholder?: string;
 		disabled?: boolean;
 		ariaLabel?: string;
+		/** A short name shown small beside the value, for values that don't explain themselves. */
+		label?: string;
 		onchange?: (value: T | null) => void;
 	}
 
-	let { options = $bindable(new Map()), value = $bindable(), placeholder = 'Select', disabled = false, ariaLabel = 'Select', onchange }: Props = $props();
+	let { options = $bindable(new Map()), value = $bindable(), placeholder = 'Select', disabled = false, ariaLabel = 'Select', label, onchange }: Props = $props();
 
 	let open = $state(false);
 	let buttonEl = $state<HTMLButtonElement>();
@@ -142,7 +144,8 @@
 		onkeydown={onKeydown}
 		{disabled}
 	>
-		<span id={`${id}-label`} class="label">
+		{#if label}<span class="caption">{label}</span>{/if}
+		<span id={`${id}-label`} class="label" class:after-caption={label}>
 			{#if value !== null && value !== undefined}
 				{selectedLabel}
 			{:else}
@@ -214,6 +217,16 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.caption {
+		flex-shrink: 0;
+		font-size: 12px;
+		color: #8a8a8a;
+	}
+
+	.after-caption {
+		margin-left: auto;
 	}
 
 	.placeholder {
