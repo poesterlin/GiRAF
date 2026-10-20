@@ -49,14 +49,18 @@
 		<IconChevronDown size={16} class={`shrink-0 text-neutral-400 transition-transform ${open ? 'rotate-180' : ''}`} />
 	</button>
 	{#if open}
-		<div role="listbox" aria-label="Masks" class="absolute inset-x-0 top-full z-40 mt-1 max-h-72 overflow-y-auto rounded-lg border border-neutral-700 bg-neutral-950 p-1 shadow-xl">
+		<div
+			role="listbox"
+			aria-label="Masks"
+			class="absolute inset-x-0 top-full z-40 mt-1 max-h-72 overflow-y-auto rounded-lg border border-neutral-600 bg-neutral-800 p-1 shadow-2xl shadow-black/80"
+		>
 			{#each indices as index (index)}
 				<button
 					type="button"
 					role="option"
 					aria-selected={index === selected}
-					class="flex min-h-12 w-full items-center gap-3 rounded px-2 text-left hover:bg-neutral-800"
-					class:bg-neutral-800={index === selected}
+					class="flex min-h-12 w-full items-center gap-3 rounded px-2 text-left hover:bg-neutral-700"
+					class:bg-neutral-700={index === selected}
 					onclick={() => choose(index)}
 				>
 					{@render mask(index)}

@@ -136,10 +136,10 @@
 			>
 			<details bind:this={menu} class="relative shrink-0">
 				<summary class="mask-action cursor-pointer list-none" aria-label="Mask actions"><IconDots size={18} /></summary>
-				<div class="absolute top-full right-0 z-40 mt-1 w-44 rounded-lg border border-neutral-700 bg-neutral-950 p-1 shadow-xl">
+				<div class="absolute top-full right-0 z-40 mt-1 w-44 rounded-lg border border-neutral-600 bg-neutral-800 p-1 shadow-2xl shadow-black/80">
 					<button
 						type="button"
-						class="flex min-h-11 w-full items-center gap-2 rounded px-3 text-xs hover:bg-neutral-800"
+						class="flex min-h-11 w-full items-center gap-2 rounded px-3 text-xs hover:bg-neutral-700"
 						onclick={() => {
 							if (menu) menu.open = false;
 							deleteLocalMask(edits.pp3, selected);
