@@ -261,6 +261,7 @@
 	}
 
 	.list li {
+		position: relative;
 		display: flex;
 		min-height: 48px;
 		align-items: center;
@@ -273,8 +274,13 @@
 		font-size: 15px;
 	}
 
-	.list li + li {
-		box-shadow: inset 0 1px 0 #3a3a3a;
+	.list li + li::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		right: 12px;
+		left: 12px;
+		border-top: 1px solid #404040;
 	}
 
 	.list li:hover,
@@ -288,8 +294,10 @@
 		background: #404040;
 	}
 
-	.list li.selected + li,
-	.list li.active + li {
-		box-shadow: none;
+	.list li.selected::before,
+	.list li.active::before,
+	.list li.selected + li::before,
+	.list li.active + li::before {
+		display: none;
 	}
 </style>
