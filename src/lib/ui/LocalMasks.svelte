@@ -77,7 +77,6 @@
 />
 {#snippet toolSlider(tool: MaskTool, control: MaskToolControl)}
 	<Slider
-		editable
 		label={control.label}
 		bind:value={edits.pp3.Locallab[`${control.key}_${selected}`] as number}
 		min={control.min}
@@ -105,7 +104,6 @@
 	{@const key = `${control.key}_${selected}`}
 	{@const sign = control.invert ? -1 : 1}
 	<Slider
-		editable
 		label={control.label}
 		bind:value={() => sign * Number(edits.pp3.Locallab[key] ?? 0), (value) => (edits.pp3.Locallab[key] = sign * value)}
 		min={control.min}
@@ -176,9 +174,8 @@
 				{#if gradient}
 					{#each gradientControls.filter((control) => control.shape) as control (control.key)}{@render gradientSlider(control)}{/each}
 				{:else}
-					<Slider editable label="Feather" bind:value={edits.pp3.Locallab[`Feather_${selected}`] as number} min={0} max={100} step={1} resetValue={25} onchange={changed} />
+					<Slider label="Feather" bind:value={edits.pp3.Locallab[`Feather_${selected}`] as number} min={0} max={100} step={1} resetValue={25} onchange={changed} />
 					<Slider
-						editable
 						label="Colour range"
 						bind:value={
 							() => maskColourRange(edits.pp3, selected),
@@ -211,7 +208,6 @@
 				{#each gradientControls.filter((control) => !control.shape) as control (control.key)}{@render gradientSlider(control)}{/each}
 			{:else}
 				<Slider
-					editable
 					label="Exposure"
 					bind:value={edits.pp3.Locallab[`Expcomp_${selected}`] as number}
 					min={-1}
@@ -226,7 +222,6 @@
 			{/if}
 			{#each [{ key: 'Lightness', label: 'Brightness' }, { key: 'Contrast', label: 'Contrast' }, { key: 'Chroma', label: 'Saturation' }] as control (control.key)}
 				<Slider
-					editable
 					label={control.label}
 					bind:value={edits.pp3.Locallab[`${control.key}_${selected}`] as number}
 					min={-100}
