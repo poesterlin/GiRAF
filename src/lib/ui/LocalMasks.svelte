@@ -20,6 +20,7 @@
 	} from '$lib/local-masks';
 	import AdjustmentGroup from './AdjustmentGroup.svelte';
 	import AdjustmentSubsection from './AdjustmentSubsection.svelte';
+	import MaskPicker from './MaskPicker.svelte';
 	import Checkbox from './Checkbox.svelte';
 	import { showMaskRange } from '$lib/state/mask-range.svelte';
 	import Slider from './Slider.svelte';
@@ -28,7 +29,7 @@
 	import IconDots from '@tabler/icons-svelte/icons/dots';
 	import IconPower from '@tabler/icons-svelte/icons/power';
 	let menu = $state<HTMLDetailsElement>();
-	let { onadd }: { onadd?: () => void } = $props();
+	let { onadd, aspect }: { onadd?: () => void; aspect?: number } = $props();
 	const indices = $derived(maskIndices(edits.pp3));
 	const selected = $derived(indices.includes(Number(edits.pp3.Locallab.Selspot)) ? Number(edits.pp3.Locallab.Selspot) : indices[0]);
 	const gradient = $derived(selected !== undefined && isGradientMask(edits.pp3, selected));
@@ -121,17 +122,7 @@
 	<div class="flex items-center gap-1 rounded-lg bg-neutral-900/70">
 		<button type="button" class="mask-action" aria-label="Add mask" title="Add mask" onclick={add}><IconPlus size={20} /></button>
 		{#if indices.length}
-			<select
-				class="min-w-0 flex-1"
-				aria-label="Selected mask"
-				value={selected}
-				onchange={(event) => {
-					edits.pp3.Locallab.Selspot = Number(event.currentTarget.value);
-					if (menu) menu.open = false;
-				}}
-			>
-				{#each indices as index (index)}<option value={index}>{edits.pp3.Locallab[`Name_${index}`]}</option>{/each}
-			</select>
+			<MaskPicker {indices} {selected} {aspect} onselect={(index) => (edits.pp3.Locallab.Selspot = index)} />
 			<button
 				type="button"
 				class="mask-action"

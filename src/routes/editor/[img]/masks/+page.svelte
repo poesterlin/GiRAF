@@ -390,6 +390,7 @@
 	</main>
 	<EditorToolPanel img={String(data.image.id)} tool="masks" {loading}>
 		{#if edits.pp3}<LocalMasks
+				{aspect}
 				onadd={() => {
 					showOverlay = true;
 					compare = false;
