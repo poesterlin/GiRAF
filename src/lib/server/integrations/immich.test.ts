@@ -64,3 +64,37 @@ test('authentication errors explain the configured-key problem', async () => {
 	globalThis.fetch = mock(async () => Response.json({ message: 'Invalid API key' }, { status: 401 })) as unknown as typeof fetch;
 	await expect(provider().createAlbum('Album')).rejects.toThrow('Check IMMICH_API_KEY');
 });
+
+test('album lookup maps fields, filters by title and sorts by recency', async () => {
+	globalThis.fetch = mock(async (url, options) => {
+		expect(String(url)).toBe('https://immich.example/api/albums');
+		expect((options?.headers as Record<string, string>)['x-api-key']).toBe('test-key');
+		return Response.json([
+			{ id: 'a', albumName: 'Iceland 2026', assetCount: 12, albumThumbnailAssetId: 'cover-a', updatedAt: '2026-02-01T00:00:00Z' },
+			{ id: 'b', albumName: 'Iceland 2025', assetCount: 4, albumThumbnailAssetId: null, updatedAt: '2026-03-01T00:00:00Z' },
+			{ id: 'c', albumName: 'Wedding', assetCount: 9 }
+		]);
+	}) as unknown as typeof fetch;
+
+	expect(await provider().listAlbums(' ICELAND ')).toEqual([
+		{ id: 'b', title: 'Iceland 2025', assetCount: 4, thumbnailAssetId: null, updatedAt: '2026-03-01T00:00:00Z' },
+		{ id: 'a', title: 'Iceland 2026', assetCount: 12, thumbnailAssetId: 'cover-a', updatedAt: '2026-02-01T00:00:00Z' }
+	]);
+});
+
+test('album lookup rejects a response that is not an album list', async () => {
+	globalThis.fetch = mock(async () => Response.json({ albums: [] })) as unknown as typeof fetch;
+	await expect(provider().listAlbums()).rejects.toThrow('invalid response');
+});
+
+test('album thumbnails are fetched with the API key and streamed back', async () => {
+	globalThis.fetch = mock(async (url, options) => {
+		expect(String(url)).toBe('https://immich.example/api/assets/cover-a/thumbnail');
+		expect((options?.headers as Record<string, string>)['x-api-key']).toBe('test-key');
+		return new Response(new Uint8Array([1, 2]), { headers: { 'content-type': 'image/jpeg' } });
+	}) as unknown as typeof fetch;
+
+	const res = await provider().getAlbumThumbnail('cover-a');
+	expect(res.headers.get('content-type')).toBe('image/jpeg');
+	expect([...new Uint8Array(await res.arrayBuffer())]).toEqual([1, 2]);
+});

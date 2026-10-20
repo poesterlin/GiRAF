@@ -49,7 +49,7 @@ A card mounted after the service starts is picked up too. Files already in the i
 ## Integrations
 
 - `IMMICH_BASE_URL`: Base URL of your Immich server.
-- `IMMICH_API_KEY`: Immich API key.
+- `IMMICH_API_KEY`: Immich API key. Read access to albums and assets lets the exporter list and link existing albums; creating albums and uploading assets also needs write access.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`: OAuth client for Google Photos, from a Google Cloud project with the Photos Library API enabled. GiRAF only asks for access to the albums and photos it creates.
 
 Google Photos tuning, rarely needed:

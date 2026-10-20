@@ -119,7 +119,7 @@ GiRAF can send finished photos to your photo library.
 <details>
 <summary><b>Immich</b></summary>
 
-1. Create an **API key** in your Immich user settings.
+1. Create an **API key** in your Immich user settings. It needs permission to read albums and assets (for the album lookup and covers) and to create albums and upload assets.
 2. Add it to your `.env`:
    ```bash
    IMMICH_BASE_URL=https://immich.example.com

@@ -1,4 +1,5 @@
+import type { PhotoIntegration } from './types';
 import { GooglePhotosProvider } from './google';
 import { ImmichProvider } from './immich';
 
-export const integrations = [new ImmichProvider(), new GooglePhotosProvider()];
+export const integrations: PhotoIntegration[] = [new ImmichProvider(), new GooglePhotosProvider()];

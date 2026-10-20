@@ -8,17 +8,20 @@
 	import { app } from '$lib/state/app.svelte';
 	import { integrationLogos } from '$lib/ui/integrations';
 	import { invalidateAll } from '$app/navigation';
-	import { IconFileExport } from '@tabler/icons-svelte';
+	import { IconFileExport, IconSearch } from '@tabler/icons-svelte';
+	import type { AlbumLookupResponse } from '../api/integrations/[integration]/albums/lookup/+server';
 
 	type Session = ExporterSessionsResponse['sessions'][number];
+	type LookupAlbum = AlbumLookupResponse['albums'][number];
 	interface Props {
 		sessions: ExporterSessionsResponse['sessions'];
 		next: number | null;
 		onLoaded: (data: ExporterSessionsResponse) => void;
 		integrations: string[];
+		linkableIntegrations: string[];
 	}
 
-	let { sessions, next, onLoaded, integrations }: Props = $props();
+	let { sessions, next, onLoaded, integrations, linkableIntegrations }: Props = $props();
 
 	let loading = $state(false);
 	let jobStates = $state<Record<number, ExportJobState>>({});
@@ -26,6 +29,75 @@
 
 	let albumCreateSession = $state<number>();
 	let albumDeleteId = $state<number>();
+	let albumCreateIntegration = $state<string>();
+	let albumMode = $state<'new' | 'existing'>('new');
+	let albumQuery = $state('');
+	let albumResults = $state<LookupAlbum[]>([]);
+	let albumLookupStatus = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
+	let albumLookupError = $state('');
+	let selectedAlbumId = $state<string>();
+	let lookupRequest = 0;
+
+	let canLinkExisting = $derived(!!albumCreateIntegration && linkableIntegrations.includes(albumCreateIntegration));
+	let selectedAlbum = $derived(albumResults.find((album) => album.id === selectedAlbumId));
+	let selectedAlbumLinked = $derived(!!selectedAlbum?.linkedSessions.some((session) => session.id === albumCreateSession));
+	let albumSessionName = $derived(sessions.find((session) => session.id === albumCreateSession)?.name);
+
+	function openAlbumModal(sessionId: number, integration: string) {
+		albumCreateSession = sessionId;
+		albumCreateIntegration = integration;
+		albumMode = 'new';
+		albumQuery = '';
+		albumResults = [];
+		albumLookupStatus = 'idle';
+		selectedAlbumId = undefined;
+	}
+
+	function closeAlbumModal() {
+		lookupRequest++;
+		albumCreateSession = undefined;
+		albumCreateIntegration = undefined;
+	}
+
+	async function lookupAlbums(integration: string, sessionId: number, query: string) {
+		const request = ++lookupRequest;
+		albumLookupStatus = 'loading';
+		albumLookupError = '';
+
+		try {
+			const params = [`session=${sessionId}`];
+			if (query.trim()) params.push(`query=${encodeURIComponent(query.trim())}`);
+			const response = await fetch(`/api/integrations/${encodeURIComponent(integration)}/albums/lookup?${params.join('&')}`);
+			if (!response.ok) {
+				const body = (await response.json().catch(() => null)) as { message?: string } | null;
+				throw new Error(body?.message ?? 'Could not load albums.');
+			}
+			const data = (await response.json()) as AlbumLookupResponse;
+			if (request !== lookupRequest) return;
+
+			albumResults = data.albums;
+			albumLookupStatus = 'ready';
+			if (selectedAlbumId && !data.albums.some((album) => album.id === selectedAlbumId)) {
+				selectedAlbumId = undefined;
+			}
+		} catch (error) {
+			if (request !== lookupRequest) return;
+			console.error('[Exporter] Album lookup failed', error);
+			albumLookupError = error instanceof Error ? error.message : 'Could not load albums.';
+			albumLookupStatus = 'error';
+		}
+	}
+
+	// Fetch when the lookup panel opens, and debounce as the query changes.
+	$effect(() => {
+		if (!albumCreateSession || albumMode !== 'existing' || !canLinkExisting || !albumCreateIntegration) return;
+
+		const integration = albumCreateIntegration;
+		const sessionId = albumCreateSession;
+		const query = albumQuery;
+		const timer = setTimeout(() => void lookupAlbums(integration, sessionId, query), query ? 250 : 0);
+		return () => clearTimeout(timer);
+	});
 
 	type ExportJobStatus = 'idle' | 'running' | 'cancelling' | 'success' | 'error' | 'cancelled';
 	type ExportJobState = {
@@ -205,9 +277,9 @@
 									</button>
 								</div>
 							{:else}
-								<Tooltip text="Create Album on {integration}" position="top">
+								<Tooltip text={linkableIntegrations.includes(integration) ? `Create or link Album on ${integration}` : `Create Album on ${integration}`} position="top">
 									<button
-										onclick={() => (albumCreateSession = item.id)}
+										onclick={() => openAlbumModal(item.id, integration)}
 										class="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-800/30 p-2 text-neutral-500 opacity-50 transition-all hover:scale-110 hover:bg-neutral-800 hover:text-neutral-100 hover:opacity-100 sm:h-9 sm:w-9 sm:p-1.5"
 									>
 										<!-- eslint-disable-next-line svelte/no-at-html-tags -- img is a static SVG logo from $lib/ui/integrations, not user input -->
@@ -328,43 +400,58 @@
 ></Scroller>
 
 {#if albumCreateSession}
-	<Modal onClose={() => (albumCreateSession = undefined)} class="shadow-3xl !max-w-md !rounded-[2.5rem] !border-neutral-800 !bg-neutral-950">
-		<div class="p-10">
-			<h1 class="mb-2 text-3xl leading-none font-black tracking-tighter text-neutral-100 uppercase italic">
-				Create <span class="font-light text-neutral-500 not-italic">Album</span>
+	<Modal onClose={closeAlbumModal} class="shadow-3xl !max-w-md !rounded-[2.5rem] !border-neutral-800 !bg-neutral-950">
+		<div class="p-6 sm:p-10">
+			<h1 class="mb-2 text-2xl leading-none font-black tracking-tighter text-neutral-100 uppercase italic sm:text-3xl">
+				{albumMode === 'existing' ? 'Link' : 'Create'} <span class="font-light text-neutral-500 not-italic">Album</span>
 			</h1>
-			<p class="mb-10 leading-relaxed font-medium text-neutral-400">Sync this session with your connected photo services.</p>
+			<p class="mb-8 leading-relaxed font-medium text-neutral-400">
+				{albumMode === 'existing'
+					? `Pick an existing album${albumSessionName ? ` for ${albumSessionName}` : ''} and sync this session into it.`
+					: 'Sync this session with your connected photo services.'}
+			</p>
 
-			<form
-				method="POST"
-				action="?/create-album"
-				use:enhance={() => {
-					return async ({ result, update }) => {
-						if (result.type === 'success') {
-							app.addToast('Album created successfully!', 'success');
-							albumCreateSession = undefined;
-						} else if (result.type === 'error') {
-							app.addToast(`Failed to create album`, 'error');
-						} else if (result.type === 'redirect') {
-							update();
-						} else if (result.type === 'failure') {
-							app.addToast(`Failed to create album: ${result.data?.error}`, 'error');
-						}
-						invalidateAll();
-					};
-				}}
-				class="flex flex-col gap-8"
-			>
-				<input type="hidden" name="session" value={albumCreateSession} required />
+			{#if canLinkExisting}
+				<div class="mb-8 grid grid-cols-2 gap-1 rounded-2xl border border-neutral-800 bg-neutral-900/60 p-1" role="tablist" aria-label="Album source">
+					<button
+						type="button"
+						role="tab"
+						aria-selected={albumMode === 'new'}
+						class="rounded-xl py-2.5 text-[11px] font-black tracking-widest uppercase transition-colors {albumMode === 'new'
+							? 'bg-neutral-800 text-neutral-100'
+							: 'text-neutral-500 hover:text-neutral-300'}"
+						onclick={() => (albumMode = 'new')}
+					>
+						New album
+					</button>
+					<button
+						type="button"
+						role="tab"
+						aria-selected={albumMode === 'existing'}
+						class="rounded-xl py-2.5 text-[11px] font-black tracking-widest uppercase transition-colors {albumMode === 'existing'
+							? 'bg-neutral-800 text-neutral-100'
+							: 'text-neutral-500 hover:text-neutral-300'}"
+						onclick={() => (albumMode = 'existing')}
+					>
+						Existing album
+					</button>
+				</div>
+			{/if}
 
-				<div>
+			{#if integrations.length > 1}
+				<div class="mb-8">
 					<label for="integration-select" class="mb-3 block text-xs font-bold tracking-widest text-neutral-500 uppercase">Choose Service</label>
 					<div class="relative">
 						<select
 							id="integration-select"
-							name="integration"
-							class="w-full appearance-none rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 text-neutral-100 capitalize transition-all outline-none focus:border-neutral-100"
-							required
+							class="w-full appearance-none rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 text-base text-neutral-100 capitalize transition-all outline-none focus:border-neutral-100"
+							bind:value={albumCreateIntegration}
+							onchange={() => {
+								selectedAlbumId = undefined;
+								albumResults = [];
+								albumLookupStatus = 'idle';
+								if (!linkableIntegrations.includes(albumCreateIntegration ?? '')) albumMode = 'new';
+							}}
 						>
 							{#each integrations as integrationType (integrationType)}
 								<option value={integrationType} class="bg-neutral-900 capitalize">{integrationType}</option>
@@ -385,16 +472,187 @@
 						</div>
 					</div>
 				</div>
+			{/if}
 
-				<div class="flex flex-col gap-3 pt-4">
-					<button class="w-full rounded-2xl bg-neutral-100 py-4 text-sm font-black tracking-tight text-neutral-950 transition-all hover:scale-[1.02] hover:bg-white" type="submit">
-						CREATE ALBUM
-					</button>
-					<button type="button" onclick={() => (albumCreateSession = undefined)} class="w-full py-2 text-sm font-bold text-neutral-600 transition-colors hover:text-neutral-400">
-						Nevermind
-					</button>
-				</div>
-			</form>
+			{#if albumMode === 'existing' && canLinkExisting}
+				<form
+					method="POST"
+					action="?/link-album"
+					use:enhance={() => {
+						return async ({ result, update }) => {
+							if (result.type === 'success') {
+								app.addToast('Album linked successfully!', 'success');
+								closeAlbumModal();
+							} else if (result.type === 'error') {
+								app.addToast('Failed to link album', 'error');
+							} else if (result.type === 'redirect') {
+								update();
+							} else if (result.type === 'failure') {
+								app.addToast(`Failed to link album: ${result.data?.error}`, 'error');
+							}
+							invalidateAll();
+						};
+					}}
+					class="flex flex-col gap-5"
+				>
+					<input type="hidden" name="session" value={albumCreateSession} required />
+					<input type="hidden" name="integration" value={albumCreateIntegration} required />
+					<input type="hidden" name="externalId" value={selectedAlbumId ?? ''} required />
+
+					<div>
+						<label for="album-search" class="mb-3 block text-xs font-bold tracking-widest text-neutral-500 uppercase">Find Album</label>
+						<div class="relative">
+							<span class="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-neutral-500">
+								<IconSearch size={16} />
+							</span>
+							<input
+								id="album-search"
+								type="search"
+								bind:value={albumQuery}
+								placeholder="Search your albums…"
+								autocomplete="off"
+								spellcheck="false"
+								class="w-full rounded-2xl border border-neutral-800 bg-neutral-900/50 py-4 pr-4 pl-11 text-base text-neutral-100 transition-all outline-none placeholder:text-neutral-600 focus:border-neutral-100"
+							/>
+						</div>
+					</div>
+
+					<div class="max-h-64 min-h-24 overflow-y-auto rounded-2xl border border-neutral-800/70 bg-neutral-900/20">
+						{#if albumLookupStatus === 'loading' && albumResults.length === 0}
+							<div class="flex h-24 items-center justify-center gap-3 text-sm font-medium text-neutral-500">
+								<div class="h-4 w-4 animate-spin rounded-full border-2 border-neutral-700 border-t-transparent"></div>
+								Looking up albums…
+							</div>
+						{:else if albumLookupStatus === 'error'}
+							<div class="flex h-24 flex-col items-center justify-center gap-2 px-4 text-center">
+								<p class="text-sm font-medium text-neutral-400">{albumLookupError || 'Could not load albums.'}</p>
+								<button
+									type="button"
+									class="text-xs font-bold tracking-wider text-neutral-300 uppercase underline-offset-4 hover:underline"
+									onclick={() => lookupAlbums(albumCreateIntegration ?? '', albumCreateSession ?? 0, albumQuery)}
+								>
+									Try again
+								</button>
+							</div>
+						{:else if albumResults.length === 0}
+							<div class="flex h-24 flex-col items-center justify-center px-4 text-center">
+								<p class="text-sm font-medium text-neutral-400">{albumQuery.trim() ? 'No albums match your search.' : 'No albums yet on this service.'}</p>
+							</div>
+						{:else}
+							<ul class="divide-y divide-neutral-800/70">
+								{#each albumResults as album (album.id)}
+									{@const linkedHere = album.linkedSessions.some((session) => session.id === albumCreateSession)}
+									<li>
+										<button
+											type="button"
+											disabled={linkedHere}
+											onclick={() => (selectedAlbumId = album.id)}
+											class="flex w-full items-center gap-3 p-3 text-left transition-colors {linkedHere
+												? 'cursor-not-allowed opacity-50'
+												: 'hover:bg-neutral-800/50'} {selectedAlbumId === album.id ? 'bg-neutral-800/70' : ''}"
+										>
+											{#if album.thumbnailUrl}
+												<img src={album.thumbnailUrl} alt="" loading="lazy" class="h-11 w-11 shrink-0 rounded-lg bg-neutral-800 object-cover" />
+											{:else}
+												<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-neutral-800 text-neutral-600">
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														width="16"
+														height="16"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></svg
+													>
+												</div>
+											{/if}
+											<div class="min-w-0 flex-1">
+												<p class="truncate text-sm font-semibold text-neutral-200">{album.title}</p>
+												<p class="truncate text-xs font-medium text-neutral-500">
+													{album.assetCount}
+													{album.assetCount === 1 ? 'image' : 'images'}
+													{#if album.linkedSessions.length}
+														· linked to {album.linkedSessions[0].name}{album.linkedSessions.length > 1 ? ` +${album.linkedSessions.length - 1}` : ''}
+													{/if}
+												</p>
+											</div>
+											{#if linkedHere}
+												<span class="rounded-full border border-neutral-700 px-2 py-1 text-[10px] font-black tracking-wider text-neutral-400 uppercase">Linked</span>
+											{:else if selectedAlbumId === album.id}
+												<span class="flex h-5 w-5 items-center justify-center rounded-full bg-neutral-100 text-neutral-950">
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														width="12"
+														height="12"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="3"
+														stroke-linecap="round"
+														stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg
+													>
+												</span>
+											{/if}
+										</button>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
+
+					<div class="flex flex-col gap-3 pt-1">
+						<button
+							class="w-full rounded-2xl bg-neutral-100 py-4 text-sm font-black tracking-tight text-neutral-950 transition-all hover:scale-[1.02] hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+							type="submit"
+							disabled={!selectedAlbum || selectedAlbumLinked}
+						>
+							{selectedAlbumLinked ? 'ALREADY LINKED' : selectedAlbum ? 'LINK ALBUM' : 'SELECT AN ALBUM'}
+						</button>
+						<button type="button" onclick={closeAlbumModal} class="w-full py-2 text-sm font-bold text-neutral-600 transition-colors hover:text-neutral-400"> Nevermind </button>
+					</div>
+				</form>
+			{:else}
+				<form
+					method="POST"
+					action="?/create-album"
+					use:enhance={() => {
+						return async ({ result, update }) => {
+							if (result.type === 'success') {
+								app.addToast('Album created successfully!', 'success');
+								closeAlbumModal();
+							} else if (result.type === 'error') {
+								app.addToast(`Failed to create album`, 'error');
+							} else if (result.type === 'redirect') {
+								update();
+							} else if (result.type === 'failure') {
+								app.addToast(`Failed to create album: ${result.data?.error}`, 'error');
+							}
+							invalidateAll();
+						};
+					}}
+					class="flex flex-col gap-8"
+				>
+					<input type="hidden" name="session" value={albumCreateSession} required />
+					<input type="hidden" name="integration" value={albumCreateIntegration} required />
+
+					<p class="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4 text-sm leading-relaxed font-medium text-neutral-400">
+						Creates a new album named <span class="font-semibold text-neutral-200">Session name – year</span> on {albumCreateIntegration}.
+					</p>
+
+					<div class="flex flex-col gap-3">
+						<button
+							class="w-full rounded-2xl bg-neutral-100 py-4 text-sm font-black tracking-tight text-neutral-950 transition-all hover:scale-[1.02] hover:bg-white"
+							type="submit"
+						>
+							CREATE ALBUM
+						</button>
+						<button type="button" onclick={closeAlbumModal} class="w-full py-2 text-sm font-bold text-neutral-600 transition-colors hover:text-neutral-400"> Nevermind </button>
+					</div>
+				</form>
+			{/if}
 		</div>
 	</Modal>
 {/if}
