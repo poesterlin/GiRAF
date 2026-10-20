@@ -58,11 +58,12 @@ export const maskTools: MaskTool[] = [
 		enable: 'Expshadhigh',
 		scope: 'sensihs',
 		invert: 'Inverssh',
-		label: 'Shadows & highlights',
+		// Named and ordered like the editor's Dynamic Range
+		label: 'Dynamic Range',
 		settings: { ShMethod: 'std' },
 		controls: [
-			{ key: 'shadows', label: 'Shadows', min: 0, max: 100, reset: 0 },
-			{ key: 'highlights', label: 'Highlights', min: 0, max: 100, reset: 0 }
+			{ key: 'highlights', label: 'Highlights', min: 0, max: 100, reset: 0 },
+			{ key: 'shadows', label: 'Shadows', min: 0, max: 100, reset: 0 }
 		]
 	},
 	{
